@@ -9,6 +9,11 @@ into **real NEAR AI Cloud credits on your own API key**. No wallet, no seed phra
 
 Built for the NEAR HACKATHON — tracks **games** and **agents**.
 
+| | | | |
+|---|---|---|---|
+| ![](docs-assets/shots/02-map.png) | ![](docs-assets/shots/catch-01-lock-on.png) | ![](docs-assets/shots/05-merchant-why.png) | ![](docs-assets/shots/07-credit-ticket.png) |
+| Map (Demo Walk) | Lock-on catch | "Why this price?" | Real credit ticket |
+
 ---
 
 ## Live demo
@@ -46,9 +51,9 @@ npm run dev            # web http://localhost:5173 + API :8787 (credits simulate
 6. **Try it now** → Playground → ask a question with your own key.
 7. Open **/lab** → scenario **DeepSeek flood** → **Simulate 1 week** → DeepSeek prices fall, merchants near the flood go bankrupt, health checks table.
 8. Open **/pulse** → watch the live ticker while you trade in another tab.
-9. `npm test` → **100 unit tests** (economy invariants, anti-cheat, pricing exploits, API, chain settler, NEAR AI request shapes).
+9. `npm test` → **113 unit tests** (economy invariants, anti-cheat, pricing exploits, API, chain settler, NEAR AI request shapes).
 10. `npm run verify` → tests + typecheck + build + headless e2e of the whole loop:
-    `✔ TokenGo verified: N unit tests, M e2e flows`.
+    `✔ TokenGo verified: 113 unit tests, 1 e2e flows` (smoke); `npm run e2e` runs all 18 flows.
 
 Other commands: `npm run sim -- --days 7 --players 200 --scenario flood-deepseek --seed 42` (economy simulator CLI, health checks),
 `npm run e2e` (all Playwright specs, mobile viewport), `npm run reconcile` (chain vs DB), `npm run check:secrets`.
