@@ -1,8 +1,11 @@
 // Chiffrement AES-256-GCM des secrets stockés (clés API joueurs, clés NEAR). Hachage des ids de session.
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 
 export const sha256hex = (s: string) => createHash('sha256').update(s).digest('hex');
 export const randomId = (bytes = 16) => randomBytes(bytes).toString('base64url');
+/** Comparaison de secrets à temps constant (digests sha256 de même longueur, quelle que soit l'entrée). */
+export const safeEqual = (a: string, b: string) =>
+  timingSafeEqual(createHash('sha256').update(a).digest(), createHash('sha256').update(b).digest());
 
 export function makeCipher(masterKeyB64: string | undefined, fallbackSecret: string) {
   const key = masterKeyB64 ? Buffer.from(masterKeyB64, 'base64') : createHash('sha256').update(`mk:${fallbackSecret}`).digest();

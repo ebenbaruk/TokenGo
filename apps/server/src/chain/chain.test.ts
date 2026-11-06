@@ -92,10 +92,13 @@ describe('settler with a fake chain', () => {
   const drain = async () => { for (let i = 0; i < 5; i++) await ctx.chain!.tick(); };
   const statuses = () => Object.fromEntries((ctx.db.prepare('SELECT status, COUNT(*) n FROM chain_ops GROUP BY status').all() as { status: string; n: number }[]).map((r) => [r.status, r.n]));
 
+  let clientN = 0;
   function client() {
+    // une IP par client : le pass démo est limité à un compte par IP et par jour
+    const remoteAddress = `10.0.1.${++clientN}`;
     let cookie = '';
     const req = async <T>(method: 'GET' | 'POST', url: string, body?: unknown) => {
-      const res = await app.inject({ method, url, ...(body !== undefined ? { payload: body as object } : {}), headers: { origin: ORIGIN, ...(cookie ? { cookie } : {}) } });
+      const res = await app.inject({ method, url, remoteAddress, ...(body !== undefined ? { payload: body as object } : {}), headers: { origin: ORIGIN, ...(cookie ? { cookie } : {}) } });
       const set = res.headers['set-cookie'];
       if (set) cookie = (Array.isArray(set) ? set[0]! : set).split(';')[0]!;
       return { status: res.statusCode, body: res.json() as T & { error?: { code: string } } };

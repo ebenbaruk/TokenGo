@@ -7,10 +7,12 @@ Objectif réaliste : **on ne peut pas empêcher toute triche, on borne ce qu'ell
 | Menace | Réponse |
 |---|---|
 | Faux GPS (devtools, extension) | Contrôles de cohérence (§2), plafonds de gains, proof of walk, revue des comptes flaggés. Gain max d'un tricheur borné par `cap_player_day` ($0.25) et l'âge du compte. |
-| Multi-comptes (sybil) | Google uniquement pour le Main Pool (1 `sub` Google = 1 joueur, `email_verified` requis, normalisation gmail points/`+tag`) ; invités limités au Welcome Pool ($0.03 une fois) ; création d'invités 3/h/IP ; Welcome Pool global plafonné. |
+| Multi-comptes (sybil) | Google uniquement pour le Main Pool (1 `sub` Google = 1 joueur, `email_verified` requis, normalisation gmail points/`+tag`) ; invités limités au Welcome Pool ($0.03 une fois) ; création d'invités 3/h/IP ; Welcome Pool global plafonné. Seul un invité **GPS** est promu à la connexion Google (un invité démo ou pass démo repart d'un compte Google neuf). Suppression de compte → **tombstone** hachée (sub + email normalisé) : une identité qui revient garde son flag et n'a pas de second bonus de bienvenue. |
 | Bots / scripts sur l'API | Rate limits par route, mini-jeu avec timing (le bot n'y gagne que le bonus), quotas par jour, détection de régularité parfaite des taps (log). |
 | Rejouer / dupliquer une action | Chaque spawn = `catches(user_id, spawn_id)` PK ; devis à usage unique ; `Idempotency-Key` sur compile ; settlement_id unique on-chain. |
 | Course sur les prix | Transactions SQLite sérialisées ; devis lié à la version du marchand (`updated_at`) → `PRICE_MOVED`. |
+| Requêtes concurrentes (compile, octrois) | `compile` sérialisée par joueur (verrou async en mémoire, serveur mono-processus) ; tutoriel et caps relus dans la transaction du burn, octroi réservé (`grants.status = 'reserved'`) dans cette même transaction → visible des compilations concurrentes. Clé API : verrou par joueur, limite cible = Σ octrois `done` + celui-ci (jamais « limite en cache + montant »), clé créée une seule fois ; la reprise IOU ignore les comptes supprimés. |
+| IP falsifiée (`X-Forwarded-For`) | `TRUST_PROXY` = nombre de proxys de confiance (défaut 1 en prod, 0 sinon) : l'IP client est l'entrée ajoutée par notre proxy, jamais celle fournie par le client. |
 | Vol de session | Prod : cookie `__Host-tg_sess` `HttpOnly; Secure; SameSite=Lax; Path=/` ; **dev/HTTP** (`http://surface:5173`, localhost, WebKit) : cookie `tg_sess` sans préfixe ni `Secure` (sinon la connexion casse) ; id 256 bits haché en base, rotation à la connexion, expiration 30 j / inactivité 7 j. |
 | CSRF | SameSite=Lax + **vérification d'`Origin`** sur toute requête non-GET (liste blanche = `PUBLIC_URL` ; en dev aussi `http://localhost:5173`, `http://surface:5173`). |
 | XSS | React échappe ; jamais de `dangerouslySetInnerHTML` ; textes LLM et pseudos traités comme texte ; CSP stricte (`default-src 'self'` ; `connect-src` self + tiles.openfreemap.org (tuiles, glyphs, sprites) + RPC testnet (« Verify my balance » depuis le navigateur) ; `img-src` self data: blob: tiles ; `worker-src blob:` pour MapLibre). |
@@ -31,8 +33,10 @@ Pour chaque `POST /api/move` :
     comme « retour », sinon **cooldown de 10 min** sur les actions (soft-lock, message neutre « Re-syncing your position… ») + compteur
     `suspicious_jumps`. ≥ 3 en 24 h → compte `flagged` (plus de Main Pool jusqu'à revue manuelle via `npm run admin -- review`).
 - Mode démo : pas de contrôle de vitesse (tap-to-walk 30 km/h et « Jump » autorisés), mais distances d'action vérifiées ; gains réels limités
-  au Welcome/Judge Pool ; les comptes `DEMO_TOKEN` **ne peuvent pas vendre** aux marchands (ils peuvent acheter, forger et contribuer), et un même
-  token ne sert qu'une fois par IP et par jour — pour qu'un lien de démo ne puisse pas inonder le marché réel.
+  au Welcome Pool (et au Judge Pool pour les pass démo) ; le **Judge Pool est réservé aux comptes `DEMO_TOKEN`** (la fenêtre juges
+  ne sert plus qu'au message de l'UI, `judgeOpen`) ; les comptes `DEMO_TOKEN` **ne peuvent pas vendre** aux marchands (ils peuvent acheter, forger et contribuer), et un même
+  token ne crée qu'un compte par IP (hachée) et par jour de Paris (`demo_passes`, sinon 429 `RATE_LIMITED`) — pour qu'un lien de démo ne
+  puisse pas inonder le marché réel. Le token est comparé à temps constant (sha256 + `timingSafeEqual`).
 - **Distance d'action** : calculée serveur entre la dernière position acceptée (< 30 s) et la cible : spawn ≤ 40 m (+ min(acc, 20)),
   relay/market ≤ 40 m (+ min(acc, 20)), forge ≤ 60 m (+ min(acc, 20)).
 - **Proof of walk** : `walked_m` n'augmente que pour des segments `v ≤ 8 km/h` et `acc ≤ 30 m`, plafonné à 3 km/h de temps réel.
@@ -41,23 +45,28 @@ Pour chaque `POST /api/move` :
 - `catch/start` renvoie `ringMs`, `windowPct` et un `attemptId` (expire 15 s, lié au spawn et au joueur).
 - `catch/resolve` envoie les taps. Le serveur vérifie la durée réelle (≥ 300 ms après start, ≤ 15 s) et que les offsets sont cohérents avec la
   courbe de l'anneau (temps relatif). Il calcule la qualité ; puis **plafonne** : max 40 % de « perfect » sur une fenêtre glissante de
-  30 captures (au-delà → traité comme « good », sans message). La capture de base est garantie (« good ») si le joueur tape
+  30 captures (au-delà → traité comme « good », sans message), **dès la première capture** : le ratio se calcule sur max(captures, 5)
+  (un compte neuf a au plus 2 perfect sur ses 5 premières captures). La capture de base est garantie (« good ») si le joueur tape
   au moins une fois dans la fenêtre large ; la fuite des rares est tirée côté serveur.
 
 ## 4. Limites de débit (`@fastify/rate-limit`, mémoire)
 `/auth/*` 10/min/IP · `POST /auth/guest` 3/h/IP · `/api/move` 30/min/user · `catch/*` 30/min · `relay/sync` 20/min · `trade` 30/min ·
-`compile` 6/min · `credits/reveal` 5/h · `playground` 10/min · `greet` 6/min · public (`/pulse`, `/lab/snapshot`) 60/min/IP.
+`compile` 6/min · `credits/reveal` 5/h · `playground` 10/min · `greet` 30/min (appel LLM seulement si le joueur est à ≤ 200 m du marchand,
+sinon réplique écrite) · public (`/pulse`, `/lab/snapshot`) 60/min/IP.
+SSE simultanés : 3 `/api/stream` par joueur, 20 `/api/pulse/stream` par IP, 500 au total → 429.
+Les limites par IP reposent sur `req.ip` : voir `TRUST_PROXY` (§1).
 Quotas jour : 400 captures, 200 syncs, 60 compiles (jeu), plafond $ selon §3 de l'économie.
 
 ## 5. Données personnelles (RGPD minimal)
 Stocker le strict nécessaire : `google_sub`, email (pour contact/anti-sybil, jamais affiché), pseudo. Positions : on garde **la dernière**
 seulement (+ segments agrégés pour `walked_m`), pas d'historique de trajet. Page `/about` : ce qui est stocké, pourquoi, suppression
-du compte (`DELETE /api/me` → anonymise, révoque la clé API). Aucun tracker tiers, aucune analytics externe.
+du compte (`DELETE /api/me` → anonymise, révoque la clé API ; ne garde qu'une tombstone : hachés salés du `google_sub` et de l'email
+normalisé, flag de revue, bonus de bienvenue reçu ou non). Aucun tracker tiers, aucune analytics externe.
 
 ## 6. Checklist sécurité avant soumission (`11-roadmap.md` J7)
 - [ ] `npm run check:secrets` vert sur tout l'historique git (`git log -p | grep -E 'ed25519:|sk-[A-Za-z0-9]{20}|BEGIN PRIVATE'`)
 - [ ] Origin check + CSP actifs en prod (test e2e qui vérifie les en-têtes)
 - [ ] Tests anti-triche verts (saut, transit, distance, double capture, perfect cap)
-- [ ] Invariant de solvabilité testé + vérifié en prod (`/healthz` l'expose en booléen)
+- [ ] Invariant de solvabilité testé + vérifié en prod (`/healthz` public = `{ok, invariantOk, chain, simulatedCredits}` ; chiffres seulement avec `Authorization: Bearer ADMIN_TOKEN`)
 - [ ] Kill switch Forge testé
 - [ ] Revue `/code-review` + `/security-review` des diffs majeurs

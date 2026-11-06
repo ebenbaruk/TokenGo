@@ -2,9 +2,9 @@
 import type { LeaderboardsResponse, LeaderEntry, Me } from '@tokengo/shared';
 import type { Ctx } from './context.ts';
 import { fail } from './context.ts';
-import { randomId } from './crypto.ts';
-import { meView } from './players.ts';
-import { parisDay, parisDayStart } from './reserve.ts';
+import { randomId, sha256hex } from './crypto.ts';
+import { getUser, meView } from './players.ts';
+import { parisDay, parisDayStart, withGrantLock } from './reserve.ts';
 
 const BAD = ['fuck', 'shit', 'bitch', 'cunt', 'nigg', 'fag', 'rape', 'nazi', 'hitler', 'porn', 'pute', 'salope', 'connard', 'encule', 'batard', 'merde', 'whore', 'slut'];
 const RESERVED = ['runner', 'admin', 'tokengo', 'official', 'moderator', 'support', 'deleted'];
@@ -34,8 +34,27 @@ export function setDistrict(ctx: Ctx, userId: string, district: number): Me {
   return meView(ctx, userId);
 }
 
-/** Anonymise le compte, révoque sa clé API (réelle ou simulée), supprime ses sessions. L'inventaire reste (miroir on-chain). */
-export async function deleteAccount(ctx: Ctx, userId: string): Promise<{ ok: true }> {
+/** Haché d'une identité supprimée (sel = SESSION_SECRET : un email devinable n'est pas retrouvable sans le secret). */
+export const tombstoneHash = (ctx: Ctx, kind: 'sub' | 'email', value: string) => sha256hex(`${ctx.cfg.SESSION_SECRET}:tomb:${kind}:${value}`);
+
+/** Ce que les tombstones savent d'une identité Google (sub ou email normalisé) : flag de revue, bonus de bienvenue déjà reçu. */
+export function tombstoneFor(ctx: Ctx, sub: string, emailNorm: string): { flagged: number | null; welcome: boolean } | null {
+  const rows = ctx.db.prepare('SELECT flagged, welcome FROM account_tombstones WHERE hash IN (?, ?)')
+    .all(tombstoneHash(ctx, 'sub', sub), tombstoneHash(ctx, 'email', emailNorm)) as { flagged: number | null; welcome: number }[];
+  if (!rows.length) return null;
+  return { flagged: rows.find((r) => r.flagged !== null)?.flagged ?? null, welcome: rows.some((r) => r.welcome === 1) };
+}
+
+/**
+ * Anonymise le compte, révoque sa clé API (réelle ou simulée), supprime ses sessions. L'inventaire reste (miroir on-chain).
+ * Garde une tombstone hachée (sub, email) → flag et bonus de bienvenue survivent à une réinscription.
+ * Sous le verrou de clé du joueur : un octroi en cours ne peut pas recréer une clé après la révocation.
+ */
+export function deleteAccount(ctx: Ctx, userId: string): Promise<{ ok: true }> {
+  return withGrantLock(userId, () => deleteAccountLocked(ctx, userId));
+}
+
+async function deleteAccountLocked(ctx: Ctx, userId: string): Promise<{ ok: true }> {
   const k = ctx.db.prepare('SELECT nearai_key_id FROM api_keys WHERE user_id = ?').get(userId) as { nearai_key_id: string | null } | undefined;
   if (k?.nearai_key_id && ctx.credits.revoke) {
     try {
@@ -46,6 +65,15 @@ export async function deleteAccount(ctx: Ctx, userId: string): Promise<{ ok: tru
   }
   const now = ctx.now();
   ctx.db.transaction(() => {
+    const u = getUser(ctx, userId);
+    if (u && (u.google_sub || u.email_norm)) {
+      const flagged = (JSON.parse(u.flags) as { flagged?: number }).flagged;
+      const welcome = ctx.db.prepare("SELECT 1 FROM grants WHERE user_id = ? AND pool = 'welcome' AND status != 'failed'").get(userId) ? 1 : 0;
+      const put = ctx.db.prepare(`INSERT INTO account_tombstones (hash, flagged, welcome, deleted_at) VALUES (?, ?, ?, ?)
+        ON CONFLICT(hash) DO UPDATE SET flagged = COALESCE(excluded.flagged, flagged), welcome = MAX(welcome, excluded.welcome), deleted_at = excluded.deleted_at`);
+      if (u.google_sub) put.run(tombstoneHash(ctx, 'sub', u.google_sub), flagged ? Number(flagged) : null, welcome, now);
+      if (u.email_norm) put.run(tombstoneHash(ctx, 'email', u.email_norm), flagged ? Number(flagged) : null, welcome, now);
+    }
     ctx.db.prepare('DELETE FROM api_keys WHERE user_id = ?').run(userId);
     ctx.db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
     ctx.db.prepare('DELETE FROM price_seen WHERE user_id = ?').run(userId);

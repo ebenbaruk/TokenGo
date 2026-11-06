@@ -1,9 +1,11 @@
 // Connexion Google (arctic, OAuth 2 + PKCE) et règles anti-sybil (Docs/08 §1) : 1 `sub` = 1 joueur, email vérifié,
-// email normalisé unique (gmail : points et +tag ignorés). Un invité qui se connecte est promu (progression conservée).
+// email normalisé unique (gmail : points et +tag ignorés). Un invité GPS qui se connecte est promu (progression conservée) ;
+// un invité démo repart d'un compte neuf. Les tombstones de comptes supprimés gardent flag et bonus de bienvenue.
 import { Google, decodeIdToken, generateCodeVerifier, generateState } from 'arctic';
 import type { Config } from '../config.ts';
 import type { Ctx } from '../game/context.ts';
 import { createUser, getUser } from '../game/players.ts';
+import { tombstoneFor } from '../game/profile.ts';
 
 export interface GoogleProfile { sub: string; email: string; emailVerified: boolean }
 /** Échange code + verifier → profil vérifié (injectable dans les tests). */
@@ -53,13 +55,26 @@ export function signInWithGoogle(ctx: Ctx, p: GoogleProfile, currentUserId: stri
     const norm = normalizeEmail(p.email);
     if (ctx.db.prepare('SELECT 1 FROM users WHERE email_norm = ?').get(norm)) return { error: 'email_taken' };
     const cur = currentUserId ? getUser(ctx, currentUserId) : undefined;
-    // un invité ordinaire est promu ; pas un pass démo (kit juge), ni un runner-agent
-    if (cur && cur.kind === 'guest' && !cur.is_agent && !cur.demo_token && !cur.deleted_at) {
-      ctx.db.prepare(`UPDATE users SET kind = 'google', google_sub = ?, email = ?, email_norm = ?, mode = 'gps',
-        move_state = CASE WHEN mode = 'demo' THEN NULL ELSE move_state END WHERE id = ?`).run(p.sub, p.email, norm, cur.id);
-      return { userId: cur.id, outcome: 'upgraded' };
+    // seul un invité GPS ordinaire est promu ; pas un invité démo (kit + téléportation : sa progression n'est pas
+    // une vraie marche), ni un pass démo (kit juge), ni un runner-agent → ceux-là repartent d'un compte Google neuf
+    let outcome: 'upgraded' | 'created';
+    let userId: string;
+    if (cur && cur.kind === 'guest' && cur.mode === 'gps' && !cur.is_agent && !cur.demo_token && !cur.deleted_at) {
+      ctx.db.prepare(`UPDATE users SET kind = 'google', google_sub = ?, email = ?, email_norm = ? WHERE id = ?`).run(p.sub, p.email, norm, cur.id);
+      outcome = 'upgraded';
+      userId = cur.id;
+    } else {
+      userId = createUser(ctx, { kind: 'google', demo: false, google: { sub: p.sub, email: p.email, emailNorm: norm } }).id;
+      outcome = 'created';
     }
-    const u = createUser(ctx, { kind: 'google', demo: false, google: { sub: p.sub, email: p.email, emailNorm: norm } });
-    return { userId: u.id, outcome: 'created' };
+    // identité déjà supprimée une fois : le flag de revue et le bonus de bienvenue consommé la suivent
+    const tomb = tombstoneFor(ctx, p.sub, norm);
+    if (tomb && (tomb.flagged || tomb.welcome)) {
+      const flags = JSON.parse(getUser(ctx, userId)!.flags) as Record<string, unknown>;
+      if (tomb.flagged && !flags.flagged) flags.flagged = tomb.flagged;
+      if (tomb.welcome) flags.noWelcome = true;
+      ctx.db.prepare('UPDATE users SET flags = ? WHERE id = ?').run(JSON.stringify(flags), userId);
+    }
+    return { userId, outcome };
   })();
 }

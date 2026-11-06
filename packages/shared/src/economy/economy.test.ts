@@ -262,6 +262,11 @@ describe('progression & catch', () => {
     expect(resolveCatch('deepseek', [0.15], rng, 0, 0).result).toBe('good');
     expect(resolveCatch('deepseek', [0.9, 0.9, 0.9], rng, 0, 0).result).toBe('miss'); // common ne fuit jamais
     expect(resolveCatch('deepseek', [0.01], rng, 15, 30).result).toBe('good');
+    // le plafond s'applique dès les premières captures (ratio sur au moins 5) : pas de série de perfect sur un compte neuf
+    expect(resolveCatch('deepseek', [0.01], rng, 1, 1).result).toBe('perfect');
+    expect(resolveCatch('deepseek', [0.01], rng, 2, 2).result).toBe('good');
+    expect(resolveCatch('deepseek', [0.01], rng, 2, 4).result).toBe('good');
+    expect(resolveCatch('deepseek', [0.01], rng, 2, 6).result).toBe('perfect');
     let fled = 0;
     for (let i = 0; i < 1000; i++) if (resolveCatch('claude', [0.9], mulberry32(i), 0, 0).result === 'fled') fled++;
     expect(fled).toBeGreaterThan(220);

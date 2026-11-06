@@ -30,7 +30,7 @@ export function creditsView(ctx: Ctx, userId: string): CreditsView {
     expiresAt: '2026-12-31',
     baseUrl: `${ctx.cfg.NEARAI_BASE}/v1`,
     models: PLAYGROUND_MODELS,
-    grants: grants.map((g) => ({ at: g.at, amountNusd: g.amount_nusd, forge: ctx.world.byId.get(g.forge_id)?.name ?? g.forge_id, tier: g.tier, pool: g.pool, burnTx: g.burn_tx, pending: g.status === 'pending' })),
+    grants: grants.map((g) => ({ at: g.at, amountNusd: g.amount_nusd, forge: ctx.world.byId.get(g.forge_id)?.name ?? g.forge_id, tier: g.tier, pool: g.pool, burnTx: g.burn_tx, pending: g.status === 'pending' || g.status === 'reserved' })),
     pendingNusd: (ctx.db.prepare("SELECT COALESCE(SUM(amount_nusd), 0) s FROM grants WHERE user_id = ? AND status = 'pending'").get(userId) as { s: number }).s,
   };
 }

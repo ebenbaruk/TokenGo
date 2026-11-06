@@ -25,11 +25,14 @@ async function setup(overrides: Record<string, string> = {}, opts: AppOptions = 
   const cfg = loadConfig({ NODE_ENV: 'test', DB_PATH: ':memory:', FEATURE_CHAIN: '0', FEATURE_REAL_CREDITS: '0', DEMO_TOKEN: 'judge-pass', ...overrides });
   const { app, ctx } = await buildApp(cfg, { now: () => env.clock, ...opts });
   /** Client HTTP avec un vrai bocal à cookies (session + cookie OAuth). */
+  let clientN = 0;
   const client = () => {
+    // une IP par client : le pass démo est limité à un compte par IP et par jour
+    const remoteAddress = `10.0.2.${++clientN}`;
     const jar = new Map<string, string>();
     const req = async <T>(method: 'GET' | 'POST' | 'DELETE', url: string, body?: unknown) => {
       const cookie = [...jar].map(([k, v]) => `${k}=${v}`).join('; ');
-      const res = await app.inject({ method, url, ...(body !== undefined ? { payload: body as object } : {}), headers: { origin: ORIGIN, ...(cookie ? { cookie } : {}) } });
+      const res = await app.inject({ method, url, remoteAddress, ...(body !== undefined ? { payload: body as object } : {}), headers: { origin: ORIGIN, ...(cookie ? { cookie } : {}) } });
       const set = res.headers['set-cookie'];
       for (const c of [set].flat()) {
         if (!c) continue;
@@ -156,7 +159,7 @@ describe('pending grants (IOU) retry', () => {
     };
   };
   let s: Awaited<ReturnType<typeof setup>>;
-  beforeAll(async () => { s = await setup({}, { credits: flaky() }); });
+  beforeAll(async () => { s = await setup({ ADMIN_TOKEN: 'admin-secret' }, { credits: flaky() }); });
   afterAll(() => s.app.close());
 
   it('a failed grant after the burn shows "Credit pending", then the job settles it idempotently', async () => {
@@ -203,10 +206,15 @@ describe('pending grants (IOU) retry', () => {
     expect((await c.get<CreditsView>('/api/credits')).body.limitNusd).toBe(g.target_nusd);
   });
 
-  it('/healthz reports the solvency invariant', async () => {
-    const h = await s.client().get<{ invariantOk: boolean; invariant: { commitmentsNusd: number; orgRemainingNusd: number } }>('/healthz');
-    expect(h.body.invariantOk).toBe(true);
-    expect(h.body.invariant.commitmentsNusd).toBeLessThanOrEqual(h.body.invariant.orgRemainingNusd);
+  it('/healthz reports the solvency invariant (booleans publicly, numbers to the admin only)', async () => {
+    const pub = await s.client().get<Record<string, unknown>>('/healthz');
+    expect(pub.body).toEqual({ ok: true, invariantOk: true, chain: false, simulatedCredits: true });
+    const h = await s.app.inject({ method: 'GET', url: '/healthz', headers: { authorization: 'Bearer admin-secret' } });
+    const body = h.json() as { invariantOk: boolean; invariant: { commitmentsNusd: number; orgRemainingNusd: number } };
+    expect(body.invariantOk).toBe(true);
+    expect(body.invariant.commitmentsNusd).toBeLessThanOrEqual(body.invariant.orgRemainingNusd);
+    const wrong = await s.app.inject({ method: 'GET', url: '/healthz', headers: { authorization: 'Bearer nope' } });
+    expect(Object.keys(wrong.json() as object).sort()).toEqual(['chain', 'invariantOk', 'ok', 'simulatedCredits']);
   });
 });
 
@@ -244,6 +252,9 @@ describe('Google sign-in (mocked token exchange)', () => {
     'code-ana-twin': { sub: 'g-twin', email: 'analovelace@googlemail.com', emailVerified: true },
     'code-unverified': { sub: 'g-x', email: 'x@example.com', emailVerified: false },
     'code-bob': { sub: 'g-bob', email: 'bob@example.com', emailVerified: true },
+    'code-cleo': { sub: 'g-cleo', email: 'cleo@example.com', emailVerified: true },
+    'code-dan': { sub: 'g-dan', email: 'dan@example.com', emailVerified: true },
+    'code-dan-newsub': { sub: 'g-dan-2', email: 'Dan@Example.com', emailVerified: true },
   };
   let s: Awaited<ReturnType<typeof setup>>;
   beforeAll(async () => {
@@ -313,6 +324,46 @@ describe('Google sign-in (mocked token exchange)', () => {
     expect(me.body.id).not.toBe(judge.body.id);
     expect(me.body.kind).toBe('google');
     expect(me.body.mode).toBe('gps');
+  });
+
+  it('a demo-mode guest (no pass) is not promoted either: fresh Google account, demo kit not carried over', async () => {
+    const c = s.client();
+    const demo = await c.post<Me>('/auth/guest', { demo: true });
+    expect(demo.body.mode).toBe('demo');
+    const back = await signIn(c, 'code-cleo');
+    expect(back.searchParams.get('outcome')).toBe('created');
+    const me = (await c.get<Me>('/api/me')).body;
+    expect(me.id).not.toBe(demo.body.id);
+    expect(me.mode).toBe('gps');
+    expect(me.level).toBeLessThan(demo.body.level);
+    expect(getUser(s.ctx, demo.body.id)!.kind).toBe('guest');
+  });
+
+  it('a deleted Google identity (same sub, or same email) keeps its flag and gets no second welcome grant', async () => {
+    const c = s.client();
+    await signIn(c, 'code-dan');
+    const first = (await c.get<Me>('/api/me')).body;
+    s.ctx.db.prepare("INSERT INTO grants (id, at, user_id, pool, amount_nusd, compile_id, status) VALUES ('g-welcome-dan', ?, ?, 'welcome', 30000000, 'c-dan', 'done')").run(s.env.clock, first.id);
+    s.ctx.db.prepare('UPDATE users SET flags = ? WHERE id = ?').run(JSON.stringify({ flagged: 1234 }), first.id);
+    expect((await c.del('/api/me')).status).toBe(200);
+    const tombs = s.ctx.db.prepare('SELECT * FROM account_tombstones').all();
+    expect(tombs).toHaveLength(2); // sub + email, hachés
+    expect(JSON.stringify(tombs)).not.toMatch(/dan|g-dan/);
+
+    const check = async (code: string) => {
+      const c2 = s.client();
+      expect((await signIn(c2, code)).searchParams.get('outcome')).toBe('created');
+      const me = (await c2.get<Me>('/api/me')).body;
+      expect(JSON.parse(getUser(s.ctx, me.id)!.flags)).toMatchObject({ flagged: 1234, noWelcome: true });
+      const fv = (await c2.get<ForgeView>('/api/forge/forge:louvre')).body;
+      const firstRecipe = fv.recipes.find((r) => r.tier === 'first')!;
+      expect(firstRecipe.payoutNusd).toBe(0);
+      expect(firstRecipe.payoutNote).toMatch(/already claimed/);
+      return c2;
+    };
+    const again = await check('code-dan'); // même sub
+    expect((await again.del('/api/me')).status).toBe(200);
+    await check('code-dan-newsub'); // autre sub, même email normalisé
   });
 });
 

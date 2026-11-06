@@ -9,7 +9,8 @@ import { assertQuota } from './quotas.ts';
 import { randomId } from './crypto.ts';
 import { addXp, debit, getUser, inventory, levelOf, markTutorial, meView, tutorialOf, type UserRow } from './players.ts';
 import { assertCanAct } from './actions.ts';
-import { forgePaused, getPools, grantCredits, grantedSince, parisDay, reserveView, yieldInput } from './reserve.ts';
+import { forgePaused, getPools, grantedSince, parisDay, reserveGrant, reserveView, settleGrant, yieldInput } from './reserve.ts';
+import { withLock } from './lock.ts';
 import { poolAvail } from '@tokengo/shared';
 
 const LABEL: Record<Tier | 'first', string> = { first: 'First Compile', spark: 'Spark', prism: 'Prism', aura: 'Aura' };
@@ -32,16 +33,19 @@ export const judgeOpen = (ctx: Ctx) => {
 function poolFor(ctx: Ctx, u: UserRow, tier: Tier | 'first'): { pool: Pool | null; note: string | null } {
   // runners-agents : jamais d'octroi (burn + XP seulement), quelle que soit la recette
   if (u.is_agent) return { pool: null, note: 'Runner-agents compile for XP only.' };
+  const flags = JSON.parse(u.flags) as Record<string, unknown>;
   if (tier === 'first') {
+    // identité Google revenue après suppression de compte : pas de second bonus de bienvenue (tombstone)
+    if (flags.noWelcome) return { pool: null, note: 'Welcome credits were already claimed by this account — XP only.' };
     if (grantedSince(ctx, ctx.now() - HOUR, { pool: 'welcome' }) >= RESERVE.welcomeGrantsPerHour * FIRST_COMPILE.payout) {
       return { pool: null, note: 'Welcome credits are busy this hour — XP only, try again later.' };
     }
     return { pool: 'welcome', note: null };
   }
-  const flags = JSON.parse(u.flags) as Record<string, unknown>;
   if (flags.flagged) return { pool: null, note: 'Account under review — XP only.' };
   if (u.kind === 'google' && u.walked_m >= 1500) return { pool: 'main', note: null };
-  if (u.demo_token || judgeOpen(ctx)) {
+  // Judge Pool : comptes pass démo (DEMO_TOKEN) uniquement — judgeOpen ne sert plus qu'au message de l'UI
+  if (u.demo_token) {
     if (grantedSince(ctx, 0, { userId: u.id, pool: 'judge' }) >= RESERVE.judgeCapPerAccount) return { pool: null, note: 'Demo credit cap reached — XP only.' };
     return { pool: 'judge', note: null };
   }
@@ -85,18 +89,20 @@ export function viewForge(ctx: Ctx, userId: string, forgeId: string): ForgeView 
   return { id: f.id, name: f.name, lat: f.lat, lng: f.lng, theme: f.theme, day, recipes, reserve: reserveView(ctx) };
 }
 
-export async function compile(ctx: Ctx, userId: string, forgeId: string, tier: Tier | 'first'): Promise<CompileResponse> {
+/** Compilation, sérialisée par joueur (deux compilations concurrentes ne voient jamais le même état de caps). */
+export function compile(ctx: Ctx, userId: string, forgeId: string, tier: Tier | 'first'): Promise<CompileResponse> {
+  return withLock(`compile:${userId}`, () => compileLocked(ctx, userId, forgeId, tier));
+}
+
+async function compileLocked(ctx: Ctx, userId: string, forgeId: string, tier: Tier | 'first'): Promise<CompileResponse> {
   const f = forgeOf(ctx, forgeId);
   const u = getUser(ctx, userId)!;
   if (forgePaused(ctx)) fail('FORGE_PAUSED', 'The Forges are paused for maintenance.');
   assertCanAct(ctx, u, 'forge', f);
   assertQuota(ctx, userId, 'compile');
-  const t = tutorialOf(u);
   let needs: Partial<Record<Family, number>>;
   let fee = 0;
   if (tier === 'first') {
-    if (t.firstCompile) fail('BAD_REQUEST', 'First Compile already done.');
-    if (!(t.caught && t.synced && t.traded)) fail('TUTORIAL_INCOMPLETE', 'Catch a shard, sync a relay and trade once first.');
     needs = FIRST_COMPILE.needs;
   } else {
     if (!(tier in TIERS)) fail('BAD_REQUEST', 'Unknown recipe.');
@@ -106,17 +112,27 @@ export async function compile(ctx: Ctx, userId: string, forgeId: string, tier: T
     needs = r.needs;
     fee = r.fee;
   }
-  const est = estimate(ctx, u, tier);
   const compileId = randomId(10);
   const now = ctx.now();
-  // 1. burn des éclats + frais (atomique) ; le settler on-chain le prouve avant l'octroi quand la chaîne est active
-  ctx.db.transaction(() => {
+  // 1. burn des éclats + frais, estimation et réservation de l'octroi : une seule transaction (tutoriel et caps relus
+  //    ici ; la réservation « reserved » est visible immédiatement des compilations concurrentes des autres joueurs)
+  const { est, grantId } = ctx.db.transaction(() => {
+    const cur = getUser(ctx, userId)!;
+    if (tier === 'first') {
+      const t = tutorialOf(cur);
+      if (t.firstCompile) fail('BAD_REQUEST', 'First Compile already done.');
+      if (!(t.caught && t.synced && t.traded)) fail('TUTORIAL_INCOMPLETE', 'Catch a shard, sync a relay and trade once first.');
+    }
     const lack = missingFor(needs, inventory(ctx, userId).shards);
     if (Object.keys(lack).length) fail('INSUFFICIENT', 'Missing shards for this recipe.', 400, { missing: lack });
+    const est = estimate(ctx, cur, tier);
     for (const [fam, n] of Object.entries(needs) as [Family, number][]) debit(ctx, userId, shardToken(fam), n, `forge:${compileId}`);
     if (fee) debit(ctx, userId, 'flux', fee, `forge:${compileId}`);
     ctx.db.prepare('INSERT INTO compiles (id, at, user_id, forge_id, tier, inputs, fee, pool, payout_nusd, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
       .run(compileId, now, userId, f.id, tier, JSON.stringify(needs), fee, est.pool, est.payout, 'burning');
+    if (tier === 'first') markTutorial(ctx, userId, 'firstCompile');
+    const grantId = est.pool && est.payout > 0 ? reserveGrant(ctx, userId, est.pool, est.payout, compileId) : null;
+    return { est, grantId };
   })();
   // 1b. chaîne active : preuve synchrone — règle toutes les ops en attente jusqu'au burn inclus, attend la finalité (borné)
   let burnTx: string | null = null;
@@ -128,9 +144,9 @@ export async function compile(ctx: Ctx, userId: string, forgeId: string, tier: T
   let payout = 0;
   let note = est.note;
   let pending = false;
-  if (est.pool && est.payout > 0) {
+  if (grantId) {
     try {
-      await grantCredits(ctx, userId, est.pool, est.payout, compileId);
+      await settleGrant(ctx, grantId);
       payout = est.payout;
     } catch (e) {
       note = (e as Error).message;
@@ -141,7 +157,6 @@ export async function compile(ctx: Ctx, userId: string, forgeId: string, tier: T
   const levelUp = ctx.db.transaction(() => {
     ctx.db.prepare('UPDATE compiles SET status = ?, payout_nusd = ? WHERE id = ?')
       .run(payout > 0 ? 'granted' : pending ? 'pending' : 'xp-only', pending ? est.payout : payout, compileId);
-    if (tier === 'first') markTutorial(ctx, userId, 'firstCompile');
     return addXp(ctx, userId, xp);
   })();
   if (payout > 0) {

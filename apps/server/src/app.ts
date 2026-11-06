@@ -6,15 +6,15 @@ import fastifyStatic from '@fastify/static';
 import { existsSync } from 'node:fs';
 import { isAbsolute, resolve as resolvePath } from 'node:path';
 import { z } from 'zod';
-import { FAMILIES, RESERVE_PARTITION, type PulseEvent } from '@tokengo/shared';
+import { FAMILIES, RESERVE_PARTITION, haversineM, type PulseEvent } from '@tokengo/shared';
 import type { Config } from './config.ts';
 import { openDb, type DB } from './db.ts';
 import { GameError, type Ctx } from './game/context.ts';
 import { createBus } from './game/bus.ts';
 import { loadWorld } from './game/world.ts';
 import { simulatedCredits, type CreditsProvider } from './game/credits.ts';
-import { randomId, sha256hex } from './game/crypto.ts';
-import { createUser, getUser, meView } from './game/players.ts';
+import { randomId, safeEqual, sha256hex } from './game/crypto.ts';
+import { createUser, getUser, meView, moveStateOf } from './game/players.ts';
 import { catchResolve, catchStart, move, relaySync, worldView } from './game/actions.ts';
 import { deliver, executeTrade, makeQuote, rescue, viewMerchant } from './game/market.ts';
 import { compile, viewForge } from './game/forge.ts';
@@ -32,10 +32,14 @@ import { googleClient, newAuthorization, realExchange, signInWithGoogle, type Go
 import { deleteAccount, leaderboards, setDistrict, setHandle } from './game/profile.ts';
 import { labSnapshot } from './game/pulse.ts';
 import { activeRunnerCount, runnersNear } from './game/runners.ts';
-import { invariantStatus } from './game/reserve.ts';
+import { invariantStatus, parisDay } from './game/reserve.ts';
 import { judgeOpen } from './game/forge.ts';
 
 const SESSION_TTL = 30 * 24 * 3600_000;
+/** Connexions SSE simultanées max : par joueur (/api/stream), par IP (/api/pulse/stream), au total. */
+export const SSE_LIMITS = { perUser: 3, perIp: 20, global: 500 };
+/** Distance max joueur ↔ marchand pour une salutation générée par le LLM (au-delà : réplique écrite, sans appel). */
+export const GREET_RADIUS_M = 200;
 const WEB_DIST = new URL('../../web/dist/', import.meta.url).pathname;
 
 declare module 'fastify' {
@@ -67,7 +71,8 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
 
   const app = Fastify({
     logger: cfg.NODE_ENV === 'test' ? false : { level: 'info', redact: ['req.headers.cookie', 'req.headers.authorization'] },
-    trustProxy: true,
+    // XFF seulement derrière un nombre connu de proxys (TRUST_PROXY) : sinon req.ip serait falsifiable (rate limits par IP)
+    trustProxy: cfg.trustProxy === false ? false : (_addr: string, hop: number) => hop < (cfg.trustProxy as number),
     bodyLimit: 32 * 1024,
   });
   app.decorateRequest('userId', null);
@@ -140,8 +145,18 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
   // ── auth ──
   app.post('/auth/guest', { config: { rateLimit: { max: cfg.prod ? 3 : 1000, timeWindow: '1 hour', keyGenerator: (r: FastifyRequest) => r.ip } } }, async (req, reply) => {
     const body = z.object({ demo: z.boolean().optional(), token: z.string().max(200).optional() }).parse(req.body ?? {});
-    const demoToken = !!(cfg.DEMO_TOKEN && body.token && body.token === cfg.DEMO_TOKEN);
-    const u = createUser(ctx, { kind: 'guest', demo: !!(body.demo || demoToken), demoToken, ipHash: sha256hex(`${cfg.SESSION_SECRET}:${req.ip}`) });
+    const demoToken = !!(cfg.DEMO_TOKEN && body.token && safeEqual(body.token, cfg.DEMO_TOKEN));
+    const ipHash = sha256hex(`${cfg.SESSION_SECRET}:${req.ip}`);
+    const day = parisDay(now());
+    // pass démo : un compte par IP et par jour (un lien de démo qui fuit ne fabrique pas des comptes Judge Pool à la chaîne)
+    if (demoToken && db.prepare('SELECT 1 FROM demo_passes WHERE ip_hash = ? AND day = ?').get(ipHash, day)) {
+      throw new GameError('RATE_LIMITED', 'This demo pass was already used from your network today — log back in on the original device, or come back tomorrow.', 429);
+    }
+    const u = db.transaction(() => {
+      const u = createUser(ctx, { kind: 'guest', demo: !!(body.demo || demoToken), demoToken, ipHash });
+      if (demoToken) db.prepare('INSERT INTO demo_passes (ip_hash, day, user_id) VALUES (?, ?, ?)').run(ipHash, day, u.id);
+      return u;
+    })();
     startSession(req, reply, u.id);
     return meView(ctx, u.id);
   });
@@ -222,7 +237,10 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
     const userId = auth(req);
     const cur = getMerchant(ctx, Id.parse(req.params).id);
     if (!cur) throw new GameError('NOT_FOUND', 'No merchant here.', 404);
-    const llm = npc && cur.m.status === 'open' ? await npc.greet(cur.m, userId).catch(() => null) : null;
+    // appel LLM (payant) seulement si le joueur est devant l'échoppe (≤ 200 m de sa dernière position) ; sinon réplique écrite
+    const last = moveStateOf(getUser(ctx, userId)!).last;
+    const near = !!last && haversineM(last, cur.node) <= GREET_RADIUS_M;
+    const llm = npc && near && cur.m.status === 'open' ? await npc.greet(cur.m, userId).catch(() => null) : null;
     return { greeting: llm ?? greetingFor(cur.m, userId, now()), source: llm ? 'llm' : 'lines' };
   });
   app.post('/api/merchant/:id/quote', rl(60), async (req) => {
@@ -257,32 +275,45 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
   app.get('/api/pulse', rl(60), async () => pulseView(ctx));
   app.get('/api/chain/status', rl(60), async () => chainStatus(ctx));
   app.get('/api/proofs', rl(30), async (req) => proofsView(ctx, auth(req)));
-  const sse = (req: FastifyRequest, reply: FastifyReply, subscribe: (fn: (e: PulseEvent) => void) => () => void) => {
+  // SSE : flux longs → plafonds de connexions simultanées (par joueur, par IP pour le flux public, global)
+  const sseOpen = new Map<string, number>();
+  const sse = (req: FastifyRequest, reply: FastifyReply, key: string, max: number, subscribe: (fn: (e: PulseEvent) => void) => () => void) => {
+    if (sseSockets.size >= SSE_LIMITS.global || (sseOpen.get(key) ?? 0) >= max) {
+      throw new GameError('RATE_LIMITED', 'Too many live connections — close another tab and retry.', 429);
+    }
+    sseOpen.set(key, (sseOpen.get(key) ?? 0) + 1);
     reply.raw.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
     reply.raw.write(': hello\n\n');
     const off = subscribe((e) => reply.raw.write(`data: ${JSON.stringify(e)}\n\n`));
     const ping = setInterval(() => reply.raw.write(':ping\n\n'), 20_000);
     sseSockets.add(reply.raw);
-    req.raw.on('close', () => { clearInterval(ping); off(); sseSockets.delete(reply.raw); });
+    req.raw.on('close', () => {
+      clearInterval(ping); off(); sseSockets.delete(reply.raw);
+      const n = (sseOpen.get(key) ?? 1) - 1;
+      if (n > 0) sseOpen.set(key, n); else sseOpen.delete(key);
+    });
     return reply;
   };
-  app.get('/api/pulse/stream', async (req, reply) => sse(req, reply, ctx.bus.subscribe));
+  app.get('/api/pulse/stream', async (req, reply) => sse(req, reply, `ip:${req.ip}`, SSE_LIMITS.perIp, ctx.bus.subscribe));
   app.get('/api/stream', async (req, reply) => {
     const userId = auth(req);
-    return sse(req, reply, (fn) => ctx.bus.subscribeUser(userId, fn));
+    return sse(req, reply, `user:${userId}`, SSE_LIMITS.perUser, (fn) => ctx.bus.subscribeUser(userId, fn));
   });
 
+  const isAdmin = (req: FastifyRequest) => !!cfg.ADMIN_TOKEN && safeEqual(req.headers.authorization ?? '', `Bearer ${cfg.ADMIN_TOKEN}`);
   app.post('/api/admin/forge/:action', async (req, reply) => {
-    if (!cfg.ADMIN_TOKEN || req.headers.authorization !== `Bearer ${cfg.ADMIN_TOKEN}`) return reply.code(403).send({ error: { code: 'FORBIDDEN', message: 'No.' } });
+    if (!isAdmin(req)) return reply.code(403).send({ error: { code: 'FORBIDDEN', message: 'No.' } });
     const action = z.object({ action: z.enum(['pause', 'resume']) }).parse(req.params).action;
     kvSet(db, 'forge-paused', action === 'pause');
     return { ok: true, paused: action === 'pause' };
   });
 
-  app.get('/healthz', async () => {
+  app.get('/healthz', async (req) => {
     db.prepare('SELECT 1').get();
     const cs = chainStatus(ctx);
     const inv = await invariantStatus(ctx);
+    // public : booléens seulement ; soldes, engagements et file de la chaîne réservés à l'admin
+    if (!isAdmin(req)) return { ok: true, invariantOk: inv.ok, chain: cs.enabled, simulatedCredits: credits.simulated };
     return {
       ok: true, simulatedCredits: credits.simulated, chain: cs.enabled, chainPending: cs.pending + cs.inFlight, chainLagMs: cs.lagMs,
       invariantOk: inv.ok, invariant: inv,

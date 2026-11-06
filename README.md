@@ -109,7 +109,7 @@ Copy `.env.example` to `.env`:
 - **Chain:** `NEAR_CONTRACT_ID`, `NEAR_OPERATOR_ID`, `NEAR_OPERATOR_KEY` (testnet) → settlement on.
 - **Real credits:** `NEARAI_AUTH_ACCOUNT` + `NEARAI_AUTH_KEY` (a mainnet account's full-access key, used only to sign NEP-413 login
   messages) → `node apps/server/scripts/nearai-spike.ts` checks everything for < $0.001.
-- `MASTER_KEY` (32 bytes base64), `SESSION_SECRET`, `SPAWN_SECRET`, optional `GOOGLE_CLIENT_ID/SECRET`, `DEMO_TOKEN`, `ADMIN_TOKEN`.
+- `MASTER_KEY` (32 bytes base64), `SESSION_SECRET`, `SPAWN_SECRET`, `TRUST_PROXY` (proxy hops, 1 on Railway/Fly), optional `GOOGLE_CLIENT_ID/SECRET`, `DEMO_TOKEN`, `ADMIN_TOKEN`.
 
 **Deploy:** `Dockerfile` + `railway.json` (one container, SQLite on a volume at `/data`). HTTPS is required for browser geolocation.
 Serverless hosts (e.g. Vercel functions) don't fit: the game needs a persistent SQLite file, background jobs and SSE.

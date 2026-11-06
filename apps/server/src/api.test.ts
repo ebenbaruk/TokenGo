@@ -19,10 +19,13 @@ beforeAll(async () => {
 afterAll(() => app.close());
 
 /** Petit client avec cookie de session. */
+let clientN = 0;
 function client() {
   let cookie = '';
+  // une IP par client : le pass démo est limité à un compte par IP et par jour
+  const remoteAddress = `10.0.0.${++clientN}`;
   const req = async <T>(method: 'GET' | 'POST', url: string, body?: unknown, headers: Record<string, string> = {}) => {
-    const res = await app.inject({ method, url, ...(body !== undefined ? { payload: body as object } : {}), headers: { origin: ORIGIN, ...(cookie ? { cookie } : {}), ...headers } });
+    const res = await app.inject({ method, url, remoteAddress, ...(body !== undefined ? { payload: body as object } : {}), headers: { origin: ORIGIN, ...(cookie ? { cookie } : {}), ...headers } });
     const set = res.headers['set-cookie'];
     if (set) cookie = (Array.isArray(set) ? set[0]! : set).split(';')[0]!;
     let parsed: unknown = null;

@@ -300,15 +300,26 @@ describe('cerveau des marchands', () => {
 });
 
 describe('GET /api/merchant/:id/greet', () => {
-  it('salutation LLM si dispo, sinon phrases préécrites', async () => {
+  it('salutation LLM si dispo (joueur ≤ 200 m), sinon phrases préécrites', async () => {
     const cfg = loadConfig({ NODE_ENV: 'test', DB_PATH: ':memory:', FEATURE_CHAIN: '0', FEATURE_REAL_CREDITS: '0' });
     let llm: string | null = 'Ah, a runner with Claude shards!';
-    const { app, ctx } = await buildApp(cfg, { npc: () => ({ brain: async () => null, greet: async () => llm }) });
-    const login = await app.inject({ method: 'POST', url: '/auth/guest', payload: {}, headers: { origin: 'http://localhost:5173' } });
+    let llmCalls = 0;
+    const { app, ctx } = await buildApp(cfg, { npc: () => ({ brain: async () => null, greet: async () => { llmCalls++; return llm; } }) });
+    const login = await app.inject({ method: 'POST', url: '/auth/guest', payload: { demo: true }, headers: { origin: 'http://localhost:5173' } });
     const cookie = String(login.headers['set-cookie']).split(';')[0]!;
     const m = allMerchants(ctx).find((x) => x.status === 'open')!;
+    const node = getMerchant(ctx, m.id)!.node;
+    const moveTo = (lat: number, lng: number) =>
+      app.inject({ method: 'POST', url: '/api/move', payload: { lat, lng, acc: 5 }, headers: { origin: 'http://localhost:5173', cookie } });
     const get = async () => (await app.inject({ method: 'GET', url: `/api/merchant/${m.id}/greet`, headers: { cookie } })).json() as { greeting: string; source: string };
+    // pas de position, puis loin (≈ 1 km) : réplique écrite, aucun appel LLM
+    expect((await get()).source).toBe('lines');
+    await moveTo(node.lat + 0.01, node.lng);
+    expect((await get()).source).toBe('lines');
+    expect(llmCalls).toBe(0);
+    await moveTo(node.lat + 0.001, node.lng); // ≈ 110 m
     expect(await get()).toEqual({ greeting: 'Ah, a runner with Claude shards!', source: 'llm' });
+    expect(llmCalls).toBe(1);
     llm = null;
     const fb = await get();
     expect(fb.source).toBe('lines');

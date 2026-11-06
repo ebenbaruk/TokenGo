@@ -34,7 +34,8 @@ export function resolveCatch(f: Family, offsets: number[], rng: Rng, recentPerfe
       if (rng() < flee) return { result: 'fled' };
       continue;
     }
-    const capped = recentCount >= 5 && recentPerfects / Math.max(1, Math.min(recentCount, CATCH.perfectCapWindow)) >= CATCH.perfectCapRatio;
+    // dès la 1re capture : le ratio se calcule sur au moins 5 captures (un compte neuf n'enchaîne pas les perfect)
+    const capped = recentPerfects / Math.max(5, Math.min(recentCount, CATCH.perfectCapWindow)) >= CATCH.perfectCapRatio;
     if (q === 'perfect' && !capped) return { result: 'perfect', bonus: rng() < CATCH.perfectBonusChance };
     return { result: 'good', bonus: false };
   }

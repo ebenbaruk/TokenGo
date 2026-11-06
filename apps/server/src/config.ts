@@ -14,6 +14,8 @@ const Env = z.object({
   SPAWN_SECRET: z.string().default('dev-spawn-secret'),
   MASTER_KEY: z.string().optional(),
   ADMIN_TOKEN: z.string().optional(),
+  /** Nombre de proxys de confiance devant le serveur (X-Forwarded-For) ; défaut 1 en production, 0 (ignoré) sinon. */
+  TRUST_PROXY: z.coerce.number().int().min(0).max(5).optional(),
   DEMO_TOKEN: z.string().optional(),
   JUDGE_POOL_FROM: z.string().default('2026-11-16T00:00:00Z'),
   JUDGE_POOL_TO: z.string().default('2026-11-19T00:00:00Z'),
@@ -39,7 +41,9 @@ const Env = z.object({
   GOOGLE_CLIENT_SECRET: z.string().optional(),
 });
 
-export type Config = z.infer<typeof Env> & { realCredits: boolean; chain: boolean; prod: boolean; allowedOrigins: string[]; googleEnabled: boolean };
+export type Config = z.infer<typeof Env> & {
+  realCredits: boolean; chain: boolean; prod: boolean; allowedOrigins: string[]; googleEnabled: boolean; trustProxy: number | false;
+};
 
 export function loadConfig(overrides: Record<string, string | undefined> = {}): Config {
   const env = Env.parse({ ...process.env, ...overrides });
@@ -58,5 +62,6 @@ export function loadConfig(overrides: Record<string, string | undefined> = {}): 
     chain: env.FEATURE_CHAIN ?? (hasChain && env.NODE_ENV !== 'test'),
     allowedOrigins,
     googleEnabled: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
+    trustProxy: (env.TRUST_PROXY ?? (prod ? 1 : 0)) || false,
   };
 }
