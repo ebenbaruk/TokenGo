@@ -22,3 +22,6 @@
 .modelOn { background: var(--sun); box-shadow: var(--shadow-hard-s); }
 .prompt { width: 100%; font: inherit; font-size: 16px; padding: 10px; border: var(--border-thin); border-radius: 10px; background: var(--white); margin-bottom: 10px; resize: vertical; }
 .answer { margin-top: 12px; padding: 12px; background: var(--panel-alt); border: 2px solid var(--ink); border-radius: 10px; white-space: pre-wrap; font-weight: 600; }
+.tee { margin-left: 6px; padding: 0 4px; background: var(--green); color: var(--white); border-radius: 4px; font-size: 10px; }
+.pending { margin-left: 6px; padding: 0 5px; background: var(--sun); border: 2px solid var(--ink); border-radius: 5px; font-size: 11px; font-weight: 800; }
+.pendingBox { margin-top: 10px; padding: 6px 10px; background: var(--sun); border: 2px solid var(--ink); border-radius: 8px; font-weight: 800; font-size: 13px; }

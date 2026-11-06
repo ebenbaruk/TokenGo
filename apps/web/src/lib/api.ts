@@ -2,7 +2,7 @@
 import type {
   ApiError, ErrorCode, Me, MoveRequest, MoveResponse, WorldResponse, CatchStartResponse, CatchResolveRequest, CatchResolveResponse,
   SyncResponse, MerchantView, QuoteRequest, QuoteResponse, TradeResponse, ForgeView, CompileRequest, CompileResponse, CreditsView,
-  PulseResponse,
+  PulseResponse, PublicConfig, LeaderboardsResponse, LabSnapshot,
 } from '@tokengo/shared';
 
 export class ApiFail extends Error {
@@ -52,7 +52,7 @@ export function humanError(e: unknown): string {
   return HUMAN[e.code] ?? e.message ?? 'Something glitched.';
 }
 
-async function req<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+async function req<T>(method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown): Promise<T> {
   let res: Response;
   try {
     res = await fetch(path, {
@@ -75,6 +75,14 @@ async function req<T>(method: 'GET' | 'POST', path: string, body?: unknown): Pro
 }
 
 const enc = encodeURIComponent;
+
+// ── Preuves on-chain (type local : ProofsView n'est pas dans packages/shared/src/api.ts) ──
+export interface ProofsView {
+  enabled: boolean; contract: string | null; rpcUrl: string; tokens: readonly string[];
+  account: string | null; accountCreated: boolean; accountUrl: string | null; pending: number;
+  ops: { id: number; kind: string; direction: 'in' | 'out'; token: string; amount: number; memo: string | null; counterparty: string | null; txHash: string | null; url: string | null; at: number | null }[];
+}
+
 export const api = {
   guest: (demo: boolean) => req<{ me?: Me } & Partial<Me>>('POST', '/auth/guest', { demo }),
   me: () => req<Me>('GET', '/api/me'),
@@ -94,6 +102,14 @@ export const api = {
   credits: () => req<CreditsView>('GET', '/api/credits'),
   reveal: () => req<{ key: string }>('POST', '/api/credits/reveal', {}),
   pulse: () => req<PulseResponse>('GET', '/api/pulse'),
+  config: () => req<PublicConfig>('GET', '/api/config'),
+  labSnapshot: () => req<LabSnapshot>('GET', '/api/lab/snapshot'),
+  proofs: () => req<ProofsView>('GET', '/api/proofs'),
+  leaderboards: () => req<LeaderboardsResponse>('GET', '/api/leaderboards'),
+  setHandle: (handle: string) => req<{ me?: Me } & Partial<Me>>('POST', '/api/me/handle', { handle }),
+  setDistrict: (district: number) => req<{ me?: Me } & Partial<Me>>('POST', '/api/me/district', { district }),
+  deleteMe: () => req<{ ok: boolean }>('DELETE', '/api/me'),
+  greet: (id: string) => req<{ greeting: string; source: 'llm' | 'lines' }>('GET', `/api/merchant/${enc(id)}/greet`),
   /** Réponse en texte brut streamé. */
   async playground(model: string, prompt: string, onChunk: (t: string) => void, signal?: AbortSignal): Promise<void> {
     let res: Response;
@@ -117,3 +133,6 @@ export const api = {
     }
   },
 };
+
+/** Certaines routes renvoient `Me`, d'autres `{ me }` : on accepte les deux. */
+export const unwrapMe = (r: { me?: Me } & Partial<Me>): Me | null => (r.me ?? (r.id ? (r as Me) : null));

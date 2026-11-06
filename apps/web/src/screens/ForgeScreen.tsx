@@ -123,7 +123,7 @@ export function ForgeScreen({ node, onClose }: { node: NodeView; onClose: () => 
             })}
             {!forge && !err ? <div className={s.loading}>Heating up…</div> : null}
           </div>
-          {phase === 'fusing' ? <p className={s.wait}>Fusing shards & burning them on-chain… a few seconds.</p> : null}
+          {phase === 'fusing' ? <p className={s.wait}>Fusing your shards… a few seconds.</p> : null}
           <div className={s.action}>
             <HoldButton testId="compile-btn" reason={phase === 'fusing' ? 'Compiling…' : reason} onConfirm={() => void compile()}>
               {phase === 'fusing' ? 'Compiling…' : 'Hold to Compile'}
@@ -142,6 +142,7 @@ export function ForgeScreen({ node, onClose }: { node: NodeView; onClose: () => 
                 {res.equiv.tokens.slice(0, 3).map((t) => <li key={t.model}>≈ {formatTokens(t.tokens)} {t.label} tokens</li>)}
               </ul>
             ) : null}
+            {res.pending ? <div className={s.pendingTicket} data-testid="ticket-pending">Credit pending — it reaches your key automatically within minutes.</div> : null}
             {res.note ? <div className={s.note2}>{res.note}</div> : null}
             <div className={s.ticketXp}><Sprite def={XP_STAR} scale={2} /> +{res.xp} XP</div>
             {res.burnTx ? <a className={s.proof} href={txUrl(res.burnTx)} target="_blank" rel="noreferrer">Burn proof <ExternalLink size={12} /></a> : null}

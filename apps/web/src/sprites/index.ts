@@ -49,6 +49,8 @@ export function merchantSprite(archetype: string, id: string): SpriteDef {
 }
 
 export const AVATAR: SpriteDef = { frames: AVATAR_GRIDS, outline: true, fps: 5 };
+/** Runner-agent : même gabarit que l'avatar, casquette plum et veste verte (on les distingue du joueur). */
+export const RUNNER: SpriteDef = recolor(AVATAR, { r: SWEETIE.plum, o: SWEETIE.berry, p: SWEETIE.night, b: SWEETIE.green, s: SWEETIE.lime, n: SWEETIE.teal, c: SWEETIE.sun, t: SWEETIE.orange });
 export const RELAY: SpriteDef = { frames: NODE_GRIDS.relay, outline: true, fps: 2 };
 export const RELAY_COOLDOWN: SpriteDef = recolor(RELAY, { c: SWEETIE.mist, t: SWEETIE.slate, W: SWEETIE.white, '~': 'transparent' });
 export const FORGE: SpriteDef = { frames: NODE_GRIDS.forge, outline: true, fps: 4 };

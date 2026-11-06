@@ -11,6 +11,8 @@ import { Sprite } from '../sprites/Sprite.tsx';
 import { XP_STAR } from '../sprites/index.ts';
 import s from './CreditsScreen.module.css';
 
+/** Modèles servis dans une enclave vérifiable (TEE) sur NEAR AI Cloud. */
+const TEE_MODELS = new Set(['z-ai/glm-5.3-flash', 'Qwen/Qwen3.8-27B']);
 const mask = (prefix: string | null) => `${prefix ?? 'sk-'}${'•'.repeat(18)}`;
 
 export function CreditsScreen({ onClose }: { onClose: () => void }) {
@@ -54,6 +56,7 @@ export function CreditsScreen({ onClose }: { onClose: () => void }) {
             <div className={s.balAmount}>{fmtUsd(c.remainingNusd)}</div>
             <Gauge value={c.usageNusd} max={Math.max(c.limitNusd, 1)} color="var(--orange)" height={14} />
             <div className={s.balSub}>{fmtUsd(c.usageNusd)} used of {fmtUsd(c.limitNusd)} · valid until {c.expiresAt}</div>
+            {c.pendingNusd > 0 ? <div className={s.pendingBox} data-testid="credits-pending">+{fmtUsd(c.pendingNusd)} credit pending — it lands on your key automatically in a few minutes.</div> : null}
             {eq && c.remainingNusd > 0 ? (
               <div className={s.eqs}>
                 <span>≈ {eq.chats} chats</span>
@@ -91,7 +94,7 @@ export function CreditsScreen({ onClose }: { onClose: () => void }) {
                 {c.grants.map((g, i) => (
                   <li key={i}>
                     <Sprite def={XP_STAR} scale={1} />
-                    <span className={s.gMain}><b>+{fmtUsd(g.amountNusd)}</b> · {g.tier} @ {g.forge}</span>
+                    <span className={s.gMain}><b>+{fmtUsd(g.amountNusd)}</b> · {g.tier} @ {g.forge}{g.pending ? <span className={s.pending}>credit pending</span> : null}</span>
                     <span className="dim">{new Date(g.at).toLocaleDateString('en-GB')}</span>
                     {g.burnTx ? <a href={txUrl(g.burnTx)} target="_blank" rel="noreferrer">proof <ExternalLink size={11} /></a> : null}
                   </li>
@@ -130,7 +133,7 @@ function Playground({ models }: { models: CreditsView['models'] }) {
       <div className={s.models}>
         {models.map((m) => (
           <button key={m.id} type="button" className={`${s.model} ${model === m.id ? s.modelOn : ''}`} onClick={() => setModel(m.id)}>
-            {m.label}<small>{m.tier}</small>
+            {m.label}<small>{m.tier}{TEE_MODELS.has(m.id) ? <span className={s.tee} title="Runs in a verifiable secure enclave (TEE)">TEE</span> : null}</small>
           </button>
         ))}
       </div>

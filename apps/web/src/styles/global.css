@@ -39,3 +39,4 @@ canvas.pixelated, .pixelated { image-rendering: pixelated; image-rendering: cris
 
 .maplibregl-ctrl-attrib { font-family: var(--font-ui); font-size: 10px; }
 .maplibregl-ctrl-attrib.maplibregl-compact { background: rgba(255,253,246,.85); }
+.route-loading { position: absolute; inset: 0; display: grid; place-items: center; font-size: 24px; background: var(--sky); color: var(--white); text-shadow: 2px 2px 0 var(--ink); }

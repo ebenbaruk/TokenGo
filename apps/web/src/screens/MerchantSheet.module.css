@@ -53,3 +53,6 @@
 .total small { font-size: 12px; color: var(--night); }
 .reason { font-weight: 800; font-size: 13px; text-align: center; margin-bottom: 8px; }
 .slider { width: 100%; accent-color: var(--green); height: 32px; }
+.whyHint { background: var(--sun); animation: hint 1.2s steps(2) infinite; }
+@keyframes hint { 50% { box-shadow: 0 0 0 4px var(--orange); } }
+.mood { display: block; margin-top: 4px; font-style: normal; font-size: 12px; font-weight: 800; color: var(--slate); }

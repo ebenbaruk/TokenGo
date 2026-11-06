@@ -47,6 +47,8 @@ export function MerchantSheet({ node, onClose }: { node: NodeView; onClose: () =
   const [why, setWhy] = useState<Family | null>(null);
   const [face, setFace] = useState(1);
   const [thoughtOpen, setThoughtOpen] = useState(false);
+  const [greet, setGreet] = useState<string | null>(null);
+  useEffect(() => { api.greet(mId).then((g) => setGreet(g.greeting)).catch(() => {}); }, [mId]);
 
   const load = useCallback(() => api.merchant(mId).then((v) => { setM(v); setErr(null); }).catch((e) => setErr(humanError(e))), [mId]);
   useEffect(() => { void load(); const t = setTimeout(() => setFace(0), 1600); return () => clearTimeout(t); }, [load]);
@@ -76,7 +78,7 @@ export function MerchantSheet({ node, onClose }: { node: NodeView; onClose: () =
             <span className={s.archetype}>{archetype}</span>
             <span className={s.till}><Sprite def={FLUX} scale={1} /> till {fmtInt(m.flux)} ƒ</span>
           </div>
-          <div className={s.bubble} data-testid="merchant-mood">{m.mood || m.greeting}</div>
+          <div className={s.bubble} data-testid="merchant-mood">{greet ?? m.greeting}{m.mood && m.mood !== (greet ?? m.greeting) ? <small className={s.mood}>mood · {m.mood}</small> : null}</div>
 
           {tab === 'trade' && (
             <div className={s.list}>
@@ -91,7 +93,7 @@ export function MerchantSheet({ node, onClose }: { node: NodeView; onClose: () =
                       <Sprite def={SHARDS[f]} scale={2} />
                       <div className={s.famInfo}>
                         <div className={s.famName}>{famName(f)}{e.specialty ? <span className={s.spec}>★</span> : null}
-                          <button type="button" className={s.why} aria-label={`Why this price for ${famName(f)}?`} data-testid={`why-${f}`}
+                          <button type="button" className={`${s.why} ${me && !me.tutorial.traded ? s.whyHint : ''}`} aria-label={`Why this price for ${famName(f)}?`} data-testid={`why-${f}`}
                             onClick={() => setWhy(why === f ? null : f)}><Info size={16} strokeWidth={3} /></button>
                         </div>
                         <div className={s.stockLine}>

@@ -14,3 +14,5 @@
 .need { display: flex; flex-wrap: wrap; gap: 8px; font-weight: 800; font-size: 13px; }
 .need span { display: inline-flex; align-items: center; gap: 2px; }
 .miss { color: var(--berry); }
+.menu { display: flex; flex-direction: column; gap: 10px; }
+.menuGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }

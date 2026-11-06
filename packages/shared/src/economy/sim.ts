@@ -116,6 +116,9 @@ export interface SimOptions {
   rulesOverride?: RulesOverride;
   /** État de départ des marchands (copie de Paris pour le Lab). Par défaut : createMerchant sur chaque nœud market. */
   initialMerchants?: MerchantState[];
+  /** Prix de référence et poches de départ (Lab : état réel de Paris). */
+  initialP0?: Record<Family, number>;
+  initialPools?: Pools;
   onProgress?: (fraction: number, snap: SimSnapshot) => void;
 }
 
@@ -296,8 +299,8 @@ function buildSim(opts: SimOptions): Sim {
     merchants[seededIdx] = { ...m, flux: MERCHANT.seededStrugglerFlux, status: 'closing', closingSince: BASE_MS };
     seededStruggler = m.name;
   }
-  let p0 = initialP0();
-  const pools: Pools = initialPools();
+  let p0 = opts.initialP0 ? { ...opts.initialP0 } : initialP0();
+  const pools: Pools = opts.initialPools ? structuredClone(opts.initialPools) : initialPools();
 
   // ── Bots ──
   const kinds: BotKind[] = [];

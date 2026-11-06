@@ -13,7 +13,10 @@ export type Overlay =
   | { kind: 'credits' }
   | { kind: 'bag' }
   | { kind: 'quests' }
-  | { kind: 'menu' };
+  | { kind: 'menu' }
+  | { kind: 'profile' }
+  | { kind: 'proofs' }
+  | { kind: 'district' };
 
 export interface Toast { id: number; text: string; tone: 'good' | 'bad' | 'info'; icon?: Family | 'flux' | 'xp' | 'level' }
 
@@ -35,6 +38,7 @@ interface State {
   /** destination en Demo Walk */
   walkTarget: { lat: number; lng: number } | null;
   serverDown: boolean;
+  showRunners: boolean;
 }
 
 export const useGame = create<State>(() => ({
@@ -51,6 +55,7 @@ export const useGame = create<State>(() => ({
   hiddenSpawns: [],
   walkTarget: null,
   serverDown: false,
+  showRunners: (() => { try { return localStorage.getItem('tg.runners') !== '0'; } catch { return true; } })(),
 }));
 
 const set = useGame.setState;
@@ -66,6 +71,11 @@ export function toast(text: string, tone: Toast['tone'] = 'info', icon?: Toast['
 export function setMe(me: Me, levelUp?: number | null): void {
   set({ me });
   if (levelUp) toast(`Level ${levelUp}! New things unlocked.`, 'good', 'level', 3500);
+}
+
+export function setShowRunners(v: boolean): void {
+  set({ showRunners: v });
+  try { localStorage.setItem('tg.runners', v ? '1' : '0'); } catch { /* */ }
 }
 
 export const openOverlay = (o: Overlay | null) => set({ overlay: o });

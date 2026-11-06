@@ -57,3 +57,4 @@
 .ticketActions { display: flex; flex-direction: column; gap: 10px; }
 .wait { text-align: center; font-weight: 800; color: var(--sun); margin: 0 16px 8px; animation: blink 1s steps(2) infinite; }
 @keyframes blink { 50% { opacity: .4; } }
+.pendingTicket { margin: 6px 0; padding: 6px 8px; background: var(--sun); border: 2px solid var(--ink); border-radius: 8px; font-weight: 800; font-size: 13px; }

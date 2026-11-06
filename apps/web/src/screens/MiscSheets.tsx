@@ -1,9 +1,9 @@
 // Feuilles secondaires : Bag (inventaire), Quests (recettes du jour + contrats), Jump (Demo Walk), Menu.
 import { useEffect, useState } from 'react';
 import { FAMILIES, FAMILY_INFO, haversineM, type Family, type ForgeView, type NodeView } from '@tokengo/shared';
-import { Zap, Coins, Info, Volume2 } from 'lucide-react';
+import { Zap, Info, Volume2, VolumeX, UserRound, ShieldCheck, Activity, FlaskConical, Users } from 'lucide-react';
 import { api } from '../lib/api.ts';
-import { useGame, openOverlay } from '../lib/store.ts';
+import { useGame, openOverlay, setShowRunners } from '../lib/store.ts';
 import { famName, fmtDist, fmtUsd, RARITY_LABEL } from '../lib/format.ts';
 import { walkTo } from '../geo/engine.ts';
 import { Sheet, Button, Card } from '../ui/index.tsx';
@@ -112,13 +112,20 @@ export function JumpSheet({ node, onClose, onOpen }: { node: NodeView; onClose: 
 export function MenuSheet({ onClose }: { onClose: () => void }) {
   const me = useGame((st) => st.me);
   const [muted, setM] = useState(isMuted());
+  const showRunners = useGame((st) => st.showRunners);
   return (
     <Sheet open onClose={onClose} title={me?.handle ?? 'Runner'} subtitle={me ? `Level ${me.level} · ${me.kind === 'guest' ? 'Guest' : 'Google'} · ${me.mode === 'demo' ? 'Demo Walk' : 'GPS'}` : undefined} testId="menu-sheet">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <Button block variant="gold" onClick={() => openOverlay({ kind: 'credits' })}><Zap size={20} /> Credits & Playground</Button>
-        <Button block onClick={() => openOverlay({ kind: 'bag' })}><Coins size={20} /> Bag</Button>
-        <Button block onClick={() => { window.open('/pulse', '_blank'); }}><Info size={20} /> City Pulse</Button>
-        <Button block variant="ghost" onClick={() => { setMuted(!muted); setM(!muted); }}><Volume2 size={20} /> Sound: {muted ? 'off' : 'on'}</Button>
+      <div className={s.menu}>
+        <Button block variant="gold" onClick={() => openOverlay({ kind: 'credits' })} testId="menu-credits"><Zap size={20} /> Credits & Playground</Button>
+        <div className={s.menuGrid}>
+          <Button block onClick={() => openOverlay({ kind: 'profile' })} testId="menu-profile"><UserRound size={20} /> Profile</Button>
+          <Button block onClick={() => openOverlay({ kind: 'proofs' })} testId="menu-proofs"><ShieldCheck size={20} /> Proofs</Button>
+          <Button block onClick={() => { location.href = '/pulse'; }}><Activity size={20} /> Pulse</Button>
+          <Button block onClick={() => { location.href = '/lab'; }}><FlaskConical size={20} /> Lab</Button>
+        </div>
+        <Button block variant="ghost" onClick={() => { location.href = '/about'; }}><Info size={20} /> About & privacy</Button>
+        <Button block variant="ghost" onClick={() => setShowRunners(!showRunners)} testId="toggle-runners"><Users size={20} /> Other runners on map: {showRunners ? 'on' : 'off'}</Button>
+        <Button block variant="ghost" onClick={() => { setMuted(!muted); setM(!muted); }}>{muted ? <VolumeX size={20} /> : <Volume2 size={20} />} Sound: {muted ? 'off' : 'on'}</Button>
       </div>
     </Sheet>
   );

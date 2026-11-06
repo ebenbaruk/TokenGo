@@ -2,20 +2,36 @@
   position: absolute; inset: 0; z-index: 100; display: flex; flex-direction: column; justify-content: space-between;
   background: #3f8fe6 url('/art/splash.webp') center bottom / cover no-repeat;
   image-rendering: pixelated;
-  padding: calc(var(--safe-top) + 28px) 20px calc(var(--safe-bottom) + 20px);
+  padding: calc(var(--safe-top) + 22px) 18px calc(var(--safe-bottom) + 18px);
   overflow: hidden;
 }
 .top { display: flex; flex-direction: column; align-items: center; gap: 12px; }
-.logo { margin: 0; width: min(88%, 360px); animation: drop .6s var(--ease-pop) both; }
-.logo img { display: block; width: 100%; height: auto; }
-@keyframes drop { from { transform: translateY(-40px) scale(.9); opacity: 0; } }
+/* plaque sombre derrière le logo : contraste net sur le ciel clair */
+.logo {
+  margin: 0; width: min(92%, 380px); padding: 14px 16px 12px;
+  background: var(--navy); border: var(--border); border-radius: var(--radius-l); box-shadow: var(--shadow-hard);
+  animation: drop .5s var(--ease-pop) both;
+}
+.logo img { display: block; width: 100%; height: auto; image-rendering: auto; filter: drop-shadow(0 3px 0 var(--ink)); }
+@keyframes drop { from { transform: translateY(-30px); } }
 .tagline { margin: 0; font-weight: 800; font-size: 17px; color: var(--ink); background: var(--panel); border: var(--border); border-radius: 10px; padding: 6px 12px; box-shadow: var(--shadow-hard); text-align: center; }
-.hero { align-self: center; margin-bottom: -6px; animation: hop 1.2s steps(2) infinite; }
+.hero { position: absolute; top: -78px; left: 50%; translate: -50% 0; animation: hop 1.2s steps(2) infinite; }
 @keyframes hop { 50% { transform: translateY(-8px); } }
 .actions {
-  display: flex; flex-direction: column; gap: 12px; padding: 14px; background: rgba(255,253,246,.94);
+  display: flex; flex-direction: column; gap: 12px; padding: 14px; background: rgba(255,253,246,.96);
   border: var(--border); border-radius: var(--radius-l); box-shadow: var(--shadow-hard); position: relative;
+  animation: rise .3s var(--ease-pop);
 }
-.hero { position: absolute; top: -78px; left: 50%; translate: -50% 0; }
+@keyframes rise { from { transform: translateY(20px); opacity: 0; } }
 .small { margin: 0; text-align: center; font-size: 14px; font-weight: 800; color: var(--ink); }
 .err { background: #ffe1dc; border: var(--border-thin); border-radius: 8px; padding: 8px; font-weight: 800; text-align: center; }
+.google {
+  display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 52px;
+  background: #fff; color: var(--ink); text-decoration: none; font-weight: 800; font-size: 17px;
+  border: var(--border); border-radius: var(--radius-m); box-shadow: var(--shadow-hard);
+}
+.google:active { transform: translate(2px, 2px); box-shadow: var(--shadow-hard-s); }
+.locArt { display: flex; align-items: flex-end; justify-content: center; gap: 10px; height: 84px; }
+.pin { color: var(--berry); fill: var(--sun); margin-bottom: 30px; animation: hop 1s steps(2) infinite; }
+.locTitle { font-size: 24px; text-align: center; }
+.locText { margin: 0; text-align: center; font-weight: 700; }
