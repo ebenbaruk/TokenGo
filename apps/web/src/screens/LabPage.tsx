@@ -12,6 +12,7 @@ import { PageShell } from './PageShell.tsx';
 import { api } from '../lib/api.ts';
 import { Button, Card, Gauge } from '../ui/index.tsx';
 import { LineChart } from '../ui/LineChart.tsx';
+import { makeStory, floodBands } from '../lab/story.ts';
 import { FAMILY_DARK } from '../sprites/index.ts';
 import { fmtInt, fmtUsd } from '../lib/format.ts';
 import type { CityPoint } from '../map/CityMap.tsx';
@@ -27,7 +28,7 @@ const SCEN: { id: Scenario; label: string; hint: string }[] = [
 ];
 const STATUS_COLOR = ['#38b764', '#ef7d57', '#94b0c2'];
 
-interface Run { result: SimResult; merchants: LabMerchantInfo[]; frames: LabFrame[]; ms: number; fromLive: boolean }
+interface Run { result: SimResult; baseline: SimResult | null; merchants: LabMerchantInfo[]; frames: LabFrame[]; ms: number; fromLive: boolean }
 
 function eventText(e: SimEvent): string {
   const who = e.merchantName ?? 'A merchant';
@@ -78,7 +79,7 @@ export default function LabPage() {
       if (m.type === 'progress') setProgress(m.fraction);
       else if (m.type === 'error') { setErr(m.message); setProgress(null); }
       else {
-        setRun({ result: m.result, merchants: m.merchants, frames: m.frames, ms: m.ms, fromLive: m.fromLive });
+        setRun({ result: m.result, baseline: m.baseline, merchants: m.merchants, frames: m.frames, ms: m.ms, fromLive: m.fromLive });
         setProgress(null);
         setFrame(0);
         setPlaying(!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
@@ -120,6 +121,8 @@ export default function LabPage() {
   const endH = (res?.days ?? days) * 24;
   const clockDay = hour >= endH ? res?.days ?? days : Math.floor(hour / 24) + 1;
   const clockH = hour >= endH ? '24:00' : hh(hour % 24);
+  const story = useMemo(() => (res && run?.baseline ? makeStory(res, run.baseline) : null), [res, run?.baseline]);
+  const priceBands = useMemo(() => (res ? floodBands(res) : []), [res]);
   const visibleEvents = (res?.events ?? []).filter((e) => e.hour <= hour).slice(-60).reverse();
 
   return (
@@ -201,6 +204,15 @@ export default function LabPage() {
         <div className={s.colRight}>
           {res ? (
             <>
+              {story ? (
+                <Card testId="lab-story" className={s.story}>
+                  <p className={s.headline} data-testid="lab-headline">{story.headline}</p>
+                  <h2 className={s.h2}>{story.title}</h2>
+                  <LineChart testId="chart-compare" series={story.series} gap={story.gap} marker={story.marker} bands={story.bands}
+                    cursor={cursor} xMax={series.length} xLabel={dayLabel} format={story.format} height={170} />
+                  <small className="dim">Same seed, same {res.players} bots — the only difference is the scenario.</small>
+                </Card>
+              ) : null}
               <div className={s.kpis}>
                 <div><b className="num">{fmtUsd(series[cursor]?.payoutsCum ?? 0)}</b><span>real credits paid</span></div>
                 <div><b className="num">{fmtUsd(series[cursor]?.mainPoolAvail ?? 0, 2)}</b><span>main pool left</span></div>
@@ -209,7 +221,7 @@ export default function LabPage() {
               </div>
               <Card>
                 <h2 className={s.h2}>Prices vs. start</h2>
-                <LineChart testId="chart-prices" cursor={cursor} xMax={series.length} xLabel={dayLabel} format={(n) => `×${n.toFixed(2)}`}
+                <LineChart testId="chart-prices" bands={priceBands} cursor={cursor} xMax={series.length} xLabel={dayLabel} format={(n) => `×${n.toFixed(2)}`}
                   series={FAMILIES.map((f) => {
                     const v0 = series[0]?.avgMid[f] || 1;
                     return { label: FAMILY_INFO[f].name, color: FAMILY_DARK[f], values: series.map((p) => p.avgMid[f] / v0) };

@@ -15,7 +15,7 @@ export interface LabFrame {
 }
 export type LabMessage =
   | { type: 'progress'; fraction: number }
-  | { type: 'done'; result: SimResult; merchants: LabMerchantInfo[]; frames: LabFrame[]; ms: number; fromLive: boolean }
+  | { type: 'done'; result: SimResult; merchants: LabMerchantInfo[]; frames: LabFrame[]; ms: number; fromLive: boolean; baseline: SimResult | null }
   | { type: 'error'; message: string };
 
 const FRAME_HOURS = 2;
@@ -58,9 +58,17 @@ self.onmessage = (ev: MessageEvent<LabRunRequest>) => {
       s.run(chunk);
       capture();
       const now = performance.now();
-      if (now - lastPost > 60) { lastPost = now; post({ type: 'progress', fraction: s.stepIndex / s.totalSteps }); }
+      if (now - lastPost > 60) { lastPost = now; post({ type: 'progress', fraction: (s.stepIndex / s.totalSteps) * (req.scenario === 'baseline' ? 1 : 0.85) }); }
     }
-    post({ type: 'done', result: s.result(), merchants, frames, ms: Math.round(performance.now() - t0), fromLive });
+    // scénario ≠ baseline : même graine, mêmes bots, même départ, sans l'événement → comparaison « avec / sans »
+    let baseline: SimResult | null = null;
+    if (req.scenario !== 'baseline') {
+      const live = fromLive ? { initialMerchants: req.initialMerchants, initialP0: req.initialP0, initialPools: req.initialPools } : {};
+      const b = createSim({ ...base, ...live, scenario: 'baseline' });
+      b.run();
+      baseline = b.result();
+    }
+    post({ type: 'done', baseline, result: s.result(), merchants, frames, ms: Math.round(performance.now() - t0), fromLive });
   } catch (e) {
     post({ type: 'error', message: e instanceof Error ? e.message : String(e) });
   }

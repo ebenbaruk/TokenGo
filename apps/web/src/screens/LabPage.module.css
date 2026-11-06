@@ -39,3 +39,5 @@
 .rules dt { font-family: var(--font-pixel); font-size: 17px; }
 .rules dd { margin: 0; font-size: 14px; }
 .rules code { font-family: var(--font-mono); font-size: 12px; }
+.story { background: #fff6dc; }
+.headline { margin: 0 0 12px; padding: 10px 12px; background: var(--panel); border: var(--border-thin); border-left: 8px solid var(--berry); border-radius: 10px; font-weight: 800; font-size: 16px; line-height: 1.35; }
