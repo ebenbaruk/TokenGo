@@ -1,0 +1,4 @@
+[
+  { "id": "osm:node/247455918", "name": "Le Café Marly", "lat": 48.861643, "lng": 2.33593, "category": "cafe", "affinities": ["deepseek"] },
+  { "id": "osm:node/3195384060", "name": "Delamain", "lat": 48.862908, "lng": 2.336038, "category": "bookshop", "affinities": ["claude"] }
+]

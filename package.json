@@ -1,0 +1,32 @@
+{
+  "name": "tokengo",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n server,web -c blue,magenta \"npm -w @tokengo/server run dev\" \"npm -w @tokengo/web run dev\"",
+    "build": "npm -w @tokengo/web run build",
+    "start": "npm -w @tokengo/server run start",
+    "test": "vitest run",
+    "typecheck": "tsc -p packages/shared && tsc -p apps/server && tsc -p apps/web",
+    "e2e": "playwright test",
+    "sim": "node packages/shared/src/economy/sim-cli.ts",
+    "build-world": "node apps/server/scripts/build-world.ts",
+    "check:secrets": "node scripts/check-secrets.ts",
+    "verify": "node scripts/verify.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.0",
+    "@types/node": "^26.6.6",
+    "concurrently": "^10.0.6",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  }
+}

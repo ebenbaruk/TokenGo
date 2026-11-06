@@ -1,0 +1,13 @@
+{
+  "name": "@tokengo/shared",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*"
+  },
+  "dependencies": {
+    "@noble/hashes": "^2.4.0",
+    "h3-js": "^4.5.0"
+  }
+}

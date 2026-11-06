@@ -1,0 +1,12 @@
+[
+  { "id": "forge:tour-eiffel", "name": "Tour Eiffel", "lat": 48.85665, "lng": 2.29700, "theme": ["gpt", "gemini"] },
+  { "id": "forge:louvre", "name": "Louvre — Pyramide", "lat": 48.86160, "lng": 2.33400, "theme": ["gemini", "claude"] },
+  { "id": "forge:notre-dame", "name": "Notre-Dame — Parvis", "lat": 48.85350, "lng": 2.34760, "theme": ["claude", "gemini"] },
+  { "id": "forge:sacre-coeur", "name": "Sacré-Cœur", "lat": 48.88590, "lng": 2.34300, "theme": ["deepseek", "gemini"] },
+  { "id": "forge:pantheon", "name": "Panthéon", "lat": 48.84630, "lng": 2.34460, "theme": ["claude"] },
+  { "id": "forge:arc-de-triomphe", "name": "Arc de Triomphe", "lat": 48.87355, "lng": 2.29570, "theme": ["gpt"] },
+  { "id": "forge:bastille", "name": "Bastille — Colonne de Juillet", "lat": 48.85260, "lng": 2.36990, "theme": ["deepseek", "gpt"] },
+  { "id": "forge:pompidou", "name": "Centre Pompidou — Piazza", "lat": 48.86060, "lng": 2.35090, "theme": ["qwen", "claude"] },
+  { "id": "forge:station-f", "name": "Station F", "lat": 48.83430, "lng": 2.37060, "theme": ["qwen", "deepseek"] },
+  { "id": "forge:bnf", "name": "BnF François-Mitterrand", "lat": 48.83450, "lng": 2.37650, "theme": ["claude", "qwen"] }
+]

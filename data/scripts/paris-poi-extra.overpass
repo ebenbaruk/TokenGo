@@ -1,0 +1,15 @@
+[out:json][timeout:180];
+area["boundary"="administrative"]["admin_level"="8"]["name"="Paris"]["ref:INSEE"="75056"]->.p;
+(
+  nwr["amenity"~"^(cafe|bar|marketplace)$"]["name"]["wikidata"](area.p);
+  nwr["amenity"~"^(cafe|bar|marketplace)$"]["name"]["opening_hours"](area.p);
+  nwr["amenity"="restaurant"]["name"]["wikidata"](area.p);
+  nwr["shop"~"^(books|bakery|computer|electronics)$"]["name"](area.p);
+  nwr["amenity"~"^(university|college)$"]["name"](area.p);
+  nwr["office"="coworking"]["name"](area.p);
+  nwr["amenity"="coworking_space"]["name"](area.p);
+  nwr["leisure"="garden"]["name"](area.p);
+  nwr["tourism"="gallery"]["name"](area.p);
+  nwr["amenity"="theatre"]["name"](area.p);
+);
+out center tags;
