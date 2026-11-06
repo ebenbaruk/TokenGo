@@ -7,7 +7,7 @@ import { existsSync } from 'node:fs';
 import { z } from 'zod';
 import { FAMILIES, RESERVE_PARTITION, type PulseEvent } from '@tokengo/shared';
 import type { Config } from './config.ts';
-import { openDb } from './db.ts';
+import { openDb, type DB } from './db.ts';
 import { GameError, type Ctx } from './game/context.ts';
 import { createBus } from './game/bus.ts';
 import { loadWorld } from './game/world.ts';
@@ -19,8 +19,13 @@ import { deliver, executeTrade, makeQuote, rescue, viewMerchant } from './game/m
 import { compile, viewForge } from './game/forge.ts';
 import { creditsView, playground, revealKey } from './game/creditsView.ts';
 import { pulseView } from './game/pulse.ts';
-import { seedMerchants } from './game/merchants.ts';
+import { getMerchant, seedMerchants } from './game/merchants.ts';
+import { greetingFor } from './game/lines.ts';
+import type { NpcBrain } from './nearai/brain.ts';
 import { kvSet } from './db.ts';
+import { proofsView, startChain } from './chain/chain.ts';
+import { chainStatus } from './chain/settler.ts';
+import type { ChainClient } from './chain/near.ts';
 
 const SESSION_TTL = 30 * 24 * 3600_000;
 const WEB_DIST = new URL('../../web/dist/', import.meta.url).pathname;
@@ -29,16 +34,25 @@ declare module 'fastify' {
   interface FastifyRequest { userId: string | null }
 }
 
-export interface AppOptions { now?: () => number; credits?: CreditsProvider }
+export interface AppOptions {
+  now?: () => number;
+  /** Fournisseur de crédits, ou fabrique recevant la base (le réel persiste son refresh token dans kv). */
+  credits?: CreditsProvider | ((db: DB) => CreditsProvider);
+  /** Cerveau LLM des marchands (salutations contextuelles) — construit une fois le ctx prêt. */
+  npc?: (ctx: Ctx) => NpcBrain | null;
+  /** Client de chaîne injecté (tests : client factice) ; sinon client near-kit si `cfg.chain`. */
+  chainClient?: ChainClient;
+}
 
 export async function buildApp(cfg: Config, opts: AppOptions = {}) {
   const now = opts.now ?? Date.now;
   const db = openDb(cfg.DB_PATH);
   const world = loadWorld();
   const totalReserve = Object.values(RESERVE_PARTITION).reduce((s, x) => s + x, 0);
-  const credits = opts.credits ?? simulatedCredits(totalReserve);
+  const credits = typeof opts.credits === 'function' ? opts.credits(db) : opts.credits ?? simulatedCredits(totalReserve);
   const ctx: Ctx = { db, cfg, world, bus: createBus(db, now), credits, now };
   seedMerchants(ctx);
+  const npc = opts.npc?.(ctx) ?? null;
 
   const app = Fastify({
     logger: cfg.NODE_ENV === 'test' ? false : { level: 'info', redact: ['req.headers.cookie', 'req.headers.authorization'] },
@@ -46,6 +60,7 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
     bodyLimit: 32 * 1024,
   });
   app.decorateRequest('userId', null);
+  const stopChain = startChain(ctx, opts.chainClient, { log: (level, msg) => app.log[level]({ chain: true }, msg) });
   await app.register(cookie, { secret: cfg.SESSION_SECRET });
   await app.register(rateLimit, {
     global: true,
@@ -135,6 +150,13 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
 
   const Id = z.object({ id: z.string().max(100) });
   app.get('/api/merchant/:id', async (req) => viewMerchant(ctx, auth(req), Id.parse(req.params).id));
+  app.get('/api/merchant/:id/greet', rl(30), async (req) => {
+    const userId = auth(req);
+    const cur = getMerchant(ctx, Id.parse(req.params).id);
+    if (!cur) throw new GameError('NOT_FOUND', 'No merchant here.', 404);
+    const llm = npc && cur.m.status === 'open' ? await npc.greet(cur.m, userId).catch(() => null) : null;
+    return { greeting: llm ?? greetingFor(cur.m, userId, now()), source: llm ? 'llm' : 'lines' };
+  });
   app.post('/api/merchant/:id/quote', rl(60), async (req) => {
     const b = z.object({ side: z.enum(['sell', 'buy']), family: z.enum(FAMILIES), qty: z.number().int() }).parse(req.body);
     return makeQuote(ctx, auth(req), Id.parse(req.params).id, b);
@@ -165,6 +187,8 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
 
   // ── public ──
   app.get('/api/pulse', rl(60), async () => pulseView(ctx));
+  app.get('/api/chain/status', rl(60), async () => chainStatus(ctx));
+  app.get('/api/proofs', rl(30), async (req) => proofsView(ctx, auth(req)));
   const sse = (req: FastifyRequest, reply: FastifyReply, subscribe: (fn: (e: PulseEvent) => void) => () => void) => {
     reply.raw.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
     reply.raw.write(': hello\n\n');
@@ -188,7 +212,8 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
 
   app.get('/healthz', async () => {
     db.prepare('SELECT 1').get();
-    return { ok: true, simulatedCredits: credits.simulated, chain: cfg.chain };
+    const cs = chainStatus(ctx);
+    return { ok: true, simulatedCredits: credits.simulated, chain: cs.enabled, chainPending: cs.pending + cs.inFlight, chainLagMs: cs.lagMs };
   });
 
   if (existsSync(WEB_DIST)) {
@@ -199,6 +224,6 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
     });
   }
 
-  app.addHook('onClose', async () => db.close());
-  return { app, ctx };
+  app.addHook('onClose', async () => { await stopChain(); db.close(); });
+  return { app, ctx, npc };
 }

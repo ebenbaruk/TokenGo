@@ -3,6 +3,7 @@ import type { Config } from '../config.ts';
 import type { World } from './world.ts';
 import type { Bus } from './bus.ts';
 import type { CreditsProvider } from './credits.ts';
+import type { Settler } from '../chain/settler.ts';
 
 /** Tout ce dont la logique de jeu a besoin. `now` est injectable pour les tests. */
 export interface Ctx {
@@ -12,6 +13,8 @@ export interface Ctx {
   bus: Bus;
   credits: CreditsProvider;
   now: () => number;
+  /** Settler on-chain (absent quand la chaîne est désactivée : les ops restent `pending`). */
+  chain?: Settler | undefined;
 }
 
 export class GameError extends Error {

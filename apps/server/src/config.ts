@@ -31,6 +31,7 @@ const Env = z.object({
   NEAR_CONTRACT_ID: z.string().optional(),
   NEAR_OPERATOR_ID: z.string().optional(),
   NEAR_OPERATOR_KEY: z.string().optional(),
+  NEAR_ACCOUNT_PREFIX: z.string().regex(/^([a-z0-9]+-)?$/).optional(), // défaut : '' en prod, 'dev-' sinon (chain/accounts.ts)
   FEATURE_CHAIN: bool.optional(),
   JOBS: bool.default(true),
 });

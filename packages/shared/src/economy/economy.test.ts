@@ -6,7 +6,7 @@ import {
   driftP0, equivalences, explainPrice, fallbackPolicy, forgePayout, hourlyTick, initialP0, initialPools, isSolvent,
   levelForXp, makeContract, missingFor, newMoveState, nextCombo, poolAvail, quote, recipesFor, rescue, reserveHealth,
   resolveCatch, spawnsForCell, familyWeights, unitBuyPrice, unitSellPrice,
-  FAMILY_INFO, FORGE, MERCHANT, RESERVE, TIERS, usd, xpToNext, type MerchantState, type Quote,
+  BASE_TARGET, FAMILY_INFO, FORGE, MERCHANT, P0_DRIFT, RESERVE, TIERS, usd, xpToNext, type MerchantState, type Quote,
 } from './index.ts';
 
 const SECRET = 'test-secret';
@@ -95,7 +95,8 @@ describe('merchant life', () => {
   });
 
   it('bankruptcy: closing → closed after 2 h → rescue → reopened', () => {
-    let m = merchant({ flux: 140, lastTradeAt: null });
+    // stock = demande de base de la ville : ni export (qui renflouerait la caisse) ni import
+    let m = merchant({ flux: 140, lastTradeAt: null, stock: { ...BASE_TARGET } });
     let r = hourlyTick(m, p0, 0);
     m = r.m;
     expect(m.status).toBe('closing');
@@ -129,7 +130,7 @@ describe('merchant life', () => {
     let p = initialP0();
     const flooded = Array.from({ length: 10 }, (_, i) => ({ ...createMerchant(SECRET, `n${i}`, []), stock: { deepseek: 1000, qwen: 1000, gemini: 1000, gpt: 1000, claude: 1000 } }));
     for (let i = 0; i < 500; i++) p = driftP0(p, flooded);
-    for (const f of FAMILIES) expect(p[f]).toBeCloseTo(FAMILY_INFO[f].p0 * 0.5, 5);
+    for (const f of FAMILIES) expect(p[f]).toBeCloseTo(FAMILY_INFO[f].p0 * P0_DRIFT.minMult, 5);
   });
 });
 
@@ -177,7 +178,8 @@ describe('forge & reserve', () => {
     expect(forgePayout({ poolAvail: usd(4.5), weight: 8, playerDayUsed: usd(0.2), globalDayUsed: 0, globalDayBase: usd(4.5) }))
       .toEqual({ amount: usd(0.05), reason: 'player-cap' });
     expect(forgePayout({ poolAvail: usd(0.1), weight: 1, playerDayUsed: 0, globalDayUsed: 0, globalDayBase: usd(4.5) }).reason).toBe('below-min');
-    expect(forgePayout({ poolAvail: usd(4.5), weight: 3, playerDayUsed: 0, globalDayUsed: usd(0.44), globalDayBase: usd(4.5) }).amount).toBe(usd(0.01));
+    const globalCap = Math.floor(usd(4.5) * FORGE.capGlobalDayRatio);
+    expect(forgePayout({ poolAvail: usd(4.5), weight: 3, playerDayUsed: 0, globalDayUsed: globalCap - usd(0.01), globalDayBase: usd(4.5) }).amount).toBe(usd(0.01));
   });
 
   it('pool never hits zero under repeated compiles (solvable by construction)', () => {
@@ -234,7 +236,7 @@ describe('spawns', () => {
       for (const s of spawnsForCell(SECRET, cell, w, { richness: 6, affinities: [] }, 1)) { counts[s.family] = (counts[s.family] ?? 0) + 1; total++; }
     }
     for (const f of FAMILIES) expect(Math.abs(counts[f]! / total - FAMILY_INFO[f].spawnWeight / 100)).toBeLessThan(0.02);
-    expect(familyWeights(['gemini'], 1).gemini).toBe(51);
+    expect(familyWeights(['gemini'], 1).gemini).toBe(FAMILY_INFO.gemini.spawnWeight * 3);
     expect(familyWeights([], 0.3).claude).toBeCloseTo(1.2);
     expect(total / 20_000).toBeGreaterThan(1.5); // λ = 2.3, plafonné à 3
   });

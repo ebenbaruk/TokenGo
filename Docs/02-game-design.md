@@ -34,9 +34,9 @@ La rareté en jeu suit **le prix réel** des modèles : plus un modèle coûte c
 
 | id token | Nom UI | Rareté | Couleur (token design) | Poids spawn base | Prix réf. P0 (ƒ) | Affinités de lieu |
 |---|---|---|---|---|---|---|
-| `shard:deepseek` | DeepSeek Shard | Common | `--shard-deepseek` cyan | 42 | 10 | partout, commerces, rues denses |
-| `shard:qwen` | Qwen Shard | Common | `--shard-qwen` violet | 28 | 14 | campus tech, coworkings, Station F, marchés |
-| `shard:gemini` | Gemini Shard | Uncommon | `--shard-gemini` bleu | 17 | 26 | parcs, jardins, eau (Seine, canaux), musées de sciences |
+| `shard:deepseek` | DeepSeek Shard | Common | `--shard-deepseek` cyan | 41 | 10 | partout, commerces, rues denses |
+| `shard:qwen` | Qwen Shard | Common | `--shard-qwen` violet | 27 | 14 | campus tech, coworkings, Station F, marchés |
+| `shard:gemini` | Gemini Shard | Uncommon | `--shard-gemini` bleu | 19 | 26 | parcs, jardins, eau (Seine, canaux), musées de sciences |
 | `shard:gpt` | GPT Shard | Rare | `--shard-gpt` vert-lime | 9 | 48 | gares, quartiers d'affaires, grands axes |
 | `shard:claude` | Claude Shard | Epic | `--shard-claude` ambre | 4 | 95 | bibliothèques, universités, librairies, théâtres |
 
@@ -72,7 +72,7 @@ Spawns : chaque cellule H3 (≈ 175 m) génère 0–3 éclats par **fenêtre de 
 
 ### Boucle 5 minutes — « Relais, marchands, contrats »
 - **Relay — Sync** (à ≤ 40 m, recharge **5 min** par joueur et par relay) : animation de « synchronisation » (disque qui tourne,
-  swipe pour lancer) → **5–10 ƒ** + **50 % de chance d'1 éclat** tiré selon l'affinité du lieu + 25 XP. (Les captures restent la source principale d'éclats.) Première visite d'un relay : +20 XP « New node ».
+  swipe pour lancer) → **3–7 ƒ** + **50 % de chance d'1 éclat** tiré selon l'affinité du lieu + 25 XP. (Les captures restent la source principale d'éclats.) Première visite d'un relay : +20 XP « New node ».
 - **Market — Trade** (à ≤ 40 m) : écran marchand (voir `09-ux-ui-design.md` §Écran Marchand) :
   - Portrait + nom + humeur du marchand (une ligne générée par son IA).
   - Pour chaque famille : prix d'**achat** (il te paie) / prix de **vente** (tu paies), stock, flèche de tendance 24 h.

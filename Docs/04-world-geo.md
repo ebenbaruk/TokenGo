@@ -24,7 +24,7 @@ Si Overpass refuse durablement : construire les marchands à partir des POI déj
 2. Dédupliquer : même nom normalisé à < 50 m → un seul.
 3. Priorité : gares/métro > attractions/musées (wikidata d'abord) > parcs/bibliothèques/universités > reste.
 4. Sélection gloutonne avec distance minimale **170 m** (cible ≈ 950 Relays pour Paris, ~9/km²).
-5. **Markets** : parmi les POI commerciaux/culturels (cafés, librairies, marchés, galeries, théâtres), sélection gloutonne à **450 m**
+5. **Markets** : parmi les POI commerciaux/culturels (cafés, librairies, marchés, galeries, théâtres), sélection gloutonne à **600 m**
    → cible ≈ 120–160 marchands. Un Market ne peut pas être à < 60 m d'un Relay (sinon on retire le Relay).
 6. **Forges** : `data/paris/forges.json` (éditorial, 10 entrées : id, nom, coordonnées précises de l'esplanade accessible, thème).
 7. Pour chaque Node : `id` stable = `osm:<type>/<id>` (Forges : `forge:<slug>`), `name`, `lat`, `lng`, `kind`, `h3_r9`, `district`

@@ -7,6 +7,7 @@ import {
 import { kvGet, kvSet } from '../db.ts';
 import type { Ctx } from './context.ts';
 import { merchantLedger } from './players.ts';
+import { accountPrefix, merchantNearId } from '../chain/accounts.ts';
 import { DEMO_START } from './world.ts';
 import { greetingFor } from './lines.ts';
 
@@ -172,7 +173,7 @@ export function merchantView(ctx: Ctx, m: MerchantState, node: WorldNode, userId
 }
 
 export const merchantNearAccount = (ctx: Ctx, merchantId: string) =>
-  `${merchantId}.${ctx.cfg.NEAR_CONTRACT_ID ?? 'tokengo.testnet'}`;
+  merchantNearId(merchantId, ctx.cfg.NEAR_CONTRACT_ID ?? 'tokengo.testnet', accountPrefix(ctx.cfg));
 
 /** Comparateur : meilleurs prix vus par le joueur chez d'autres marchands il y a < 2 h. */
 function bestKnown(ctx: Ctx, userId: string, exceptId: string, pos: { lat: number; lng: number }): MerchantView['bestKnown'] {

@@ -6,12 +6,13 @@
     "@fastify/cookie": "^11.1.5",
     "@fastify/rate-limit": "^11.2.2",
     "@fastify/static": "^10.1.10",
+    "@noble/curves": "^2.4.0",
+    "@tokengo/shared": "*",
     "better-sqlite3": "^13.0.3",
     "fastify": "^5.12.8",
     "h3-js": "^4.5.0",
     "near-kit": "^0.20.2",
-    "zod": "^4.6.7",
-    "@tokengo/shared": "*"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0"

@@ -36,7 +36,9 @@ export const SIM_BOT = {
   tapSpread: 0.35,           // écart des taps du mini-jeu : uniforme dans ±35 % (≈ 92 % de captures Common)
   sessionsPerDay: 2,
   sessionSteps: 4,           // 2 sessions de 40 min par jour et par joueur
-  sellAtShards: 6,           // un walker va vendre dès qu'il porte 6 éclats
+  sellAtShards: 6,           // un walker va vendre dès qu'il porte 6 éclats hors recette
+  walkerMaxBuy: 3,           // … et achète au plus 3 éclats manquants pour sa Spark
+  forgerMaxBuy: 4,           // un forger achète jusqu'à 4 éclats manquants d'un coup
   startFlux: { walker: 50, arbitrageur: 400, forger: 150, patron: 200, flooder: 100 } as Record<BotKind, number>,
   homeRadiusM: 2000,
   arbRadiusM: 1500,
@@ -47,8 +49,9 @@ export const SIM_BOT = {
   prismShare: 0.4,           // part des forgerons qui visent Prism (les autres Spark)
   forgeDemandRadiusM: 2000,
   floodFamily: 'deepseek' as Family,
-  floodStartDay: 1,          // le flood commence au 2e jour (on voit la cassure)
-  floodCatchMult: 4,
+  floodStartDay: 1,          // le flood commence au 2e jour (on voit la cassure)…
+  floodEndDay: 4,            // … et s'arrête après le 4e (on voit la reprise)
+  floodCatchMult: 8,
   floodSellAt: 10,
   floodShare: 0.15,
 };
@@ -58,21 +61,25 @@ export const DEFAULT_MIX: Record<BotKind, number> = { walker: 0.5, arbitrageur: 
 
 // ───────────────────────────── Surcharge des règles (expériences) ─────────────────────────────
 /** Surcharge temporaire de constantes de rules.ts (Economy Lab / réglage). rules.ts n'est jamais modifié. */
+type Loose<T> = { [K in keyof T]?: T[K] extends number ? number : T[K] };
 export interface RulesOverride {
-  PRICING?: Partial<typeof R.PRICING>;
-  MERCHANT?: Partial<typeof R.MERCHANT>;
-  FORGE?: Partial<typeof R.FORGE>;
-  RELAY?: Partial<typeof R.RELAY>;
-  P0_DRIFT?: Partial<typeof R.P0_DRIFT>;
-  CONTRACT?: Partial<typeof R.CONTRACT>;
+  PRICING?: Loose<typeof R.PRICING>;
+  MERCHANT?: Loose<typeof R.MERCHANT>;
+  FORGE?: Loose<typeof R.FORGE>;
+  RELAY?: Loose<typeof R.RELAY>;
+  P0_DRIFT?: Loose<typeof R.P0_DRIFT>;
+  CONTRACT?: Loose<typeof R.CONTRACT>;
   BASE_TARGET?: Partial<Record<Family, number>>;
   TIERS?: Partial<Record<Tier, R.TierRule>>;
   INITIAL_TREASURY?: readonly [number, number];
   INITIAL_STOCK_RATIO?: readonly [number, number];
+  ARCHETYPE_BIAS?: Partial<Record<keyof typeof R.ARCHETYPE_BIAS, { spread: number; targetMult: number }>>;
+  AGENT_BOUNDS?: Loose<typeof R.AGENT_BOUNDS>;
 }
 const OVERRIDABLE = {
   PRICING: R.PRICING, MERCHANT: R.MERCHANT, FORGE: R.FORGE, RELAY: R.RELAY, P0_DRIFT: R.P0_DRIFT, CONTRACT: R.CONTRACT,
   BASE_TARGET: R.BASE_TARGET, TIERS: R.TIERS, INITIAL_TREASURY: R.INITIAL_TREASURY, INITIAL_STOCK_RATIO: R.INITIAL_STOCK_RATIO,
+  ARCHETYPE_BIAS: R.ARCHETYPE_BIAS, AGENT_BOUNDS: R.AGENT_BOUNDS,
 } as unknown as Record<string, Record<string, unknown>>;
 
 /** Exécute fn avec les constantes surchargées, puis restaure (même en cas d'erreur). */
@@ -131,7 +138,7 @@ export interface SimEvent {
   hour: number;              // heures depuis le début
   day: number;               // 1..days
   hourOfDay: number;
-  kind: 'closing' | 'closed' | 'reopened' | 'rescued' | 'reserve-refill' | 'flood-start';
+  kind: 'closing' | 'closed' | 'reopened' | 'rescued' | 'reserve-refill' | 'flood-start' | 'flood-end';
   merchantId?: string;
   merchantName?: string;
   detail?: string;
@@ -174,7 +181,7 @@ export interface SimSnapshot {
   mainPoolAvail: number;
   payoutsCum: number;
   last: SeriesPoint | undefined;
-  merchants: { id: string; name: string; lat: number; lng: number; status: MerchantState['status']; flux: number }[];
+  merchants: { id: string; name: string; lat: number; lng: number; status: MerchantState['status']; flux: number; stock: Record<Family, number> }[];
   bots: { lat: number; lng: number; kind: BotKind; flux: number; shards: number }[];
 }
 
@@ -302,7 +309,7 @@ function buildSim(opts: SimOptions): Sim {
     return {
       kind, node: start, home: start, prev: -1, flux: bp.startFlux[kind], inv: zeroInv(), travel: null,
       active: new Uint8Array(STEPS_PER_DAY), lastSync: new Map(), payouts: [],
-      tier: scenario === 'everyone-aura' ? 'aura' : rng() < bp.prismShare ? 'prism' : 'spark',
+      tier: scenario === 'everyone-aura' && kind === 'forger' ? 'aura' : kind === 'forger' && rng() < bp.prismShare ? 'prism' : 'spark',
       forge: nearestForge[start]!, shopAfter: 0, patronUntil: new Map(),
     };
   });
@@ -367,6 +374,7 @@ function buildSim(opts: SimOptions): Sim {
       pushEvent('reserve-refill', undefined, '+$5 Main pool');
     }
     if (scenario === 'flood-deepseek' && day === bp.floodStartDay) pushEvent('flood-start', undefined, `${FAMILY_INFO[bp.floodFamily].name} flood`);
+    if (scenario === 'flood-deepseek' && day === bp.floodEndDay) pushEvent('flood-end', undefined, `${FAMILY_INFO[bp.floodFamily].name} flood ends`);
     fluxPlayersDaily.push(bots.reduce((s, b) => s + b.flux, 0));
     globalDayUsed = 0;
     globalDayBase = poolAvail(pools.main);
@@ -420,7 +428,7 @@ function buildSim(opts: SimOptions): Sim {
     maxClosedFrac = Math.max(maxClosedFrac, pt.closed / n);
     merchants.forEach((m, mi) => { if (m.status !== 'open') struggled.add(mi); });
     const hour = pt.hour;
-    if (hour > (days * 24) / 2) {
+    if (hour > (days * 24) / 2 && pt.closed < merchants.length) {
       for (const f of FAMILIES) {
         ratioSamples.push(pt.avgMid[f] / pt.p0[f]);
         ratioInitSamples.push(pt.avgMid[f] / FAMILY_INFO[f].p0);
@@ -537,7 +545,8 @@ function buildSim(opts: SimOptions): Sim {
       }
     }
     const cell = cells[node.h3] ?? { richness: 0, affinities: node.affinities };
-    const flooding = b.kind === 'flooder' && Math.floor(stepIdx / STEPS_PER_DAY) >= bp.floodStartDay;
+    const today = Math.floor(stepIdx / STEPS_PER_DAY);
+    const flooding = b.kind === 'flooder' && today >= bp.floodStartDay && today < bp.floodEndDay;
     let lambda = spawnLambda(cell.richness) * bp.catchFraction * Math.min(3, Math.max(0.3, d / bp.avgHopM));
     if (flooding) lambda *= bp.floodCatchMult;
     let n = 0;
@@ -601,8 +610,46 @@ function buildSim(opts: SimOptions): Sim {
     return recipes[b.forge]!.find((r) => r.tier === b.tier)!;
   }
 
+  /** Joueur qui forge (walker, forger ; patron et flooder hors de leur rôle) : garde sa recette, vend le reste, achète ce qui manque. */
+  function forgePlan(b: Bot): Travel | null {
+    // les vrais joueurs veulent forger : le walker garde les éclats de sa recette Spark, vend le reste,
+    // achète au plus walkerMaxBuy éclats manquants ; le forger vise Spark/Prism et achète jusqu'à forgerMaxBuy manquants.
+    const walker = b.kind !== 'forger';
+    const maxBuy = walker ? bp.walkerMaxBuy : bp.forgerMaxBuy;
+    const sellAt = walker ? bp.sellAtShards : 8;
+    const r = recipeOf(b);
+    const miss = missingFor(r.needs, b.inv);
+    const nMiss = recipeSize(miss);
+    const surplus = FAMILIES.reduce((s, f) => s + Math.max(0, b.inv[f] - (r.needs[f] ?? 0)), 0);
+    if (nMiss === 0 && b.flux >= r.fee) {
+      const to = forgeNodes[b.forge]!;
+      const d = dist(b.node, to);
+      return { to, left: Math.max(60, d), dist: d, action: 'compile' };
+    }
+    if (stepIdx >= b.shopAfter) {
+      const est = (Object.entries(miss) as [Family, number][]).reduce((s, [f, q]) => s + q * p0[f] * 1.3, 0);
+      const canBuy = nMiss > 0 && nMiss <= maxBuy && b.flux >= r.fee + est;
+      if (canBuy || surplus >= sellAt || (nMiss === 0 && surplus > 0)) {
+        let best = -1;
+        let bs = -Infinity;
+        let seen = 0;
+        for (const x of marketsByDist[b.node]!) {
+          const m = merchants[x.i]!;
+          if (m.status !== 'open') continue;
+          let s = -x.d / 500;
+          for (const [f, q] of Object.entries(miss) as [Family, number][]) {
+            if (!(m.contract && m.contract.family === f)) s += Math.min(q, m.stock[f]);
+          }
+          if (s > bs) { bs = s; best = x.i; }
+          if (++seen >= 6) break;
+        }
+        if (best >= 0) return goMarket(b, best, 'shop');
+      }
+    }
+    return hop(b);
+  }
+
   function plan(b: Bot): Travel | null {
-    const now = nowOf(stepIdx);
     const day = Math.floor(stepIdx / STEPS_PER_DAY);
     switch (b.kind) {
       case 'arbitrageur': {
@@ -613,38 +660,9 @@ function buildSim(opts: SimOptions): Sim {
         const mi = nearestOpen(b);
         return mi >= 0 ? goMarket(b, mi, 'arb') : null;
       }
-      case 'forger': {
-        const r = recipeOf(b);
-        const miss = missingFor(r.needs, b.inv);
-        const nMiss = recipeSize(miss);
-        const surplus = FAMILIES.reduce((s, f) => s + Math.max(0, b.inv[f] - (r.needs[f] ?? 0)), 0);
-        if (nMiss === 0 && b.flux >= r.fee) {
-          const to = forgeNodes[b.forge]!;
-          const d = dist(b.node, to);
-          return { to, left: Math.max(60, d), dist: d, action: 'compile' };
-        }
-        if (stepIdx >= b.shopAfter) {
-          const est = (Object.entries(miss) as [Family, number][]).reduce((s, [f, q]) => s + q * p0[f] * 1.3, 0);
-          const canBuy = nMiss > 0 && nMiss <= 4 && b.flux >= r.fee + est;
-          if (canBuy || surplus >= 8 || (nMiss === 0 && surplus > 0)) {
-            let best = -1;
-            let bs = -Infinity;
-            let seen = 0;
-            for (const x of marketsByDist[b.node]!) {
-              const m = merchants[x.i]!;
-              if (m.status !== 'open') continue;
-              let s = -x.d / 500;
-              for (const [f, q] of Object.entries(miss) as [Family, number][]) {
-                if (!(m.contract && m.contract.family === f)) s += Math.min(q, m.stock[f]);
-              }
-              if (s > bs) { bs = s; best = x.i; }
-              if (++seen >= 6) break;
-            }
-            if (best >= 0) return goMarket(b, best, 'shop');
-          }
-        }
-        return hop(b);
-      }
+      case 'walker':
+      case 'forger':
+        return forgePlan(b);
       case 'patron': {
         if (b.flux >= MERCHANT.rescueMin + bp.patronKeep) {
           for (const x of marketsByDist[b.node]!) {
@@ -652,10 +670,11 @@ function buildSim(opts: SimOptions): Sim {
             if (merchants[x.i]!.status !== 'open') return goMarket(b, x.i, 'rescue');
           }
         }
-        break;
+        return forgePlan(b);
       }
       case 'flooder': {
-        if (day >= bp.floodStartDay && b.inv[bp.floodFamily] >= bp.floodSellAt) {
+        if (day < bp.floodStartDay || day >= bp.floodEndDay) return forgePlan(b);
+        if (b.inv[bp.floodFamily] >= bp.floodSellAt) {
           // le marchand voisin qui paie le mieux la famille inondée
           let best = -1;
           let bpx = 0;
@@ -675,12 +694,11 @@ function buildSim(opts: SimOptions): Sim {
       default:
         break;
     }
-    // walker (et patron/flooder par défaut)
+    // flooder pendant le flood : vend tout au plus proche
     if (invSize(b.inv) >= bp.sellAtShards) {
       const mi = nearestOpen(b);
       if (mi >= 0 && marketNodes[mi] !== b.node) return goMarket(b, mi, 'sell');
     }
-    void now;
     return hop(b);
   }
 
@@ -720,7 +738,9 @@ function buildSim(opts: SimOptions): Sim {
     const r = recipeOf(b);
     sellAll(b, mi, now, r.needs);
     const miss = missingFor(r.needs, b.inv);
-    for (const [f, q] of Object.entries(miss) as [Family, number][]) buy(b, mi, f, q, b.flux - r.fee, now);
+    if (recipeSize(miss) <= (b.kind === 'forger' ? bp.forgerMaxBuy : bp.walkerMaxBuy)) {
+      for (const [f, q] of Object.entries(miss) as [Family, number][]) buy(b, mi, f, q, b.flux - r.fee, now);
+    }
     b.shopAfter = stepIdx + 2;
   }
 
@@ -818,7 +838,7 @@ function buildSim(opts: SimOptions): Sim {
       step: stepIdx, hour: stepIdx / STEPS_PER_HOUR, done: stepIdx >= totalSteps, p0: { ...p0 }, reserveHealth: health,
       mainPoolAvail: poolAvail(pools.main), payoutsCum, last: series[series.length - 1],
       merchants: merchants.map((m, mi) => ({
-        id: m.id, name: m.name, lat: nodes[marketNodes[mi]!]!.lat, lng: nodes[marketNodes[mi]!]!.lng, status: m.status, flux: m.flux,
+        id: m.id, name: m.name, lat: nodes[marketNodes[mi]!]!.lat, lng: nodes[marketNodes[mi]!]!.lng, status: m.status, flux: m.flux, stock: { ...m.stock },
       })),
       bots: bots.map((b) => ({ lat: nodes[b.node]!.lat, lng: nodes[b.node]!.lng, kind: b.kind, flux: b.flux, shards: invSize(b.inv) })),
     };
@@ -832,6 +852,9 @@ function buildSim(opts: SimOptions): Sim {
       health: healthChecks({
         fluxPlayersDaily, ratioSamples, ratioInitSamples, gapSamples,
         struggled: [...struggled].filter((i) => i !== seededIdx).length, merchants: merchants.length, maxClosedFrac,
+        p0MinRatio: Math.min(...series.flatMap((p) => FAMILIES.map((f) => p.p0[f] / FAMILY_INFO[f].p0))),
+        p0MaxRatio: Math.max(...series.flatMap((p) => FAMILIES.map((f) => p.p0[f] / FAMILY_INFO[f].p0))),
+        poolStart: series[0]!.mainPoolAvail, poolEnd: last.mainPoolAvail, days,
       }),
     };
   }
@@ -853,6 +876,7 @@ const pct = (x: number, d = 1) => `${(x * 100).toFixed(d)} %`;
 export function healthChecks(i: {
   fluxPlayersDaily: number[]; ratioSamples: number[]; ratioInitSamples: number[]; gapSamples: number[];
   struggled: number; merchants: number; maxClosedFrac: number;
+  p0MinRatio: number; p0MaxRatio: number; poolStart: number; poolEnd: number; days: number;
 }): HealthCheck[] {
   const F = i.fluxPlayersDaily;
   const days = F.length - 1;
@@ -866,8 +890,10 @@ export function healthChecks(i: {
   const r0Max = i.ratioInitSamples.length ? Math.max(...i.ratioInitSamples) : 1;
   const gap = i.gapSamples.length ? i.gapSamples.reduce((s, x) => s + x, 0) / i.gapSamples.length : 0;
   const struggling = i.merchants ? i.struggled / i.merchants : 0;
+  const drain = i.poolStart > 0 ? 1 - Math.max(0, i.poolEnd / i.poolStart) ** (7 / i.days) : 0;
   return [
-    { name: 'Player Flux growth / day (steady state)', value: growth, display: pct(growth), target: '< 5 %', pass: growth < 0.05 },
+    // cible relâchée de 5 % à 10 %/jour (Docs/03 §8) : les walkers thésaurisent une partie de leurs gains
+    { name: 'Player Flux growth / day (steady state)', value: growth, display: pct(growth), target: '< 10 %', pass: growth < 0.1 },
     {
       name: 'Avg merchant mid / P0', value: Math.max(rMax / 1.8, 0.6 / rMin), display: `${rMin.toFixed(2)}–${rMax.toFixed(2)} (vs P0₀ ${r0Min.toFixed(2)}–${r0Max.toFixed(2)})`,
       target: '0.6–1.8', pass: rMin >= 0.6 && rMax <= 1.8,
@@ -875,6 +901,11 @@ export function healthChecks(i: {
     { name: 'Median price gap, merchants < 1 km', value: gap, display: pct(gap), target: '≥ 15 %', pass: gap >= 0.15 },
     { name: 'Merchants that struggled (excl. seeded)', value: struggling, display: `${pct(struggling)} (${i.struggled}/${i.merchants})`, target: '≥ 10 %', pass: struggling >= 0.1 },
     { name: 'Max share closed at once', value: i.maxClosedFrac, display: pct(i.maxClosedFrac), target: '≤ 30 %', pass: i.maxClosedFrac <= 0.3 },
+    {
+      name: 'P0 within ±40 % of initial', value: Math.max(i.p0MaxRatio - 1, 1 - i.p0MinRatio),
+      display: `${i.p0MinRatio.toFixed(2)}–${i.p0MaxRatio.toFixed(2)} × P0₀`, target: '0.6–1.4', pass: i.p0MinRatio >= 0.6 && i.p0MaxRatio <= 1.4,
+    },
+    { name: 'Main pool drained / week', value: drain, display: pct(drain), target: '≤ 35 %', pass: drain <= 0.35 },
   ];
 }
 

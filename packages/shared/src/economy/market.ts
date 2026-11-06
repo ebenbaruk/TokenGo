@@ -4,7 +4,7 @@ import { pick, randInt, randRange, rngFrom, type Rng } from '../rng.ts';
 import {
   ARCHETYPE_BIAS, BASE_TARGET, CONTRACT, FAMILY_INFO, INITIAL_STOCK_RATIO, INITIAL_TREASURY, MERCHANT, P0_DRIFT, PRICING,
 } from './rules.ts';
-import { midAt, targetOf, unitSellPrice, type MerchantContract, type MerchantState } from './pricing.ts';
+import { scarcity, targetOf, unitSellPrice, type MerchantContract, type MerchantState } from './pricing.ts';
 
 const FIRST_NAMES = [
   'Margot', 'Bao', 'Inès', 'Lucien', 'Yasmine', 'Théo', 'Odile', 'Malik', 'Clémence', 'Hugo', 'Aïcha', 'Gaspard',
@@ -82,12 +82,15 @@ export function hourlyTick(m0: MerchantState, p0: Record<Family, number>, now: n
           events.push({ kind: 'import', family: f, qty: 1, cost });
         }
       }
-      const surplus = Math.floor(m.stock[f] - MERCHANT.exportAboveRatio * target);
+      // la ville rachète au-delà de sa demande de base (cible de départ), pas de la cible réglée par l'agent :
+      // un marchand qui « veut » plus (forges voisines) paie plus cher au même stock → écarts de prix entre voisins
+      const surplus = Math.floor(m.stock[f] - MERCHANT.exportAboveRatio * BASE_TARGET[f]);
       if (surplus > 0) {
-        const gain = Math.floor(surplus * p0[f] * MERCHANT.exportPriceMult);
-        m.stock[f] -= surplus;
+        const qty = Math.ceil(surplus * MERCHANT.exportShare);
+        const gain = Math.floor(qty * p0[f] * MERCHANT.exportPriceMult);
+        m.stock[f] -= qty;
         m.flux += gain;
-        events.push({ kind: 'export', family: f, qty: surplus, gain });
+        events.push({ kind: 'export', family: f, qty, gain });
       }
     }
     if (m.lastTradeAt !== null && now - m.lastTradeAt < MERCHANT.activeWindowMs) {
@@ -164,16 +167,19 @@ export function deliverContract(m: MerchantState, now: number): { m: MerchantSta
   };
 }
 
-/** Dérive horaire du prix de référence vers la médiane des prix milieu des marchands ouverts. */
+/**
+ * Dérive horaire du prix de référence : il suit P0_initial × rareté médiane des marchands ouverts.
+ * Ancré sur P0_initial (et non sur les prix milieu, eux-mêmes ∝ P0) : sinon P0 s'auto-alimente et part en exponentielle.
+ */
 export function driftP0(p0: Record<Family, number>, merchants: MerchantState[]): Record<Family, number> {
   const out = { ...p0 };
   const open = merchants.filter((m) => m.status !== 'closed');
   if (open.length === 0) return out;
   for (const f of FAMILIES) {
-    const vals = open.map((m) => midAt(p0[f], m, f, m.stock[f])).sort((a, b) => a - b);
-    const median = vals[Math.floor(vals.length / 2)]!;
+    const vals = open.map((m) => scarcity(targetOf(m, f), m.stock[f])).sort((a, b) => a - b);
+    const medianScarcity = vals[Math.floor(vals.length / 2)]!;
     const initial = FAMILY_INFO[f].p0;
-    const next = P0_DRIFT.keep * p0[f] + P0_DRIFT.follow * median;
+    const next = P0_DRIFT.keep * p0[f] + P0_DRIFT.follow * initial * medianScarcity;
     out[f] = Math.min(initial * P0_DRIFT.maxMult, Math.max(initial * P0_DRIFT.minMult, next));
   }
   return out;

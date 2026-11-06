@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { haversineM, merchantIdFor, type CatchStartResponse, type ForgeView, type Me, type MerchantView, type QuoteResponse, type WorldResponse } from '@tokengo/shared';
+import { RELAY, haversineM, merchantIdFor, type CatchStartResponse, type ForgeView, type Me, type MerchantView, type QuoteResponse, type WorldResponse } from '@tokengo/shared';
 import { loadConfig } from './config.ts';
 import { buildApp } from './app.ts';
 import type { Ctx } from './game/context.ts';
@@ -110,7 +110,7 @@ describe('tutorial loop: guest → catch → sync → trade → First Compile �
     await walkTo(c, relay);
     const r = await c.post<{ flux: number; shard: string | null; me: Me }>('/api/relay/sync', { nodeId: relay.id });
     expect(r.status, JSON.stringify(r.body)).toBe(200);
-    expect(r.body.flux).toBeGreaterThanOrEqual(5);
+    expect(r.body.flux).toBeGreaterThanOrEqual(RELAY.fluxMin);
     expect(r.body.shard).not.toBeNull(); // le premier sync garantit un éclat
     const again = await c.post('/api/relay/sync', { nodeId: relay.id });
     expect(again.body.error?.code).toBe('COOLDOWN');

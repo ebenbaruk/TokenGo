@@ -13,6 +13,8 @@ import { poolAvail } from '@tokengo/shared';
 
 const LABEL: Record<Tier | 'first', string> = { first: 'First Compile', spark: 'Spark', prism: 'Prism', aura: 'Aura' };
 const HOUR = 3600_000;
+/** Attente max de la preuve de burn on-chain avant l'octroi (au-delà : on octroie quand même, le settler complète burn_tx). */
+export const BURN_PROOF = { timeoutMs: 15_000 };
 
 function forgeOf(ctx: Ctx, forgeId: string) {
   const f = ctx.world.forges.find((x) => x.id === forgeId);
@@ -112,6 +114,12 @@ export async function compile(ctx: Ctx, userId: string, forgeId: string, tier: T
     ctx.db.prepare('INSERT INTO compiles (id, at, user_id, forge_id, tier, inputs, fee, pool, payout_nusd, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
       .run(compileId, now, userId, f.id, tier, JSON.stringify(needs), fee, est.pool, est.payout, 'burning');
   })();
+  // 1b. chaîne active : preuve synchrone — règle toutes les ops en attente jusqu'au burn inclus, attend la finalité (borné)
+  let burnTx: string | null = null;
+  if (ctx.chain) {
+    const last = (ctx.db.prepare('SELECT MAX(id) id FROM chain_ops WHERE memo = ?').get(`forge:${compileId}`) as { id: number | null }).id;
+    if (last !== null) burnTx = await ctx.chain.flush(last, BURN_PROOF.timeoutMs);
+  }
   // 2. octroi réel (ou simulé) ; si la Réserve refuse, la compilation paie en XP
   let payout = 0;
   let note = est.note;
@@ -134,7 +142,7 @@ export async function compile(ctx: Ctx, userId: string, forgeId: string, tier: T
   }
   return {
     compileId, tier, payoutNusd: payout, simulated: ctx.credits.simulated, pool: payout > 0 ? est.pool : null, xp, note: payout > 0 ? null : note,
-    equiv: equivalences(payout), burnTx: null, levelUp, me: meView(ctx, userId),
+    equiv: equivalences(payout), burnTx, levelUp, me: meView(ctx, userId),
   };
 }
 

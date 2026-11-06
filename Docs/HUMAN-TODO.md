@@ -14,8 +14,8 @@ débloque la version « réelle ». Cocher quand c'est fait et mettre les valeur
       cloud.near.ai). Ça double la Réserve gratuitement.
 - [ ] (Claude récupère lui-même `NEARAI_ORG_ID` / `NEARAI_WORKSPACE_ID` via l'API une fois 1 fait.)
 
-## Bloquant pour la démo publique HTTPS (~10 min)
-- [ ] **4. Tailscale** : dans https://login.tailscale.com/admin/dns activer **HTTPS Certificates**, et dans la policy du tailnet autoriser
+## Démo publique HTTPS (décidé le 06/11 : hébergement Vercel/Railway « plus tard », Claude prépare un déploiement Docker/Railway clé en main)
+- [ ] ~~**4. Tailscale**~~ (caduc) : dans https://login.tailscale.com/admin/dns activer **HTTPS Certificates**, et dans la policy du tailnet autoriser
       **Funnel** pour la machine `surface` (attribut `funnel`). Claude lancera ensuite `tailscale funnel` sur le port du jeu.
       (Alternative : créer un compte Fly.io avec carte, ~$5/mois — Claude a le Dockerfile prêt.)
 - [ ] **5. Google OAuth** (après 4, il faut l'URL HTTPS finale) : https://console.cloud.google.com → nouveau projet « TokenGo » →

@@ -18,6 +18,7 @@
     "e2e": "playwright test",
     "sim": "node packages/shared/src/economy/sim-cli.ts",
     "build-world": "node apps/server/scripts/build-world.ts",
+    "reconcile": "node apps/server/scripts/reconcile.ts",
     "check:secrets": "node scripts/check-secrets.ts",
     "verify": "node scripts/verify.ts"
   },
@@ -25,12 +26,14 @@
     "@playwright/test": "^1.65.0",
     "@types/node": "^26.6.6",
     "concurrently": "^10.0.6",
+    "sharp": "^0.34.5",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.1.0"
   },
   "allowScripts": {
     "better-sqlite3@13.0.3": true,
-    "esbuild@0.28.2": true
+    "esbuild@0.28.2": true,
+    "sharp@0.34.5": true
   }
 }

@@ -5,8 +5,10 @@ import type { Ctx } from './game/context.ts';
 import { HOUR, allMerchants, reflect, runHourly, type Brain } from './game/merchants.ts';
 import { parisDay } from './game/reserve.ts';
 
-/** Rattrape les heures manquées (max 6) puis planifie. Renvoie une fonction d'arrêt. */
-export function startJobs(ctx: Ctx, brain?: Brain): () => void {
+export interface PeriodicJob { name: string; everyMs: number; run: () => Promise<void> }
+
+/** Rattrape les heures manquées (max 6) puis planifie. `periodic` : tâches en plus (ex. usage NEAR AI, mode réel). Renvoie une fonction d'arrêt. */
+export function startJobs(ctx: Ctx, brain?: Brain, periodic: PeriodicJob[] = []): () => void {
   const timers: NodeJS.Timeout[] = [];
   const hourly = () => {
     const now = ctx.now();
@@ -35,5 +37,15 @@ export function startJobs(ctx: Ctx, brain?: Brain): () => void {
   void reflections();
   timers.push(setInterval(hourly, 60_000));
   timers.push(setInterval(() => void reflections(), 10 * 60_000));
+  for (const job of periodic) {
+    let busy = false;
+    const tick = async () => {
+      if (busy) return; // pas de chevauchement si un appel réseau traîne
+      busy = true;
+      try { await job.run(); } catch (e) { console.error(`[job ${job.name}]`, (e as Error).message); } finally { busy = false; }
+    };
+    void tick();
+    timers.push(setInterval(() => void tick(), job.everyMs));
+  }
   return () => timers.forEach(clearInterval);
 }

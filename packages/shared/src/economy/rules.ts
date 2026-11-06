@@ -21,9 +21,9 @@ export interface FamilyInfo {
   p0: number;            // prix de référence initial en Flux
 }
 export const FAMILY_INFO: Record<Family, FamilyInfo> = {
-  deepseek: { name: 'DeepSeek', rarity: 'common', spawnWeight: 42, p0: 10 },
-  qwen: { name: 'Qwen', rarity: 'common', spawnWeight: 28, p0: 14 },
-  gemini: { name: 'Gemini', rarity: 'uncommon', spawnWeight: 17, p0: 26 },
+  deepseek: { name: 'DeepSeek', rarity: 'common', spawnWeight: 41, p0: 10 },
+  qwen: { name: 'Qwen', rarity: 'common', spawnWeight: 27, p0: 14 },
+  gemini: { name: 'Gemini', rarity: 'uncommon', spawnWeight: 19, p0: 26 },
   gpt: { name: 'GPT', rarity: 'rare', spawnWeight: 9, p0: 48 },
   claude: { name: 'Claude', rarity: 'epic', spawnWeight: 4, p0: 95 },
 };
@@ -65,8 +65,8 @@ export const CATCH = {
 // ───────────────────────────── Relays ─────────────────────────────
 export const RELAY = {
   cooldownMs: 5 * 60_000,
-  fluxMin: 5,
-  fluxMax: 10,
+  fluxMin: 3,
+  fluxMax: 7,
   shardChance: 0.5,
 } as const;
 
@@ -87,7 +87,7 @@ export const UNLOCKS = {
 
 // ───────────────────────────── Marchands : prix ─────────────────────────────
 export const PRICING = {
-  alpha: 0.6,                    // élasticité : scarcity = (target / stock) ^ alpha
+  alpha: 1.1,                    // élasticité : scarcity = (target / stock) ^ alpha (> 1 : assez d'écart entre voisins pour l'arbitrage)
   scarcityMin: 0.35,
   scarcityMax: 3.0,
   stockFloor: 0.5,               // évite la division par zéro quand le stock est vide
@@ -100,16 +100,17 @@ export const PRICING = {
 } as const;
 /** Stock visé par défaut (avant spécialité et biais d'archétype). */
 export const BASE_TARGET: Record<Family, number> = { deepseek: 24, qwen: 18, gemini: 10, gpt: 6, claude: 3 };
-export const INITIAL_STOCK_RATIO = [0.6, 1.0] as const;
+export const INITIAL_STOCK_RATIO = [0.8, 1.25] as const; // centré sur la cible : prix de départ ≈ P0
 export const INITIAL_TREASURY = [900, 2400] as const;
 
 // ───────────────────────────── Marchands : vie économique ─────────────────────────────
 export const MERCHANT = {
   importBelowRatio: 0.5,         // stock < 50 % de la cible → importe 1 unité / heure
   importPriceMult: 1.3,          // … payée P0 × 1.3 (puits de Flux)
-  exportAboveRatio: 2.0,         // surplus > 2 × cible → revendu à la ville
-  exportPriceMult: 0.5,          // … à P0 × 0.5 (puits d'éclats)
-  rentPerHour: 8,                // loyer, seulement si boutique active
+  exportAboveRatio: 1.5,         // « demande de la ville » : au-delà de 1,5 × BASE_TARGET (même seuil pour tous), le surplus est revendu…
+  exportShare: 0.5,              // … la moitié du surplus par heure…
+  exportPriceMult: 0.75,         // … à P0 × 0.75 : un marchand sur-stocké a acheté moins cher → il gagne sur le surplus (source de Flux)
+  rentPerHour: 4,                // loyer, seulement si boutique active
   activeWindowMs: 24 * 3600_000, // « active » = ≥ 1 trade dans les 24 h
   closingBelow: 150,             // caisse < 150 ƒ → closing
   closingGraceMs: 2 * 3600_000,  // … puis closed après 2 h
@@ -149,7 +150,8 @@ export const ARCHETYPE_BIAS = {
 } as const;
 
 // ───────────────────────────── Prix de référence (Paris Shard Index) ─────────────────────────────
-export const P0_DRIFT = { keep: 0.9, follow: 0.1, minMult: 0.5, maxMult: 2.0 } as const;
+/** P0 ← keep × P0 + follow × P0_initial × rareté médiane (ancré : pas d'emballement), borné à [min, max] × P0_initial. */
+export const P0_DRIFT = { keep: 0.95, follow: 0.05, minMult: 0.6, maxMult: 1.4 } as const;
 
 // ───────────────────────────── Forge & crédits réels ─────────────────────────────
 export type Tier = 'spark' | 'prism' | 'aura';
@@ -161,8 +163,8 @@ export interface TierRule {
   weight: number;    // poids dans le rendement
 }
 export const TIERS: Record<Tier, TierRule> = {
-  spark: { level: 3, byRarity: { common: 4, uncommon: 2 }, fee: 40, weight: 1 },
-  prism: { level: 5, byRarity: { common: 3, uncommon: 3, rare: 2 }, fee: 120, weight: 3 },
+  spark: { level: 3, byRarity: { common: 4, uncommon: 2 }, fee: 60, weight: 1 },
+  prism: { level: 5, byRarity: { common: 3, uncommon: 3, rare: 2 }, fee: 160, weight: 3 },
   aura: { level: 7, byRarity: { common: 2, uncommon: 3, rare: 2, epic: 2 }, fee: 300, weight: 8 },
 };
 export const FIRST_COMPILE = {
@@ -172,7 +174,7 @@ export const FIRST_COMPILE = {
 export const FORGE = {
   yieldPerWeight: 0.004,          // 0.4 % de la poche par unité de poids
   capPlayerDay: usd(0.25),        // glissant 24 h
-  capGlobalDayRatio: 0.1,         // 10 % de la poche par jour
+  capGlobalDayRatio: 0.055,       // 5,5 % de la poche par jour (≈ 33 % par semaine au maximum)
   minPayout: usd(0.002),          // en dessous : XP seulement
   themeSwapChance: 0.5,           // une recette sur deux remplace un Common par la famille du thème
 } as const;

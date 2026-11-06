@@ -47,7 +47,7 @@ Chaque recette a un **poids** `w` : Spark 1, Prism 3, Aura 8.
 payout_usd = min( R_avail(Main) × y × w ,  cap_player_day_restant ,  cap_global_day_restant )
 y = 0.004                           # 0.4 % de la poche par unité de poids
 cap_player_day = $0.25              # par joueur, glissant 24 h ; au-delà : compilation payée en XP seulement
-cap_global_day = 10 % × R_avail     # recalculé à minuit Europe/Paris
+cap_global_day = 5,5 % × R_avail    # recalculé à minuit Europe/Paris → poche Main vidée d'au plus ≈ 33 %/semaine
 min_payout = $0.002                 # en dessous : compilation acceptée mais payée en XP seulement, message clair
 ```
 Avec la poche pleine ($4.50) : Spark ≈ **$0.018**, Prism ≈ **$0.054**, Aura ≈ **$0.14** (avec +$10 : ×2,3).
@@ -68,8 +68,8 @@ La page Pulse affiche « Reserve refilled +$5 » (événement visible : l'écono
 Chaque Forge a 3 recettes par jour (minuit Europe/Paris), générées de façon déterministe : `seed = HMAC(secret, forgeId, date)`.
 | Tier | Niveau | Composition (base) | Frais ƒ | Poids |
 |---|---|---|---|---|
-| Spark | 3 | 6 éclats : 4 Common (DeepSeek/Qwen) + 2 Uncommon (Gemini) | 40 | 1 |
-| Prism | 5 | 8 éclats : 3 Common + 3 Uncommon + 2 Rare (GPT) | 120 | 3 |
+| Spark | 3 | 6 éclats : 4 Common (DeepSeek/Qwen) + 2 Uncommon (Gemini) | 60 | 1 |
+| Prism | 5 | 8 éclats : 3 Common + 3 Uncommon + 2 Rare (GPT) | 160 | 3 |
 | Aura (P1) | 7 | 9 éclats : 2 Common + 3 Uncommon + 2 Rare + 2 Epic (Claude) | 300 | 8 |
 
 Variation : la répartition exacte entre familles d'un même rang varie selon le **thème de la Forge**
@@ -84,17 +84,19 @@ Variation : la répartition exacte entre familles d'un même rang varie selon le
 ### Prix
 ```
 P0[f]        = prix de référence global de la famille (§7)
-scarcity     = clamp( (target[f] / max(stock[f], 0.5)) ^ ALPHA , 0.35 , 3.0 )      ALPHA = 0.6
+scarcity     = clamp( (target[f] / max(stock[f], 0.5)) ^ ALPHA , 0.35 , 3.0 )      ALPHA = 1.1
 mid[f]       = P0[f] × scarcity
 buy[f]       = floor( mid × (1 − spread) )   # ce que le marchand PAIE au joueur
 sell[f]      = ceil ( mid × (1 + spread) )   # ce que le joueur PAIE
 spread       ∈ [0.03, 0.12], défaut 0.06 ; spécialité : spread − 0.02 et target × 1.5
 ```
+- Chaque unité est valorisée au stock **après** l'échange : acheter à stock s se paie `sell` calculé à s−1, vendre à stock s se paie `buy` calculé à s+1 → acheter puis revendre au même marchand perd toujours.
+- Un marchand *closing* n'achète plus (il liquide).
 - Prix **recalculé après chaque unité** (vendre 5 éclats d'un coup = prix qui glisse, l'UI affiche le total exact avant validation).
 - Un marchand **n'achète pas** s'il n'a pas les Flux (« I'm short on Flux — come back later or invest in me »).
 - Un marchand **ne vend pas** en dessous de stock 0.
 - Cibles initiales `target` : DeepSeek 24, Qwen 18, Gemini 10, GPT 6, Claude 3 (× 1.5 si spécialité).
-  Stocks initiaux = 60–100 % de la cible (aléatoire déterministe). Trésorerie initiale = **900–2 400 ƒ** (aléatoire déterministe,
+  Stocks initiaux = 80–125 % de la cible (centrés sur la cible : prix de départ ≈ P0) (aléatoire déterministe). Trésorerie initiale = **900–2 400 ƒ** (aléatoire déterministe,
   pour que les marchands ne fassent pas tous faillite à la même heure).
 
 ### Tooltip « Why this price? » (généré par les règles, jamais par le LLM)
@@ -106,11 +108,14 @@ mais les chiffres viennent toujours des règles.
 ### Approvisionnement (« imports ») et coûts
 - Toutes les **heures**, pour chaque famille où `stock < 0.5 × target`, le marchand importe 1 unité au prix `P0 × 1.3`, payé
   en Flux (puits de Flux). S'il n'a pas les Flux, il n'importe pas.
-- **Exports** (puits d'éclats) : toutes les heures, le surplus au-delà de `2 × target` est revendu « à la ville » à `0.5 × P0`
-  (le marchand récupère ces Flux, les éclats sont détruits). Empêche les marchands de rester bloqués au plancher de prix.
-- **Loyer** : 8 ƒ / heure, **seulement si le marchand a eu ≥ 1 trade dans les 24 h** (boutique active). Les faillites viennent donc
+- **Exports = demande de la ville** (puits d'éclats, source de Flux pour les marchands) : toutes les heures, la ville rachète
+  **la moitié** du surplus au-delà de `1.5 × BASE_TARGET[f]` (seuil identique pour tous les marchands) à `0.75 × P0`
+  (les éclats sont détruits). Un marchand sur-stocké a acheté sous ce prix → il gagne sur le surplus : son revenu suit l'activité.
+  Le seuil ne dépend pas de la cible réglée par l'agent : un marchand qui « veut » plus (spécialité, forges voisines) paie plus cher
+  au même stock → écarts de prix entre voisins, donc arbitrage.
+- **Loyer** : 4 ƒ / heure, **seulement si le marchand a eu ≥ 1 trade dans les 24 h** (boutique active). Les faillites viennent donc
   de ce que font les joueurs (inonder un marchand de ventes vide sa caisse), pas d'une horloge commune.
-- **Marchand en difficulté pré-semé** : au premier lancement du monde, un marchand à < 400 m du Louvre démarre à 200 ƒ (status closing)
+- **Marchand en difficulté pré-semé** : au premier lancement du monde, un marchand à 250–1 200 m du Louvre démarre à 120 ƒ (status closing)
   pour que la démo montre la faillite/le sauvetage.
 
 ### Faillite et réouverture
@@ -159,25 +164,32 @@ Dialogue : à l'ouverture de l'écran marchand, une salutation contextuelle (cac
 max 1 appel/min/joueur), modèle le moins cher. Budget dur : poche NPC Brain ; au-delà, phrases préécrites.
 
 ## 7. Prix de référence global (dérive sans patch)
-Toutes les heures : `P0[f] ← 0.9 × P0[f] + 0.1 × median(mid[f] des marchands ouverts)`, borné à `[0.5, 2.0] × P0_initial[f]`.
+Toutes les heures : `P0[f] ← 0.95 × P0[f] + 0.05 × P0_initial[f] × median(scarcity[f] des marchands ouverts)`,
+borné à `[0.6, 1.4] × P0_initial[f]`. Ancré sur `P0_initial` : suivre la médiane des prix milieu (eux-mêmes ∝ P0) faisait
+s'auto-alimenter P0 (+1,6 %/h, ×1,9 en 36 h en simulation) puis s'effondrer au plancher.
 Affiché comme **Paris Shard Index** (sparkline 7 jours par famille) sur Pulse.
 
 ## 8. Sources et puits de Flux
 | Sources ƒ | Puits ƒ |
 |---|---|
-| Sync Relay (5–10 ƒ) | Frais de compilation (40 / 120 / 300) |
+| Sync Relay (3–7 ƒ) | Frais de compilation (60 / 160 / 300) |
 | Vendre des éclats aux marchands | Imports des marchands (`P0 × 1.3`) |
-| Contrats | Loyer des marchands actifs (8 ƒ/h) |
-| Exports des marchands (vers la caisse du marchand) | Contributions de sauvetage, Beacons (P2, 120 ƒ) |
+| Contrats | Loyer des marchands actifs (4 ƒ/h) |
+| Demande de la ville (exports, vers la caisse du marchand) | Contributions de sauvetage, Beacons (P2, 120 ƒ) |
 
-Ordres de grandeur (à valider en simulation) : un joueur à 5 km/h fait ≈ 25 syncs/h (≈ 190 ƒ, ≈ 12 éclats) et ≈ 20 captures/h.
+Ordres de grandeur (simulation) : un joueur à 5 km/h fait ≈ 12 syncs/h (≈ 60 ƒ, ≈ 6 éclats) et ≈ 20 captures/h.
 **Les captures sont la source principale d'éclats.** Une recette Spark prend ≈ 20 min de marche, ou moins avec du commerce malin.
 
 Cibles de santé (vérifiées en simulation, à régler dans `rules.ts`) :
-- la masse de Flux des joueurs croît de < 5 %/jour à régime constant ;
+- la masse de Flux des joueurs croît de < 10 %/jour à régime constant (mesuré sur la 2ᵉ moitié de la simulation ; relâché de 5 % : les walkers gardent une partie de leurs gains) ;
 - les prix moyens des marchands restent entre 0,6 et 1,8 × P0 (si tout le monde est au plancher, il n'y a plus d'arbitrage) ;
 - l'écart médian de prix pour une même famille entre deux marchands à < 1 km est ≥ 15 % (sinon marcher ne rapporte rien) ;
-- chaque semaine, ≥ 1 marchand sur 10 est en difficulté (sinon l'économie est « morte »), et ≤ 30 % sont fermés.
+- chaque semaine, ≥ 1 marchand sur 10 est en difficulté (sinon l'économie est « morte »), et ≤ 30 % sont fermés ;
+- P0 reste dans ±40 % de sa valeur initiale ; la poche Main ne se vide pas de plus de ≈ 35 % par semaine.
+
+Réglage du 2026-11-06 (`npm run sim`, 200 bots, graines 42/1/2/3, 7 et 14 jours) : toutes les cibles passent en `baseline`
+(ex. graine 42 sur 7 j : Flux +6,5 %/j, prix 0,91–1,53 × P0, écart 19 %, 12 % en difficulté, 6,5 % fermés, P0 0,98–1,40, Main −33 %/sem).
+Les bots sont réalistes : les walkers forgent aussi (Spark), achètent ≤ 3 éclats manquants et ne vendent que le reste.
 
 Si une cible échoue, on ajuste les constantes et on consigne le réglage dans le journal des décisions.
 

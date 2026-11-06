@@ -1,0 +1,12 @@
+node_modules
+**/node_modules
+.env
+var
+contracts/tokengo-mt/target
+apps/web/dist
+apps/web/__shots__
+e2e/__shots__
+test-results
+playwright-report
+Docs/design-ref
+.git
