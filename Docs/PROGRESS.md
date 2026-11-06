@@ -2,6 +2,18 @@
 
 Mettre à jour à la fin de chaque bloc de travail. Le plus récent en haut.
 
+## 2026-11-07 (nuit) — Fin du build : produit complet, vérifié
+- **Fait depuis le bloc précédent** : revue sécurité indépendante → 9 correctifs (courses sur les octrois, XFF, Judge Pool réservé aux passes démo,
+  tombstones, plafonds SSE…) avec tests de régression ; 18 parcours e2e (capture, marché, PRICE_MOVED, forge, anti-triche, Lab, Pulse SSE,
+  sécurité) qui ont révélé et fait corriger 3 bugs (statiques rate-limités, message anti-triche, prix périmés) ; polish design (chiffres jamais
+  en pixel, cadrage carte, écran de capture) ; Lab « avec vs sans scénario » (flood : −49 % sur DeepSeek) ; lien juges `?k=` ; `npm run shots` ;
+  brouillons de soumission (`Docs/SUBMISSION.md`).
+- **État** : `npm run verify` vert (113 unitaires + smoke), `npm run e2e` 18/18, `check:secrets` vert. Démo locale : http://surface:5173.
+  Commits locaux non poussés (le push automatique a été refusé par le garde-fou : à faire par l'humain, `git push`).
+- **Reste (humain)** : hébergement (Railway prêt : voir `Docs/SUBMISSION.md`), crédits réels NEAR AI (HUMAN-TODO 1–3, puis
+  `node apps/server/scripts/nearai-spike.ts`), Google OAuth (après l'URL finale), repo public, vidéo + post X, soumission avec « oui ».
+- **Reste (Claude, si on lui redonne la main)** : brancher les vrais identifiants dès qu'ils existent, déployer, tests GPS réels, P2 (Beacons, Daily Route, Codex, Intents dry-run).
+
 ## 2026-11-06 (soir) — Build J1→J6 en une session (autonomie totale)
 - **Fait** :
   - J1 : monorepo (npm workspaces, TS 7, Vitest, Playwright), `rules.ts` + fonctions pures (prix, marchands, forge, réserve, spawns, capture, agent, anti-triche), monde Paris (`data/world/paris.json` : 1 060 relais, 153 marchands, 10 forges), contrat NEP-245 déployé sur `tokengo.testnet`.
