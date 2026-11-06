@@ -1,1 +1,23 @@
-{"name":"@tokengo/server","private":true,"type":"module","dependencies":{"near-kit":"^0.20.2"}}
+{
+  "name": "@tokengo/server",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@fastify/cookie": "^11.1.5",
+    "@fastify/rate-limit": "^11.2.2",
+    "@fastify/static": "^10.1.10",
+    "better-sqlite3": "^13.0.3",
+    "fastify": "^5.12.8",
+    "h3-js": "^4.5.0",
+    "near-kit": "^0.20.2",
+    "zod": "^4.6.7",
+    "@tokengo/shared": "*"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0"
+  },
+  "scripts": {
+    "dev": "node --watch src/index.ts",
+    "start": "NODE_ENV=production node src/index.ts"
+  }
+}

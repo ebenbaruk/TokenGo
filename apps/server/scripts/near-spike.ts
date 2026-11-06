@@ -21,7 +21,7 @@ async function accountInfo(id: string): Promise<{ amount: bigint; storageBytes: 
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "query", params: { request_type: "view_account", finality: "final", account_id: id } }),
-  }).then((r) => r.json());
+  }).then((r) => r.json() as Promise<{ result: { amount: string; storage_usage: number } }>);
   return { amount: BigInt(res.result.amount), storageBytes: res.result.storage_usage };
 }
 const fmt = (yocto: bigint) => `${(Number(yocto) / 1e24).toFixed(6)} NEAR`;

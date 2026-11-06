@@ -24,6 +24,9 @@ const TITLES: Record<Archetype, string[]> = {
 const famRecord = (fn: (f: Family) => number): Record<Family, number> =>
   Object.fromEntries(FAMILIES.map((f) => [f, fn(f)])) as Record<Family, number>;
 
+/** Id URL-safe d'un marchand : 'osm:node/123' → 'm-node-123'. */
+export const merchantIdFor = (nodeId: string): string => `m-${nodeId.replace(/^osm:/, '').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}`;
+
 /** Crée l'état initial d'un marchand, déterministe à partir de son id. */
 export function createMerchant(secret: string, nodeId: string, specialty: Family[]): MerchantState {
   const rng = rngFrom(secret, 'merchant', nodeId);
@@ -34,7 +37,7 @@ export function createMerchant(secret: string, nodeId: string, specialty: Family
     Math.max(1, Math.round(BASE_TARGET[f] * bias.targetMult * (spec.includes(f) ? PRICING.specialtyTargetMult : 1))));
   const stock = famRecord((f) => Math.round(baseTarget[f] * randRange(rng, INITIAL_STOCK_RATIO[0], INITIAL_STOCK_RATIO[1])));
   return {
-    id: `m:${nodeId}`,
+    id: merchantIdFor(nodeId),
     name: `${pick(rng, FIRST_NAMES)} ${pick(rng, TITLES[archetype])}`,
     archetype,
     specialty: spec,

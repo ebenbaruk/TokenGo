@@ -118,7 +118,7 @@ export const MERCHANT = {
   patronPerkMs: 7 * 24 * 3600_000,
   patronSpreadMult: 0.5,         // spread personnel des sauveteurs divisé par 2
   reflectEveryMs: 3 * 3600_000,  // « réflexion » de l'agent
-  seededStrugglerFlux: 200,      // un marchand proche du Louvre démarre en difficulté (démo)
+  seededStrugglerFlux: 120,      // un marchand proche du Louvre démarre en difficulté (démo)
 } as const;
 
 export const CONTRACT = {
