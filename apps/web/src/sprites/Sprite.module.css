@@ -1,0 +1,11 @@
+.sprite {
+  display: inline-block;
+  flex: none;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  vertical-align: middle;
+}
+.anim { animation: run var(--dur) steps(var(--n)) infinite; }
+@keyframes run { from { background-position: 0 0; } to { background-position: var(--strip) 0; } }
+@media (prefers-reduced-motion: reduce) { .anim { animation: none; background-position: 0 0; } }

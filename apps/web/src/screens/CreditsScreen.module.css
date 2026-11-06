@@ -1,0 +1,24 @@
+.stack { display: flex; flex-direction: column; gap: 14px; }
+.balance {
+  position: relative; padding: 16px; text-align: center; background: var(--orange); color: var(--ink);
+  border: var(--border); outline: 3px solid var(--sun); outline-offset: -7px; border-radius: var(--radius-l); box-shadow: var(--shadow-hard);
+}
+.sim { position: absolute; top: 10px; right: 10px; background: var(--mist); border: 2px solid var(--ink); border-radius: 6px; padding: 0 6px; font-size: 12px; font-weight: 800; }
+.balLabel { font-weight: 800; text-transform: uppercase; font-size: 13px; }
+.balAmount { font-family: var(--font-pixel); font-size: 54px; line-height: 1.05; color: var(--white); text-shadow: 3px 3px 0 var(--ink); margin-bottom: 8px; }
+.balSub { font-size: 13px; font-weight: 800; margin-top: 6px; }
+.eqs { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 10px; }
+.eqs span { background: var(--panel); border: 2px solid var(--ink); border-radius: 8px; padding: 2px 8px; font-weight: 800; font-size: 12px; }
+.cardTitle { font-family: var(--font-pixel); font-size: 20px; margin-bottom: 10px; }
+.key { padding: 10px; background: var(--panel-alt); border: 2px solid var(--ink); border-radius: 8px; font-size: 14px; word-break: break-all; margin-bottom: 10px; }
+.row { display: flex; gap: 10px; }
+.code { margin: 0 0 8px; padding: 10px; background: var(--night); color: var(--cyan); border: 2px solid var(--ink); border-radius: 8px; font-family: var(--font-mono); font-size: 11px; white-space: pre-wrap; word-break: break-all; }
+.grants { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+.grants li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.gMain { flex: 1; }
+.models { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.model { display: flex; flex-direction: column; align-items: flex-start; padding: 6px 10px; min-height: 44px; border: 2px solid var(--ink); border-radius: 10px; background: var(--panel-alt); font-weight: 800; font-size: 13px; cursor: pointer; }
+.model small { font-size: 10px; text-transform: uppercase; color: var(--slate); }
+.modelOn { background: var(--sun); box-shadow: var(--shadow-hard-s); }
+.prompt { width: 100%; font: inherit; font-size: 16px; padding: 10px; border: var(--border-thin); border-radius: 10px; background: var(--white); margin-bottom: 10px; resize: vertical; }
+.answer { margin-top: 12px; padding: 12px; background: var(--panel-alt); border: 2px solid var(--ink); border-radius: 10px; white-space: pre-wrap; font-weight: 600; }

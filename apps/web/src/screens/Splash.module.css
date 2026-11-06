@@ -1,0 +1,21 @@
+.splash {
+  position: absolute; inset: 0; z-index: 100; display: flex; flex-direction: column; justify-content: space-between;
+  background: #3f8fe6 url('/art/splash.webp') center bottom / cover no-repeat;
+  image-rendering: pixelated;
+  padding: calc(var(--safe-top) + 28px) 20px calc(var(--safe-bottom) + 20px);
+  overflow: hidden;
+}
+.top { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.logo { margin: 0; width: min(88%, 360px); animation: drop .6s var(--ease-pop) both; }
+.logo img { display: block; width: 100%; height: auto; }
+@keyframes drop { from { transform: translateY(-40px) scale(.9); opacity: 0; } }
+.tagline { margin: 0; font-weight: 800; font-size: 17px; color: var(--ink); background: var(--panel); border: var(--border); border-radius: 10px; padding: 6px 12px; box-shadow: var(--shadow-hard); text-align: center; }
+.hero { align-self: center; margin-bottom: -6px; animation: hop 1.2s steps(2) infinite; }
+@keyframes hop { 50% { transform: translateY(-8px); } }
+.actions {
+  display: flex; flex-direction: column; gap: 12px; padding: 14px; background: rgba(255,253,246,.94);
+  border: var(--border); border-radius: var(--radius-l); box-shadow: var(--shadow-hard); position: relative;
+}
+.hero { position: absolute; top: -78px; left: 50%; translate: -50% 0; }
+.small { margin: 0; text-align: center; font-size: 14px; font-weight: 800; color: var(--ink); }
+.err { background: #ffe1dc; border: var(--border-thin); border-radius: 8px; padding: 8px; font-weight: 800; text-align: center; }

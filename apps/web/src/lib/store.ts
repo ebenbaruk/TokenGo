@@ -1,0 +1,83 @@
+// État global (Zustand). Exposé en lecture sur window.__tg pour les tests E2E (la carte WebGL n'est pas lisible).
+import { create } from 'zustand';
+import type { Me, NodeView, SpawnView, WorldResponse, Family } from '@tokengo/shared';
+
+export interface Pos { lat: number; lng: number; acc: number; heading?: number; t: number }
+
+export type Overlay =
+  | { kind: 'catch'; spawn: SpawnView }
+  | { kind: 'relay'; node: NodeView }
+  | { kind: 'merchant'; node: NodeView }
+  | { kind: 'forge'; node: NodeView }
+  | { kind: 'jump'; node: NodeView }
+  | { kind: 'credits' }
+  | { kind: 'bag' }
+  | { kind: 'quests' }
+  | { kind: 'menu' };
+
+export interface Toast { id: number; text: string; tone: 'good' | 'bad' | 'info'; icon?: Family | 'flux' | 'xp' | 'level' }
+
+export type GpsStatus = 'pending' | 'ok' | 'weak' | 'denied' | 'demo';
+
+interface State {
+  phase: 'splash' | 'play';
+  me: Me | null;
+  world: WorldResponse | null;
+  pos: Pos | null;
+  demo: boolean;
+  gps: GpsStatus;
+  inTransit: boolean;
+  overlay: Overlay | null;
+  toasts: Toast[];
+  lastResult: unknown;
+  /** éclats capturés localement (masqués en attendant le prochain /world) */
+  hiddenSpawns: string[];
+  /** destination en Demo Walk */
+  walkTarget: { lat: number; lng: number } | null;
+  serverDown: boolean;
+}
+
+export const useGame = create<State>(() => ({
+  phase: 'splash',
+  me: null,
+  world: null,
+  pos: null,
+  demo: false,
+  gps: 'pending',
+  inTransit: false,
+  overlay: null,
+  toasts: [],
+  lastResult: null,
+  hiddenSpawns: [],
+  walkTarget: null,
+  serverDown: false,
+}));
+
+const set = useGame.setState;
+const get = useGame.getState;
+
+let toastSeq = 1;
+export function toast(text: string, tone: Toast['tone'] = 'info', icon?: Toast['icon'], ms = 2600): void {
+  const id = toastSeq++;
+  set({ toasts: [...get().toasts.slice(-1), { id, text, tone, icon }] }); // max 2
+  setTimeout(() => set({ toasts: get().toasts.filter((t) => t.id !== id) }), ms);
+}
+
+export function setMe(me: Me, levelUp?: number | null): void {
+  set({ me });
+  if (levelUp) toast(`Level ${levelUp}! New things unlocked.`, 'good', 'level', 3500);
+}
+
+export const openOverlay = (o: Overlay | null) => set({ overlay: o });
+export const closeOverlay = () => set({ overlay: null });
+export const hideSpawn = (id: string) => set({ hiddenSpawns: [...get().hiddenSpawns, id].slice(-50) });
+
+declare global {
+  interface Window { __tg?: () => Record<string, unknown> }
+}
+if (typeof window !== 'undefined') {
+  window.__tg = () => {
+    const s = get();
+    return { phase: s.phase, position: s.pos, me: s.me, world: s.world, lastResult: s.lastResult, overlay: s.overlay?.kind ?? null, demo: s.demo, gps: s.gps, toasts: s.toasts.map((t) => t.text) };
+  };
+}

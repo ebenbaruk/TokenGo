@@ -1,0 +1,55 @@
+.portrait { display: grid; place-items: end center; width: 68px; height: 68px; border: var(--border); border-radius: 12px; box-shadow: var(--shadow-hard-s); overflow: hidden; flex: none; }
+.err { color: var(--berry); font-weight: 800; }
+.moodRow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.status { padding: 2px 8px; border: var(--border-thin); border-radius: 6px; font-weight: 800; font-size: 13px; }
+.open { background: var(--lime); }
+.closing { background: var(--orange); }
+.closed { background: var(--mist); }
+.archetype { font-size: 13px; font-weight: 800; color: var(--slate); text-transform: capitalize; }
+.till { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; font-weight: 800; font-size: 13px; }
+.bubble {
+  position: relative; margin: 12px 0 14px; padding: 10px 12px; background: var(--panel-alt); border: var(--border-thin); border-radius: 10px;
+  font-weight: 700; font-style: italic;
+}
+.bubble::before { content: ''; position: absolute; left: 18px; top: -10px; width: 10px; height: 10px; background: var(--panel-alt); border-left: 2px solid var(--ink); border-top: 2px solid var(--ink); transform: rotate(45deg) translate(3px, 3px); }
+.list { display: flex; flex-direction: column; gap: 8px; }
+.headRow { display: grid; grid-template-columns: 1fr 78px 78px; gap: 8px; font-size: 11px; font-weight: 800; color: var(--slate); text-transform: uppercase; padding: 0 4px; }
+.headRow span:nth-child(n+2) { text-align: center; }
+.fam { display: grid; grid-template-columns: 1fr auto; gap: 6px 8px; align-items: center; padding: 8px; background: var(--panel); border: var(--border-thin); border-radius: 12px; }
+.famMain { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.famInfo { flex: 1; min-width: 0; }
+.famName { display: flex; align-items: center; gap: 4px; font-family: var(--font-pixel); font-size: 18px; line-height: 1.1; }
+.spec { color: var(--orange); font-size: 14px; }
+.why { width: 28px; height: 28px; display: grid; place-items: center; border: 2px solid var(--ink); border-radius: 50%; background: var(--panel-alt); cursor: pointer; padding: 0; margin-left: 2px; }
+.stockLine { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-top: 4px; }
+.stockLine > div { flex: 1; max-width: 70px; }
+.prices { display: flex; gap: 8px; }
+.priceBtn {
+  width: 78px; min-height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0;
+  border: var(--border-thin); border-radius: 10px; box-shadow: var(--shadow-hard-s); cursor: pointer; font-weight: 800; font-size: 14px; line-height: 1.1;
+}
+.priceBtn b { font-size: 20px; }
+.priceBtn small { font-size: 10px; font-weight: 800; opacity: .8; }
+.priceBtn:active:not(:disabled) { transform: translate(1px,1px); box-shadow: none; }
+.priceBtn:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+.sell { background: #dff7c8; }
+.buy { background: #fff0c9; }
+.whyPop { grid-column: 1 / -1; padding: 10px 12px; background: var(--sun); border: var(--border-thin); border-radius: 10px; font-weight: 700; font-size: 14px; animation: pop .2s var(--ease-pop); }
+@keyframes pop { from { transform: scale(.9); opacity: 0; } }
+.best { grid-column: 1 / -1; font-size: 12px; font-weight: 800; color: var(--teal); }
+.thought { display: flex; flex-direction: column; gap: 4px; width: 100%; margin-top: 14px; padding: 8px 10px; text-align: left; background: transparent; border: 2px dashed var(--mist); border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 800; color: var(--slate); }
+.thought span { display: flex; align-items: center; gap: 4px; }
+.thought em { color: var(--ink); font-weight: 700; }
+.wallet { display: inline-flex; align-items: center; gap: 2px; margin-top: 10px; font-size: 11px; color: var(--slate); }
+.panel {
+  position: sticky; bottom: 0; margin: 14px -16px -16px; padding: 14px 16px calc(16px + var(--safe-bottom));
+  background: var(--sun); border-top: var(--border); animation: up .25s var(--ease-pop); z-index: 2;
+}
+@keyframes up { from { transform: translateY(60%); opacity: 0; } }
+.panelHead { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.panelRow { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.total { display: flex; flex-direction: column; align-items: flex-end; font-weight: 800; font-size: 18px; }
+.total b { font-family: var(--font-pixel); font-size: 32px; line-height: 1; }
+.total small { font-size: 12px; color: var(--night); }
+.reason { font-weight: 800; font-size: 13px; text-align: center; margin-bottom: 8px; }
+.slider { width: 100%; accent-color: var(--green); height: 32px; }

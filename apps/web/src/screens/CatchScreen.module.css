@@ -1,0 +1,39 @@
+.screen {
+  position: absolute; inset: 0; z-index: 50; display: flex; flex-direction: column; color: var(--ink);
+  padding: calc(var(--safe-top) + 16px) 16px calc(var(--safe-bottom) + 16px);
+  animation: zoomIn .25s var(--ease-pop); user-select: none; touch-action: none; cursor: pointer;
+}
+.dark { color: var(--white); }
+@keyframes zoomIn { from { opacity: 0; transform: scale(1.08); } }
+.head { text-align: center; }
+.head h2 { font-size: 32px; text-shadow: 2px 2px 0 rgba(255,255,255,.35); }
+.dark .head h2 { text-shadow: 2px 2px 0 var(--ink); }
+.rarity { display: inline-block; margin-top: 6px; padding: 2px 10px; background: var(--panel); color: var(--ink); border: var(--border-thin); border-radius: 8px; font-weight: 800; font-size: 14px; }
+.stage { flex: 1; position: relative; }
+.target, .ring {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 50%; pointer-events: none;
+}
+.target { width: 170px; height: 170px; border: 4px dashed var(--ink); background: rgba(255,255,255,.18); }
+.ring { width: 170px; height: 170px; border: 5px solid var(--white); box-shadow: 0 0 0 3px var(--ink), inset 0 0 0 3px var(--ink); will-change: transform; }
+.shard { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); animation: float 1.6s ease-in-out infinite; }
+@keyframes float { 50% { transform: translate(-50%, calc(-50% - 8px)); } }
+.flash { position: absolute; left: 50%; top: 20%; transform: translateX(-50%); font-family: var(--font-pixel); font-size: 28px; background: var(--panel); color: var(--ink); border: var(--border); border-radius: 10px; padding: 4px 14px; box-shadow: var(--shadow-hard); animation: pop .3s var(--ease-pop); }
+@keyframes pop { from { transform: translateX(-50%) scale(.5); opacity: 0; } }
+.result { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
+.card { background: var(--panel); color: var(--ink); border: var(--border); border-radius: var(--radius-l); box-shadow: var(--shadow-hard); padding: 14px 18px; text-align: center; animation: pop2 .4s var(--ease-pop); max-width: 330px; }
+@keyframes pop2 { from { transform: scale(.6); opacity: 0; } }
+.big { font-family: var(--font-pixel); font-size: 28px; line-height: 1.1; }
+.grade { font-weight: 800; margin-top: 4px; }
+.xp { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 6px; font-weight: 800; color: var(--green); }
+.burst { position: absolute; left: 50%; top: 42%; width: 0; height: 0; }
+.burst i { position: absolute; width: 10px; height: 10px; background: var(--c); border: 2px solid var(--ink); animation: fly .9s var(--ease-out) forwards; transform: rotate(var(--a)) translateY(0); }
+@keyframes fly { to { transform: rotate(var(--a)) translateY(-150px); opacity: 0; } }
+.dissolve { animation: dissolve 1.2s steps(6) forwards; }
+@keyframes dissolve { 50% { filter: contrast(2) brightness(1.5); } to { opacity: 0; transform: translateY(-30px) scale(.6); filter: blur(2px); } }
+.wobble { animation: wobble .5s steps(4) 2; }
+@keyframes wobble { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+.foot { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.tries { display: flex; gap: 10px; }
+.tries i { width: 18px; height: 18px; background: var(--white); border: 3px solid var(--ink); border-radius: 4px; }
+.tries i.used { background: var(--ink); opacity: .5; }
+.hint { font-weight: 800; background: rgba(255,253,246,.9); color: var(--ink); border-radius: 8px; padding: 4px 10px; }

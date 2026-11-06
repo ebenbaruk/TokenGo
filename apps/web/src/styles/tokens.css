@@ -1,0 +1,30 @@
+/* Design tokens — Docs/09 §2 (Pixel Pop Paris). */
+:root {
+  /* palette Sweetie 16 */
+  --ink:#1a1c2c; --plum:#5d275d; --berry:#b13e53; --orange:#ef7d57; --sun:#ffcd75; --lime:#a7f070; --green:#38b764; --teal:#257179;
+  --navy:#29366f; --blue:#3b5dc9; --sky:#41a6f6; --cyan:#73eff7; --white:#f4f4f4; --mist:#94b0c2; --slate:#566c86; --night:#333c57;
+  /* rôles */
+  --bg: #F6EFD9;
+  --panel: #FFFDF6;
+  --panel-alt: #E8F4FF;
+  --text: var(--ink); --text-dim: var(--slate); --text-on-color: var(--white);
+  --primary: var(--sky);
+  --primary-press: var(--blue);
+  --xp: var(--lime); --flux: var(--sun); --credits: var(--orange);
+  --danger: var(--berry); --warn: var(--orange); --ok: var(--green);
+  --shard-deepseek: var(--cyan); --shard-qwen: var(--plum); --shard-gemini: var(--sky); --shard-gpt: var(--lime); --shard-claude: var(--orange);
+  /* forme */
+  --border: 3px solid var(--ink); --border-thin: 2px solid var(--ink);
+  --radius-s: 6px; --radius-m: 10px; --radius-l: 16px;
+  --shadow-hard: 4px 4px 0 var(--ink); --shadow-hard-s: 2px 2px 0 var(--ink);
+  --space: 4px;
+  --ease-pop: cubic-bezier(.34,1.56,.64,1); --ease-out: cubic-bezier(.2,.8,.2,1);
+  --step: steps(4, end);
+  /* typo */
+  --font-pixel: 'Pixelify Sans', 'Nunito', system-ui, sans-serif;
+  --font-ui: 'Nunito', system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, 'JetBrains Mono', 'SFMono-Regular', Menlo, monospace;
+  /* safe areas */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
