@@ -53,6 +53,18 @@ function onGround(p: LatLng) {
 
 const handlers: MapHandlers = { onSpawn, onNode, onGround };
 
+// Crochets E2E (la carte WebGL n'est pas cliquable de façon fiable dans les tests).
+declare global {
+  interface Window { __tgWalk?: (lat: number, lng: number) => void; __tgOpen?: (nodeId: string) => boolean }
+}
+window.__tgWalk = (lat, lng) => walkTo({ lat, lng }, 300);
+window.__tgOpen = (nodeId) => {
+  const n = useGame.getState().world?.nodes.find((x) => x.id === nodeId || x.merchant?.id === nodeId);
+  if (!n) return false;
+  openNode(n);
+  return true;
+};
+
 export function App() {
   const phase = useGame((s) => s.phase);
   const overlay = useGame((s) => s.overlay);

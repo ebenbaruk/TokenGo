@@ -15,7 +15,7 @@
 .logo img { display: block; width: 100%; height: auto; image-rendering: auto; filter: drop-shadow(0 3px 0 var(--ink)); }
 @keyframes drop { from { transform: translateY(-30px); } }
 .tagline { margin: 0; font-weight: 800; font-size: 17px; color: var(--ink); background: var(--panel); border: var(--border); border-radius: 10px; padding: 6px 12px; box-shadow: var(--shadow-hard); text-align: center; }
-.hero { position: absolute; top: -78px; left: 50%; translate: -50% 0; animation: hop 1.2s steps(2) infinite; }
+.hero { position: absolute; top: -94px; left: 50%; translate: -50% 0; animation: hop 1.2s steps(2) infinite; }
 @keyframes hop { 50% { transform: translateY(-8px); } }
 .actions {
   display: flex; flex-direction: column; gap: 12px; padding: 14px; background: rgba(255,253,246,.96);

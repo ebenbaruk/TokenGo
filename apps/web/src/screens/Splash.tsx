@@ -32,7 +32,10 @@ export function Splash() {
     const auth = params.get('auth');
     if (auth === 'error') setErr(AUTH_ERRORS[params.get('reason') ?? ''] ?? 'Google sign-in failed.');
     if (auth) history.replaceState(null, '', location.pathname + (wantsDemo() ? '?demo=1' : ''));
-    if (auth === 'google') toast('Signed in with Google — your progress is safe.', 'good');
+    if (auth === 'google') {
+      const outcome = params.get('outcome');
+      toast(outcome === 'upgraded' ? 'Signed in with Google — your guest progress is saved.' : outcome === 'created' ? 'Welcome, Runner! Your Google account is ready.' : 'Welcome back!', 'good');
+    }
   }, []);
 
   const enter = async (demo: boolean, start: { lat: number; lng: number } | null) => {

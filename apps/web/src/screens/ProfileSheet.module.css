@@ -1,0 +1,27 @@
+.stack { display: flex; flex-direction: column; gap: 14px; }
+.head { display: flex; align-items: center; gap: 12px; }
+.avatar { display: grid; place-items: center; width: 84px; height: 84px; background: var(--sky); border: var(--border); border-radius: 14px; flex: none; }
+.handle { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 0; border: 0; background: none; cursor: pointer; font-family: var(--font-pixel); font-size: 24px; text-align: left; overflow-wrap: anywhere; min-height: 44px; }
+.editRow { display: flex; gap: 8px; align-items: center; }
+.input { flex: 1; min-width: 0; font: inherit; font-size: 18px; font-weight: 800; padding: 8px 10px; border: var(--border-thin); border-radius: 10px; background: var(--white); min-height: 44px; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.stats > div { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; background: var(--panel); border: var(--border-thin); border-radius: 12px; box-shadow: var(--shadow-hard-s); }
+.stats b { font-size: 16px; }
+.stats span { font-size: 11px; font-weight: 800; color: var(--slate); }
+.walk { color: var(--blue); height: 32px; }
+.label { font-family: var(--font-pixel); font-size: 20px; margin-bottom: 8px; }
+.districts { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.district { min-height: 48px; display: flex; align-items: baseline; justify-content: center; gap: 1px; border: var(--border-thin); border-radius: 10px; background: var(--panel-alt); cursor: pointer; font-family: var(--font-pixel); padding: 10px 0 0; }
+.district b { font-size: 22px; font-weight: 600; }
+.district small { font-size: 12px; }
+.districtOn { background: var(--sun); box-shadow: var(--shadow-hard-s); outline: 3px solid var(--orange); outline-offset: -5px; }
+.board { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.board li { display: grid; grid-template-columns: 30px 1fr auto; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 8px; font-weight: 800; }
+.board li:nth-child(odd) { background: var(--panel-alt); }
+.meRow { outline: 3px solid var(--sun); }
+.rank { font-family: var(--font-pixel); font-size: 18px; text-align: center; }
+.rName { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.links { display: flex; flex-direction: column; gap: 10px; }
+.agent { margin-left: 6px; padding: 0 5px; background: var(--plum); color: var(--white); border-radius: 5px; font-size: 10px; text-transform: uppercase; }
+.boardTabs { margin: 0 -16px; }
+.boardTabs :global([role=tab]) { font-size: 16px; padding: 0 4px; min-width: 0; }

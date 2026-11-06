@@ -49,6 +49,10 @@ const HUMAN: Partial<Record<ApiFail['code'], string>> = {
 /** Message humain (court, ton du jeu) par code d'erreur. */
 export function humanError(e: unknown): string {
   if (!(e instanceof ApiFail)) return 'Something glitched. Try again.';
+  if (e.code === 'RATE_LIMITED' && e.extra.quota) {
+    const lim = typeof e.extra.limit === 'number' ? ` (${e.extra.limit}/day)` : '';
+    return `Daily limit reached for ${String(e.extra.quota).replace(/[-_]/g, ' ')}${lim} — come back tomorrow.`;
+  }
   return HUMAN[e.code] ?? e.message ?? 'Something glitched.';
 }
 

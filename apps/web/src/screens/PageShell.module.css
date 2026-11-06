@@ -1,0 +1,22 @@
+.page { position: absolute; inset: 0; overflow-y: auto; background: var(--bg); -webkit-overflow-scrolling: touch; }
+.top {
+  position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 12px;
+  padding: calc(var(--safe-top) + 8px) 16px 8px; background: var(--sky); border-bottom: var(--border);
+}
+.logo { display: block; width: 116px; flex: none; filter: drop-shadow(2px 2px 0 var(--ink)); }
+.logo img { display: block; width: 100%; height: auto; }
+.nav { display: flex; gap: 6px; margin-left: auto; overflow-x: auto; }
+.nav a {
+  display: inline-flex; align-items: center; min-height: 40px; padding: 0 10px; border: var(--border-thin); border-radius: 10px;
+  background: var(--panel); color: var(--ink); font-family: var(--font-pixel); font-size: 17px; text-decoration: none; box-shadow: var(--shadow-hard-s);
+}
+.nav a.on { background: var(--sun); }
+.main { padding: 16px 16px calc(var(--safe-bottom) + 32px); max-width: 720px; margin: 0 auto; }
+.wide { max-width: 1240px; }
+.titleRow { margin-bottom: 14px; }
+.titleRow h1 { font-size: 34px; line-height: 1.05; }
+.titleRow p { margin: 4px 0 0; font-weight: 700; color: var(--slate); }
+@media (max-width: 420px) {
+  .logo { width: 92px; }
+  .nav a { padding: 0 8px; font-size: 16px; }
+}

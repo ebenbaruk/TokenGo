@@ -1,0 +1,2 @@
+.map { position: relative; width: 100%; border: var(--border); border-radius: var(--radius-l); overflow: hidden; background: var(--bg); box-shadow: var(--shadow-hard); }
+.map :global(.maplibregl-ctrl-attrib) { font-size: 10px; }

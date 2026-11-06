@@ -166,8 +166,22 @@ export function startPlay(opts: { demo: boolean; start?: LatLng | null }): void 
     const p = useGame.getState().pos;
     if (p) void maybeSend({ ...p, t: Date.now() });
   }, SEND_IDLE_MS));
+  startUserStream();
   // Wake Lock pendant le jeu
   const wl = async () => { try { await (navigator as Navigator & { wakeLock?: { request(t: 'screen'): Promise<unknown> } }).wakeLock?.request('screen'); } catch { /* */ } };
   void wl();
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') void wl(); });
+}
+
+// ───────── Flux temps réel du joueur (SSE /api/stream) ─────────
+let userStream: EventSource | null = null;
+function startUserStream(): void {
+  if (userStream || typeof EventSource === 'undefined') return;
+  userStream = new EventSource('/api/stream');
+  userStream.onmessage = (m) => {
+    try {
+      const e = JSON.parse(m.data as string) as { kind: string; text: string };
+      if (e.kind === 'grant.done') { toast(e.text, 'good', 'xp', 4000); void refreshMe(); }
+    } catch { /* ping */ }
+  };
 }
