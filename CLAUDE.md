@@ -47,7 +47,9 @@ npm run verify         # ce que lancera le juge IA : tests + build + e2e smoke (
 npm run shots          # captures d'écran clés → docs-assets/
 npm run reconcile      # compare chaîne et SQLite
 npm run check:secrets  # aucun secret dans le repo ni l'historique
-npm run admin -- …     # revue de comptes flaggés, pause Forge
+npm run build-world    # régénère data/world/paris.json depuis data/raw (OSM)
+node apps/server/scripts/nearai-spike.ts  # teste NEAR AI réel (< $0.001) une fois NEARAI_AUTH_* dans .env
+# Pause Forge : POST /api/admin/forge/pause (Bearer ADMIN_TOKEN)
 ```
 
 ## Jamais sans confirmation explicite de l'humain
@@ -60,5 +62,7 @@ Testnet, déploiements de démo et crédits NEAR AI déjà alloués au Reserve :
 - Machine « surface » (ARM64, sans écran) : donner les URLs en `http://surface:PORT`, ports < 32768.
   Dans Playwright, utiliser `http://localhost:PORT`.
 - La géolocalisation navigateur exige HTTPS (sauf localhost) : la démo publique doit être en HTTPS.
+- Base de dev : `var/tokengo.db` (chemin résolu depuis la racine). Avec `.env` chargé, la chaîne est active (comptes `dev-…`) : `FEATURE_CHAIN=0` pour l'éviter.
+- E2E : gestes de glisser via CDP `Input.dispatchTouchEvent` et attendre ~700 ms la fin de l'animation des feuilles.
 - Budget réel total : **10 €** de crédits NEAR AI. Le Reserve ne doit **jamais** promettre plus que son solde
   (invariant : somme des `spend_limit` restants ≤ solde de l'organisation − marge).

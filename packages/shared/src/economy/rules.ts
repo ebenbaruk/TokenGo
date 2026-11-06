@@ -54,7 +54,7 @@ export const CATCH = {
   fleeAfterMiss: { common: 0, uncommon: 0.1, rare: 0.2, epic: 0.3 } satisfies Record<Rarity, number>,
   maxTries: 3,
   perfectBonusChance: 0.25,      // perfect : 25 % de chance d'un éclat bonus
-  attemptTtlMs: 15_000,
+  attemptTtlMs: 30_000,
   minResolveMs: 300,
   perfectCapRatio: 0.4,          // au-delà de 40 % de perfect sur les 30 dernières captures → compté « good »
   perfectCapWindow: 30,

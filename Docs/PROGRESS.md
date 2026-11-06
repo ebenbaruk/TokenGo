@@ -2,6 +2,17 @@
 
 Mettre à jour à la fin de chaque bloc de travail. Le plus récent en haut.
 
+## 2026-11-06 (soir) — Build J1→J6 en une session (autonomie totale)
+- **Fait** :
+  - J1 : monorepo (npm workspaces, TS 7, Vitest, Playwright), `rules.ts` + fonctions pures (prix, marchands, forge, réserve, spawns, capture, agent, anti-triche), monde Paris (`data/world/paris.json` : 1 060 relais, 153 marchands, 10 forges), contrat NEP-245 déployé sur `tokengo.testnet`.
+  - J2–J4 : serveur Fastify autoritaire (SQLite, sessions, Origin/CSP, rate limits, quotas) ; boucle complète capture → relais → marchand → First Compile → clé + playground ; simulateur + réglage de l'économie (toutes les cibles de santé vertes, seeds 42/1/2/3, 7 et 14 j).
+  - J5 : settler on-chain par lots + preuve de burn synchrone, sous-comptes paresseux, reconcile, Proofs ; NEAR AI Cloud réel (NEP-413, clés à plafond, cerveau des marchands borné, salutations) codé contre la source de cloud-api (pas encore testé faute d'identifiants) ; 24 runners-agents ; Google OAuth derrière flag.
+  - J6 : front complet (carte cartoon, sprites pixel codés, tutoriel Margot, marchand, forge, crédits, Pulse SSE, Economy Lab en Web Worker depuis l'état réel, Proofs avec vérif RPC navigateur, profil/classements, About) ; illustrations via Codex imagegen ; Dockerfile + railway.json ; README.
+  - Vérif : `npm run verify` vert (100 tests unitaires + e2e du parcours complet, gestes tactiles réels via CDP) ; `check:secrets` vert.
+- **En cours** : passe de polish design (chiffres lisibles, cadrage carte, écran de capture), specs e2e restantes, revue sécurité indépendante.
+- **Bloqué par l'humain** : crédits réels (HUMAN-TODO 1–3) ; hébergement (Railway prêt, choix « plus tard » du propriétaire) ; Google OAuth (après l'URL finale).
+- **Prochaine étape** : intégrer revue sécurité + e2e, polish, puis J7 (checklist sécurité, perf carte, captures `npm run shots`) et J8 (vidéo/post/soumission avec confirmation).
+
 ## 2026-11-06 — Spec (session de cadrage)
 - **Fait** : recherche hackathon (règles, track games, jury, soumission), recherches techniques vérifiées (NEAR AI Cloud gestion des clés + auth NEP-413,
   NEP-245/near-kit/cargo-near, login social, carte/OSM/H3/hébergement), spec complète `Docs/01…12` (révisée après une relecture critique indépendante : économie, exploits, périmètre), `HUMAN-TODO.md`, `CLAUDE.md`, mémoire.
