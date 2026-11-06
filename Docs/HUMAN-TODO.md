@@ -25,7 +25,7 @@ débloque la version « réelle ». Cocher quand c'est fait et mettre les valeur
 
 ## Pour la soumission (J8)
 - [ ] **6. Compte NEAR mainnet pour recevoir le prix** (peut être ton compte perso, différent de 1).
-- [ ] **7. Repo GitHub** : créer le repo (ou autoriser Claude à le créer avec `gh`), le **rendre public** avant le 14/11 23:59 UTC.
+- [ ] **7. Repo GitHub** : créé en **privé** le 2026-11-06 → https://github.com/ebenbaruk/TokenGo. Reste : le **rendre public** avant le 14/11 23:59 UTC (avec ton OK).
 - [ ] **8. Vidéo + post X** : Claude prépare le script, les captures et le texte ; tu filmes (optionnel : quelques plans dans la rue) et tu publies.
 - [ ] **9. Valider la soumission** : Claude affiche le JSON exact, tu dis « oui ».
 

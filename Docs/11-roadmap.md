@@ -5,7 +5,7 @@ principal vert, captures d'écran revues, commit local (git init au J1), mise à
 Priorités : **P0** = sans ça on ne soumet pas · **P1** = fait la différence · **P2** = seulement s'il reste du temps.
 
 ## J1 — 7 nov · Fondations + risques levés
-- P0 `git init`, monorepo (npm workspaces), TS strict, Vitest, Playwright, scripts `dev/test/e2e/sim/verify/check:secrets`.
+- P0 Monorepo (npm workspaces), TS strict, Vitest, Playwright, scripts `dev/test/e2e/sim/verify/check:secrets`.
 - P0 Vérifier les versions (`05` §3 « À vérifier J1 ») en installant réellement.
 - P0 `packages/shared/economy/rules.ts` + pricing / forge / reserve / spawns / progression en fonctions pures + tests.
 - P0 **Spike NEAR AI** : signature NEP-413 → `POST /v1/auth/near` → créer une clé de test → PATCH limite → révoquer. Sans `NEARAI_AUTH_*` :
