@@ -24,7 +24,7 @@ const HUMAN: Partial<Record<ApiFail['code'], string>> = {
   NO_POSITION: 'Waiting for your position…',
   TOO_FAR: 'Too far — get a bit closer.',
   IN_TRANSIT: 'In transit — catching paused.',
-  SUSPICIOUS_MOVE: 'That jump looked odd. Actions paused for a moment.',
+  SUSPICIOUS_MOVE: 'Re-syncing your position… try again in a few minutes.',
   COOLDOWN: 'Still recharging.',
   LEVEL_LOCKED: 'Level too low for that (yet).',
   ALREADY_CAUGHT: 'Already caught that one.',

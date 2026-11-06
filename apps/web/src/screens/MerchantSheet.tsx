@@ -140,13 +140,13 @@ export function MerchantSheet({ node, onClose }: { node: NodeView; onClose: () =
         </>
       )}
       {pick && m ? <TradePanel m={m} pick={pick} farReason={farReason} onClose={() => setPick(null)}
-        onTraded={(v) => { setM(v); setPick(null); cheer(); }} /> : null}
+        onTraded={(v) => { setM(v); setPick(null); cheer(); }} onStale={() => void load()} /> : null}
     </Sheet>
   );
 }
 
-function TradePanel({ m, pick, farReason, onClose, onTraded }: {
-  m: MerchantView; pick: { family: Family; side: Side }; farReason: string | null; onClose: () => void; onTraded: (m: MerchantView) => void;
+function TradePanel({ m, pick, farReason, onClose, onTraded, onStale }: {
+  m: MerchantView; pick: { family: Family; side: Side }; farReason: string | null; onClose: () => void; onTraded: (m: MerchantView) => void; onStale: () => void;
 }) {
   const me = useGame((st) => st.me);
   const e = m.prices.find((p) => p.family === pick.family)!;
@@ -183,7 +183,7 @@ function TradePanel({ m, pick, farReason, onClose, onTraded }: {
       toast(r.side === 'sell' ? `Sold ${r.qty} ${famName(r.family)} · +${r.total} ƒ` : `Bought ${r.qty} ${famName(r.family)} · −${r.total} ƒ`, 'good', r.family);
       onTraded(r.merchant);
     } catch (err) {
-      if (err instanceof ApiFail && err.code === 'PRICE_MOVED') { toast(humanError(err), 'info'); void requote(); }
+      if (err instanceof ApiFail && err.code === 'PRICE_MOVED') { toast(humanError(err), 'info'); onStale(); void requote(); }
       else { toast(humanError(err), 'bad'); play('error'); }
     } finally {
       setBusy(false);

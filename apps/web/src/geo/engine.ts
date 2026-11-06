@@ -52,7 +52,7 @@ async function maybeSend(p: Pos, force = false): Promise<void> {
     const r = await api.move({ lat: p.lat, lng: p.lng, acc: Math.round(p.acc), heading: p.heading });
     const was = useGame.getState().inTransit;
     if (r.inTransit !== was) useGame.setState({ inTransit: r.inTransit });
-    if (r.suspicious) toast('That jump looked odd — actions paused for a moment.', 'bad');
+    if (r.suspicious) toast('Re-syncing your position…', 'info');
     const me = useGame.getState().me;
     if (me && me.walkedM !== r.walkedM) useGame.setState({ me: { ...me, walkedM: r.walkedM } });
   } catch (e) {

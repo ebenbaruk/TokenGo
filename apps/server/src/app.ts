@@ -81,6 +81,8 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
   await app.register(rateLimit, {
     global: true,
     max: 120,
+    // les fichiers statiques (front buildé) ne comptent pas : sinon une page vide pour tout un Wi-Fi partagé
+    allowList: (req) => !req.url.startsWith('/api') && !req.url.startsWith('/auth'),
     timeWindow: '1 minute',
     keyGenerator: (req) => (req as FastifyRequest).userId ?? req.ip,
     errorResponseBuilder: () => ({ statusCode: 429, error: { code: 'RATE_LIMITED', message: 'Slow down a little.' } }),
