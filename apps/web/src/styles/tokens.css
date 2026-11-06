@@ -21,7 +21,7 @@
   --ease-pop: cubic-bezier(.34,1.56,.64,1); --ease-out: cubic-bezier(.2,.8,.2,1);
   --step: steps(4, end);
   /* typo */
-  --font-pixel: 'Pixelify Sans', 'Nunito', system-ui, sans-serif;
+  --font-pixel: 'TG Pixel', 'Nunito', system-ui, sans-serif;
   --font-ui: 'Nunito', system-ui, -apple-system, sans-serif;
   --font-mono: ui-monospace, 'JetBrains Mono', 'SFMono-Regular', Menlo, monospace;
   /* safe areas */

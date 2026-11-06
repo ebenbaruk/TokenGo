@@ -27,7 +27,7 @@ export function Splash() {
   const [busy, setBusy] = useState<'gps' | 'demo' | null>(null);
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
-    api.me().then(setExisting).catch(() => {});
+    void api.meIfSession(params.get('auth') === 'google').then(setExisting);
     api.config().then(setConfig).catch(() => {});
     const auth = params.get('auth');
     if (auth === 'error') setErr(AUTH_ERRORS[params.get('reason') ?? ''] ?? 'Google sign-in failed.');

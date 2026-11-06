@@ -14,7 +14,7 @@ export default function AboutPage() {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  useEffect(() => { api.me().then(setMe).catch(() => {}); }, []);
+  useEffect(() => { void api.meIfSession().then(setMe); }, []);
 
   const del = async () => {
     setBusy(true); setErr(null);

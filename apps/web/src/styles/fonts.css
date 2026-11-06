@@ -1,0 +1,27 @@
+/* « TG Pixel » : Pixelify Sans pour les lettres, Nunito 800 pour les chiffres et la ponctuation des nombres.
+   En Pixelify, le 5 se lit comme un 9 ($4.50 → $4.90) : aucun chiffre ne doit jamais être rendu en Pixelify.
+   unicode-range fait le tri automatiquement, quel que soit l'endroit où la police pixel est utilisée. */
+@font-face {
+  font-family: 'TG Pixel';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('../../../../node_modules/@fontsource/nunito/files/nunito-latin-800-normal.woff2') format('woff2');
+  unicode-range: U+0030-0039, U+0024, U+0025, U+002B, U+002C, U+002E, U+002F, U+003A, U+00D7, U+2212;
+}
+@font-face {
+  font-family: 'TG Pixel';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('../../../../node_modules/@fontsource/pixelify-sans/files/pixelify-sans-latin-600-normal.woff2') format('woff2');
+  unicode-range: U+0000-0023, U+0026-002A, U+002D, U+003B-00D6, U+00D8-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'TG Pixel';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('../../../../node_modules/@fontsource/pixelify-sans/files/pixelify-sans-latin-ext-600-normal.woff2') format('woff2');
+  unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}

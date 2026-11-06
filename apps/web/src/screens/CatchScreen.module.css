@@ -13,8 +13,8 @@
 .target, .ring {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border-radius: 50%; pointer-events: none;
 }
-.target { width: 170px; height: 170px; border: 4px dashed var(--ink); background: rgba(255,255,255,.18); }
-.ring { width: 170px; height: 170px; border: 5px solid var(--white); box-shadow: 0 0 0 3px var(--ink), inset 0 0 0 3px var(--ink); will-change: transform; }
+.target { width: 210px; height: 210px; border: 4px dashed var(--ink); background: rgba(255,255,255,.18); }
+.ring { width: 210px; height: 210px; border: 5px solid var(--white); box-shadow: 0 0 0 3px var(--ink), inset 0 0 0 3px var(--ink); will-change: transform; }
 .shard { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); animation: float 1.6s ease-in-out infinite; }
 @keyframes float { 50% { transform: translate(-50%, calc(-50% - 8px)); } }
 .flash { position: absolute; left: 50%; top: 20%; transform: translateX(-50%); font-family: var(--font-pixel); font-size: 28px; background: var(--panel); color: var(--ink); border: var(--border); border-radius: 10px; padding: 4px 14px; box-shadow: var(--shadow-hard); animation: pop .3s var(--ease-pop); }
@@ -34,6 +34,23 @@
 @keyframes wobble { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
 .foot { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .tries { display: flex; gap: 10px; }
-.tries i { width: 18px; height: 18px; background: var(--white); border: 3px solid var(--ink); border-radius: 4px; }
-.tries i.used { background: var(--ink); opacity: .5; }
+.tries { gap: 14px; }
+.tries i { width: 28px; height: 28px; background: var(--white); border: 3px solid var(--ink); border-radius: 6px; box-shadow: var(--shadow-hard-s); }
+.tries i.used { background: var(--ink); opacity: .45; box-shadow: none; }
 .hint { font-weight: 800; background: rgba(255,253,246,.9); color: var(--ink); border-radius: 8px; padding: 4px 10px; }
+
+/* halo de la couleur de la famille qui pulse derrière l'éclat */
+.glow {
+  position: absolute; left: 50%; top: 50%; width: 300px; height: 300px; transform: translate(-50%, -50%); border-radius: 50%; pointer-events: none;
+  background: radial-gradient(closest-side, rgba(255,255,255,.85), var(--glow) 55%, transparent 72%);
+  opacity: .55; animation: glow 1.4s ease-in-out infinite;
+}
+@keyframes glow { 50% { opacity: .9; transform: translate(-50%, -50%) scale(1.08); } }
+/* étincelles pixel en orbite (plus nombreuses quand c'est rare) */
+.orbit { position: absolute; left: 50%; top: 50%; width: 0; height: 0; animation: spin 6s linear infinite; pointer-events: none; }
+.orbit i {
+  position: absolute; left: -5px; top: -5px; width: 10px; height: 10px; background: var(--white); border: 2px solid var(--ink);
+  transform: rotate(var(--a)) translateY(-136px); animation: twinkle 1s steps(2) var(--d) infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes twinkle { 50% { background: var(--sun); width: 6px; height: 6px; left: -3px; top: -3px; } }

@@ -56,6 +56,12 @@ export function humanError(e: unknown): string {
   return HUMAN[e.code] ?? e.message ?? 'Something glitched.';
 }
 
+// Indice local « une session existe probablement » (le cookie est httpOnly) : évite un /api/me → 401
+// (erreur rouge dans la console) à chaque visite d'un nouveau joueur.
+const SESSION_HINT = 'tg.session';
+export const hasSessionHint = (): boolean => { try { return localStorage.getItem(SESSION_HINT) === '1'; } catch { return true; } };
+const setSessionHint = (on: boolean) => { try { if (on) localStorage.setItem(SESSION_HINT, '1'); else localStorage.removeItem(SESSION_HINT); } catch { /* */ } };
+
 async function req<T>(method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown): Promise<T> {
   let res: Response;
   try {
@@ -68,6 +74,8 @@ async function req<T>(method: 'GET' | 'POST' | 'DELETE', path: string, body?: un
   } catch {
     throw new ApiFail('NETWORK', 'network', 0);
   }
+  if (res.status === 401) setSessionHint(false);
+  else if (res.ok && (path.startsWith('/auth/') || path.startsWith('/api/me'))) setSessionHint(path !== '/api/me' || method !== 'DELETE');
   if (!res.ok) {
     let err: ApiError | null = null;
     try { err = (await res.json()) as ApiError; } catch { /* corps non JSON */ }
@@ -90,6 +98,8 @@ export interface ProofsView {
 export const api = {
   guest: (demo: boolean) => req<{ me?: Me } & Partial<Me>>('POST', '/auth/guest', { demo }),
   me: () => req<Me>('GET', '/api/me'),
+  /** /api/me seulement s'il y a probablement une session (sinon null, sans requête). */
+  meIfSession: (force = false): Promise<Me | null> => (force || hasSessionHint() ? req<Me>('GET', '/api/me').catch(() => null) : Promise.resolve(null)),
   move: (b: MoveRequest) => req<MoveResponse>('POST', '/api/move', b),
   world: (lat: number, lng: number) => req<WorldResponse>('GET', `/api/world?lat=${lat.toFixed(6)}&lng=${lng.toFixed(6)}`),
   catchStart: (spawnId: string) => req<CatchStartResponse>('POST', '/api/catch/start', { spawnId }),

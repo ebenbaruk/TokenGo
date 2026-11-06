@@ -99,9 +99,9 @@ export function MerchantSheet({ node, onClose }: { node: NodeView; onClose: () =
                         <div className={s.stockLine}>
                           <Gauge value={e.stock} max={Math.max(e.target * 1.5, e.stock, 1)} mark={e.target} height={8} color="var(--teal)" />
                           <span className="num">{e.stock}/{Math.round(e.target)}</span>
+                          <Sparkline points={m.trend24h[f] ?? []} w={36} h={16} />
                         </div>
                       </div>
-                      <Sparkline points={m.trend24h[f] ?? []} w={44} h={22} />
                     </div>
                     <div className={s.prices}>
                       <button type="button" className={`${s.priceBtn} ${s.sell}`} data-testid={`sell-${f}`}

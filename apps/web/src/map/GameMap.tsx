@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { Map as MLMap, AttributionControl, setWorkerUrl, type GeoJSONSource, type MapMouseEvent, type PointLike, type MapGeoJSONFeature } from 'maplibre-gl';
 import type { Feature, FeatureCollection } from 'geojson';
-import { FAMILIES, ACTION_RADIUS_M, type NodeView, type SpawnView, type LatLng } from '@tokengo/shared';
+import { FAMILIES, ACTION_RADIUS_M, haversineM, type NodeView, type SpawnView, type LatLng } from '@tokengo/shared';
 import { useGame } from '../lib/store.ts';
 import { SHARDS, AVATAR, RUNNER, RELAY, RELAY_COOLDOWN, FORGE, BADGE, ACCENTS, hashStr, marketSprite, spriteImageData, gridsOf, type SpriteDef } from '../sprites/index.ts';
 import { NODE_GRIDS } from '../sprites/nodes.grids.ts';
@@ -19,7 +19,9 @@ export interface MapHandlers {
   onGround: (p: LatLng) => void;
 }
 
-const FOLLOW = { zoom: 17, pitch: 55 };
+const FOLLOW = { zoom: 16.4, pitch: 50 };
+/** un éclat à moins de NEAR_AVATAR_M du joueur est décalé à côté de l'avatar (sinon caché dessous) */
+const NEAR_AVATAR_M = 25;
 const FREE_MS = 8000;
 
 
@@ -122,13 +124,19 @@ export default function GameMap({ handlers }: { handlers: MapHandlers }) {
         badge: n.kind === 'market' && n.merchant?.hasContract && n.merchant.status !== 'closed' ? 1 : 0,
         sort: n.kind === 'forge' ? 3 : n.kind === 'market' ? 2 : 1,
       }))));
-      (map.getSource('spawns') as GeoJSONSource).setData(fc((st.world?.spawns ?? []).filter((x) => !hidden.has(x.id) && x.expiresAt > now)
-        .map((x) => pt(x, { id: x.id, family: x.family, icon: `shard-${x.family}` }))));
+      syncSpawns();
       (map.getSource('runners') as GeoJSONSource).setData(fc(st.showRunners ? (st.world?.runners ?? []).map((r) => pt(r, { handle: r.handle })) : []));
       const target = st.world?.objective?.target;
       (map.getSource('route') as GeoJSONSource).setData(fc(target && st.pos ? [{
         type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [[st.pos.lng, st.pos.lat], [target.lng, target.lat]] },
       }] : []));
+    };
+    const syncSpawns = () => {
+      const st = useGame.getState();
+      const now = Date.now();
+      const hidden = new Set(st.hiddenSpawns);
+      (map.getSource('spawns') as GeoJSONSource).setData(fc((st.world?.spawns ?? []).filter((x) => !hidden.has(x.id) && x.expiresAt > now)
+        .map((x) => pt(x, { id: x.id, family: x.family, icon: `shard-${x.family}`, off: st.pos && haversineM(st.pos, x) < NEAR_AVATAR_M ? 1 : 0 }))));
     };
     const syncMe = () => {
       if (!ready) return;
@@ -136,6 +144,7 @@ export default function GameMap({ handlers }: { handlers: MapHandlers }) {
       if (!p) return;
       (map.getSource('me') as GeoJSONSource).setData(fc([pt(p, {})]));
       (map.getSource('radius') as GeoJSONSource).setData(fc([circlePoly(p, ACTION_RADIUS_M.spawn + Math.min(p.acc, 20))]));
+      syncSpawns();
       if (following) map.easeTo({ center: [p.lng, p.lat], pitch: FOLLOW.pitch, zoom: FOLLOW.zoom, duration: 600 });
     };
 
@@ -152,6 +161,11 @@ export default function GameMap({ handlers }: { handlers: MapHandlers }) {
       map.addLayer({ id: 'radius-line', type: 'line', source: 'radius', paint: { 'line-color': '#3b5dc9', 'line-width': 2, 'line-dasharray': [2, 2], 'line-opacity': 0.6 } }, before);
       map.addLayer({ id: 'route', type: 'line', source: 'route', layout: { 'line-cap': 'round' },
         paint: { 'line-color': '#5d275d', 'line-width': 4, 'line-dasharray': [0.5, 2], 'line-opacity': 0.75 } });
+      // runners-agents : sprite seul (pas d'étiquette), sous les nœuds et les éclats
+      map.addLayer({ id: 'runners', type: 'symbol', source: 'runners', minzoom: 14, layout: {
+        'icon-image': 'runner', 'icon-anchor': 'bottom', 'icon-allow-overlap': true, 'icon-pitch-alignment': 'viewport',
+        'icon-size': ['interpolate', ['linear'], ['zoom'], 14, 0.6, 17, 1],
+      }, paint: { 'icon-opacity': 0.9 } });
       map.addLayer({ id: 'nodes', type: 'symbol', source: 'nodes', layout: {
         'icon-image': ['get', 'icon'], 'icon-anchor': 'bottom', 'icon-allow-overlap': true, 'icon-ignore-placement': true,
         'symbol-sort-key': ['get', 'sort'], 'icon-pitch-alignment': 'viewport',
@@ -164,18 +178,13 @@ export default function GameMap({ handlers }: { handlers: MapHandlers }) {
         'text-field': ['get', 'name'], 'text-font': ['Noto Sans Bold'], 'text-size': 13, 'text-anchor': 'top', 'text-offset': [0, 0.3],
         'text-max-width': 10, 'text-allow-overlap': false,
       }, paint: { 'text-color': '#5d275d', 'text-halo-color': '#ffcd75', 'text-halo-width': 2 } });
-      map.addLayer({ id: 'runners', type: 'symbol', source: 'runners', minzoom: 14, layout: {
-        'icon-image': 'runner', 'icon-anchor': 'bottom', 'icon-allow-overlap': true, 'icon-pitch-alignment': 'viewport',
-        'icon-size': ['interpolate', ['linear'], ['zoom'], 14, 0.6, 17, 1],
-        'text-field': ['step', ['zoom'], '', 16.5, ['get', 'handle']], 'text-font': ['Noto Sans Bold'], 'text-size': 10,
-        'text-anchor': 'top', 'text-offset': [0, 0.2], 'text-optional': true,
-      }, paint: { 'text-color': '#5d275d', 'text-halo-color': '#ffffff', 'text-halo-width': 1.5 } });
-      map.addLayer({ id: 'me', type: 'symbol', source: 'me', layout: {
-        'icon-image': 'avatar', 'icon-anchor': 'bottom', 'icon-allow-overlap': true, 'icon-ignore-placement': true,
-      } });
       map.addLayer({ id: 'spawns', type: 'symbol', source: 'spawns', layout: {
         'icon-image': ['get', 'icon'], 'icon-anchor': 'bottom', 'icon-allow-overlap': true, 'icon-ignore-placement': true, 'icon-pitch-alignment': 'viewport',
-        'icon-size': ['interpolate', ['linear'], ['zoom'], 14, 0.4, 17, 0.8, 18, 1],
+        'icon-size': ['interpolate', ['linear'], ['zoom'], 14, 0.4, 16, 0.8, 18, 1],
+        'icon-offset': ['case', ['==', ['get', 'off'], 1], ['literal', [30, -6]], ['literal', [0, 0]]],
+      } });
+      map.addLayer({ id: 'me', type: 'symbol', source: 'me', layout: {
+        'icon-image': 'avatar', 'icon-anchor': 'bottom', 'icon-allow-overlap': true, 'icon-ignore-placement': true,
       } });
       ready = true;
       sync();

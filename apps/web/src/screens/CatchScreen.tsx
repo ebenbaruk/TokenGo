@@ -104,6 +104,7 @@ export function CatchScreen({ spawn, onClose }: { spawn: SpawnView; onClose: () 
   }, [result, onClose]);
 
   const info = FAMILY_INFO[fam];
+  const sparkles = 6 + ['common', 'uncommon', 'rare', 'epic'].indexOf(info.rarity) * 2; // plus rare = plus d'étincelles
   const caught = result && (result.result === 'perfect' || result.result === 'good');
   return (
     <div className={`${s.screen} pixel-pattern ${DARK_BG.has(fam) ? s.dark : ''}`} style={{ backgroundColor: FAMILY_HEX[fam] }}
@@ -116,9 +117,15 @@ export function CatchScreen({ spawn, onClose }: { spawn: SpawnView; onClose: () 
       <div className={s.stage}>
         {!result ? (
           <>
-            <div className={s.target} style={params ? { width: 170 * TARGET, height: 170 * TARGET } : undefined} />
+            <div className={s.glow} style={{ '--glow': FAMILY_HEX[fam] } as React.CSSProperties} aria-hidden />
+            <div className={s.orbit} aria-hidden>
+              {Array.from({ length: sparkles }, (_, i) => (
+                <i key={i} style={{ '--a': `${(360 / sparkles) * i}deg`, '--d': `${(i % 3) * 0.2}s` } as React.CSSProperties} />
+              ))}
+            </div>
+            <div className={s.target} />
             {params ? <div ref={ring} className={s.ring} /> : null}
-            <div className={s.shard}><Sprite def={SHARDS[fam]} scale={8} anim /></div>
+            <div className={s.shard}><Sprite def={SHARDS[fam]} scale={10} anim /></div>
             {flash ? <div className={s.flash}>{flash}</div> : null}
           </>
         ) : caught ? (
