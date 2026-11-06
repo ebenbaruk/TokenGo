@@ -11,3 +11,7 @@ playwright-report/
 # Références de style privées (fan-art tiers, ne pas publier)
 Docs/design-ref/*.jpg
 Docs/design-ref/*.png
+.playwright-mcp/
+docs-assets/gen/*.png
+docs-assets/gen/codex.log
+apps/web/__shots__/
