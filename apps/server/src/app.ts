@@ -4,6 +4,7 @@ import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import { existsSync } from 'node:fs';
+import { isAbsolute, resolve as resolvePath } from 'node:path';
 import { z } from 'zod';
 import { FAMILIES, RESERVE_PARTITION, type PulseEvent } from '@tokengo/shared';
 import type { Config } from './config.ts';
@@ -55,7 +56,8 @@ export interface AppOptions {
 
 export async function buildApp(cfg: Config, opts: AppOptions = {}) {
   const now = opts.now ?? Date.now;
-  const db = openDb(cfg.DB_PATH);
+  const db = openDb(cfg.DB_PATH === ':memory:' || isAbsolute(cfg.DB_PATH) ? cfg.DB_PATH : resolvePath(new URL('../../../', import.meta.url).pathname, cfg.DB_PATH));
+  const sseSockets = new Set<import('node:http').ServerResponse>();
   const world = loadWorld();
   const totalReserve = Object.values(RESERVE_PARTITION).reduce((s, x) => s + x, 0);
   const credits = typeof opts.credits === 'function' ? opts.credits(db) : opts.credits ?? simulatedCredits(totalReserve);
@@ -260,7 +262,8 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
     reply.raw.write(': hello\n\n');
     const off = subscribe((e) => reply.raw.write(`data: ${JSON.stringify(e)}\n\n`));
     const ping = setInterval(() => reply.raw.write(':ping\n\n'), 20_000);
-    req.raw.on('close', () => { clearInterval(ping); off(); });
+    sseSockets.add(reply.raw);
+    req.raw.on('close', () => { clearInterval(ping); off(); sseSockets.delete(reply.raw); });
     return reply;
   };
   app.get('/api/pulse/stream', async (req, reply) => sse(req, reply, ctx.bus.subscribe));
@@ -294,6 +297,7 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
     });
   }
 
+  app.addHook('preClose', async () => { for (const r of sseSockets) r.destroy(); });
   app.addHook('onClose', async () => { await stopChain(); db.close(); });
   return { app, ctx, npc };
 }

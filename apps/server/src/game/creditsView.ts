@@ -7,6 +7,7 @@ import { markTutorial } from './players.ts';
 
 export const PLAYGROUND_MODELS: CreditsView['models'] = [
   { id: 'deepseek/deepseek-v4.1-flash', label: 'DeepSeek V4.1 Flash', tier: 'cheap' },
+  { id: 'Qwen/Qwen3.8-27B', label: 'Qwen 3.8 27B · private', tier: 'cheap' },
   { id: 'openai/gpt-5.4-mini', label: 'GPT-5.4 mini', tier: 'mid' },
   { id: 'anthropic/claude-sonnet-5-5', label: 'Claude Sonnet 5.5', tier: 'premium' },
 ];

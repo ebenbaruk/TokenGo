@@ -145,7 +145,7 @@ describe('session NEAR AI', () => {
 });
 
 describe('provider NEAR AI (formes des requêtes)', () => {
-  const cfg = loadConfig({ NODE_ENV: 'test', DB_PATH: ':memory:', NEARAI_BASE: BASE, NEARAI_AUTH_ACCOUNT: 'tokengo.near', NEARAI_AUTH_KEY: SECRET, NEARAI_ORG_ID: 'org1', NEARAI_WORKSPACE_ID: 'ws1' });
+  const cfg = loadConfig({ NODE_ENV: 'test', DB_PATH: ':memory:', NEARAI_BASE: BASE, NEARAI_AUTH_ACCOUNT: 'tokengo.near', NEARAI_AUTH_KEY: SECRET, NEARAI_ORG_ID: 'org1', NEARAI_WORKSPACE_ID: 'ws1', FEATURE_REAL_CREDITS: undefined });
   const mk = (handler: (c: Call) => Response | Promise<Response>) => {
     const { f, calls } = fakeFetch((c) => (c.path === '/v1/auth/near' ? json(tokens(1, Date.now() / 1000 + 3600)) : handler(c)));
     const p = nearAiCredits(cfg, openDb(':memory:'), { fetch: f, sleep: async () => {} });
