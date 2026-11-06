@@ -16,9 +16,9 @@ const keyOf = (ctx: Ctx, userId: string) => ctx.db.prepare('SELECT * FROM api_ke
 
 export function creditsView(ctx: Ctx, userId: string): CreditsView {
   const k = keyOf(ctx, userId);
-  const grants = ctx.db.prepare(`SELECT g.at, g.amount_nusd, g.pool, c.forge_id, c.tier, c.burn_tx FROM grants g JOIN compiles c ON c.id = g.compile_id
+  const grants = ctx.db.prepare(`SELECT g.at, g.amount_nusd, g.pool, g.status, c.forge_id, c.tier, c.burn_tx FROM grants g JOIN compiles c ON c.id = g.compile_id
     WHERE g.user_id = ? AND g.status != 'failed' ORDER BY g.at DESC LIMIT 20`).all(userId) as
-    { at: number; amount_nusd: number; pool: string; forge_id: string; tier: string; burn_tx: string | null }[];
+    { at: number; amount_nusd: number; pool: string; status: string; forge_id: string; tier: string; burn_tx: string | null }[];
   return {
     hasKey: !!k,
     keyPrefix: k ? `${k.key_prefix}…` : null,
@@ -29,7 +29,8 @@ export function creditsView(ctx: Ctx, userId: string): CreditsView {
     expiresAt: '2026-12-31',
     baseUrl: `${ctx.cfg.NEARAI_BASE}/v1`,
     models: PLAYGROUND_MODELS,
-    grants: grants.map((g) => ({ at: g.at, amountNusd: g.amount_nusd, forge: ctx.world.byId.get(g.forge_id)?.name ?? g.forge_id, tier: g.tier, pool: g.pool, burnTx: g.burn_tx })),
+    grants: grants.map((g) => ({ at: g.at, amountNusd: g.amount_nusd, forge: ctx.world.byId.get(g.forge_id)?.name ?? g.forge_id, tier: g.tier, pool: g.pool, burnTx: g.burn_tx, pending: g.status === 'pending' })),
+    pendingNusd: (ctx.db.prepare("SELECT COALESCE(SUM(amount_nusd), 0) s FROM grants WHERE user_id = ? AND status = 'pending'").get(userId) as { s: number }).s,
   };
 }
 

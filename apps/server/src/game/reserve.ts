@@ -1,7 +1,7 @@
 // Réserve côté serveur : poches persistées, octroi avec vérification de l'invariant de solvabilité.
 import {
   FORGE, RESERVE, RESERVE_PARTITION, commitments, initialPools, isSolvent, poolAvail, reserveHealth,
-  type Pool, type Pools, type ReserveView,
+  type Pool, type Pools, type ReserveView, type SolvencyInput,
 } from '@tokengo/shared';
 import { kvGet, kvSet } from '../db.ts';
 import type { Ctx } from './context.ts';
@@ -25,26 +25,72 @@ export const grantedSince = (ctx: Ctx, since: number, where: { userId?: string; 
 };
 
 let orgCache: { at: number; value: number } | null = null;
-async function orgRemaining(ctx: Ctx, fresh = false): Promise<number> {
+export async function orgRemaining(ctx: Ctx, fresh = false): Promise<number> {
   if (!fresh && orgCache && ctx.now() - orgCache.at < 60_000) return orgCache.value;
   const value = await ctx.credits.orgRemaining();
   orgCache = { at: ctx.now(), value };
   return value;
 }
 
+interface KeyRow { user_id: string; nearai_key_id: string; limit_nusd: number; usage_nusd: number }
+
+/**
+ * Entrée de l'invariant : clés existantes + octrois en attente (IOU), comptés comme exposition
+ * (sur la clé du joueur si elle existe, sinon comme une future clé).
+ */
+export function solvencyInput(ctx: Ctx, org: number): SolvencyInput {
+  const keys = ctx.db.prepare('SELECT user_id, nearai_key_id, limit_nusd, usage_nusd FROM api_keys').all() as KeyRow[];
+  const pending = ctx.db.prepare("SELECT user_id, SUM(amount_nusd) s FROM grants WHERE status = 'pending' GROUP BY user_id").all() as { user_id: string; s: number }[];
+  const exposure = new Map(keys.map((k) => [k.user_id, { limit: k.limit_nusd, usage: k.usage_nusd }]));
+  for (const p of pending) {
+    const e = exposure.get(p.user_id);
+    if (e) e.limit += p.s;
+    else exposure.set(p.user_id, { limit: p.s, usage: 0 });
+  }
+  return { orgRemaining: org, keys: [...exposure.values()], npcRemaining: poolAvail(getPools(ctx).npc), safety: RESERVE_PARTITION.safety };
+}
+
+/** État de l'invariant pour /healthz (solde org en cache ≤ 60 s). */
+export async function invariantStatus(ctx: Ctx): Promise<{ ok: boolean; orgRemainingNusd: number | null; commitmentsNusd: number }> {
+  let org: number | null = null;
+  try { org = await orgRemaining(ctx); } catch { /* fournisseur injoignable */ }
+  const input = solvencyInput(ctx, org ?? 0);
+  return { ok: org !== null && isSolvent(input), orgRemainingNusd: org, commitmentsNusd: commitments(input) };
+}
+
+/** Appel au fournisseur : hausse de limite (cible = limite connue + montant, valeur absolue donc rejouable) ou création de clé. */
+async function applyGrant(ctx: Ctx, userId: string, grantId: string, amount: number) {
+  const existing = ctx.db.prepare('SELECT nearai_key_id, limit_nusd FROM api_keys WHERE user_id = ?').get(userId) as { nearai_key_id: string; limit_nusd: number } | undefined;
+  const target = (existing?.limit_nusd ?? 0) + amount;
+  ctx.db.prepare('UPDATE grants SET target_nusd = ?, tries = tries + 1 WHERE id = ?').run(target, grantId);
+  if (existing) {
+    await ctx.credits.setLimit(existing.nearai_key_id, target);
+    ctx.db.prepare('UPDATE api_keys SET limit_nusd = ? WHERE user_id = ?').run(target, userId);
+  } else {
+    const cipher = makeCipher(ctx.cfg.MASTER_KEY, ctx.cfg.SESSION_SECRET);
+    const k = await ctx.credits.createKey(`tg_${userId}`, amount);
+    ctx.db.prepare('INSERT INTO api_keys (user_id, nearai_key_id, key_enc, key_prefix, limit_nusd, simulated) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(userId, k.keyId, cipher.encrypt(k.key), k.prefix, amount, ctx.credits.simulated ? 1 : 0);
+  }
+  ctx.db.prepare("UPDATE grants SET status = 'done', last_error = NULL WHERE id = ?").run(grantId);
+}
+
+/** Octrois dont l'appel API est en cours (le job de reprise ne les touche pas). */
+const inFlight = new Set<string>();
+
 /**
  * Octroie `amount` nUSD au joueur depuis une poche, sur sa clé API (création ou hausse de limite).
  * Ordre strict (Docs/07 §2) : invariant → grant pending → appel API → done.
+ * Échec de l'appel : l'octroi reste « pending » (IOU rejouée par retryPendingGrants) → GameError GRANT_PENDING.
  */
 export async function grantCredits(ctx: Ctx, userId: string, pool: Pool, amount: number, compileId: string): Promise<{ grantId: string }> {
-  const keys = ctx.db.prepare('SELECT user_id, nearai_key_id, limit_nusd, usage_nusd FROM api_keys').all() as
-    { user_id: string; nearai_key_id: string; limit_nusd: number; usage_nusd: number }[];
-  const pools = getPools(ctx);
-  const npcRemaining = poolAvail(pools.npc);
-  const existing = keys.find((k) => k.user_id === userId);
+  const u = ctx.db.prepare('SELECT is_agent FROM users WHERE id = ?').get(userId) as { is_agent: number } | undefined;
+  if (!u || u.is_agent) fail('FORBIDDEN', 'Runner-agents never receive credits.', 403);
+  const hasKey = !!ctx.db.prepare('SELECT 1 FROM api_keys WHERE user_id = ?').get(userId);
+  const hasPending = !!ctx.db.prepare("SELECT 1 FROM grants WHERE user_id = ? AND status = 'pending'").get(userId);
   const org = await orgRemaining(ctx, true);
-  const input = { orgRemaining: org, keys: keys.map((k) => ({ limit: k.limit_nusd, usage: k.usage_nusd })), npcRemaining, safety: RESERVE_PARTITION.safety };
-  if (!isSolvent(input, amount, !existing)) {
+  const input = solvencyInput(ctx, org);
+  if (!isSolvent(input, amount, !hasKey && !hasPending)) {
     ctx.bus.publish('reserve.alert', 'Forge cooling down — reserve too low', { commitments: commitments(input), org });
     fail('RESERVE_LOW', 'The Forge is cooling down — the city reserve is too low.', 409);
   }
@@ -56,23 +102,41 @@ export async function grantCredits(ctx: Ctx, userId: string, pool: Pool, amount:
     p[pool].granted += amount;
     kvSet(ctx.db, 'pools', p);
   })();
+  inFlight.add(grantId);
   try {
-    const cipher = makeCipher(ctx.cfg.MASTER_KEY, ctx.cfg.SESSION_SECRET);
-    if (existing) {
-      await ctx.credits.setLimit(existing.nearai_key_id, existing.limit_nusd + amount);
-      ctx.db.prepare('UPDATE api_keys SET limit_nusd = limit_nusd + ? WHERE user_id = ?').run(amount, userId);
-    } else {
-      const k = await ctx.credits.createKey(`tg_${userId}`, amount);
-      ctx.db.prepare('INSERT INTO api_keys (user_id, nearai_key_id, key_enc, key_prefix, limit_nusd, simulated) VALUES (?, ?, ?, ?, ?, ?)')
-        .run(userId, k.keyId, cipher.encrypt(k.key), k.prefix, amount, ctx.credits.simulated ? 1 : 0);
-    }
-    ctx.db.prepare("UPDATE grants SET status = 'done' WHERE id = ?").run(grantId);
+    await applyGrant(ctx, userId, grantId, amount);
   } catch (e) {
-    // le burn est déjà fait : on garde l'octroi en « pending » (IOU rejouée par un job)
-    ctx.db.prepare("UPDATE grants SET status = 'pending' WHERE id = ?").run(grantId);
-    throw e;
+    // le burn est déjà fait : on garde l'octroi en « pending » (IOU rejouée par un job toutes les 2 min)
+    ctx.db.prepare('UPDATE grants SET last_error = ? WHERE id = ?').run(String((e as Error).message).slice(0, 300), grantId);
+    fail('GRANT_PENDING', 'Credit pending — your credits will land in a few minutes.', 202, { grantId });
+  } finally {
+    inFlight.delete(grantId);
   }
   return { grantId };
+}
+
+export const PENDING_RETRY = { everyMs: 2 * 60_000, minAgeMs: 30_000, batch: 20 };
+
+/** Job IOU : rejoue les octrois « pending » de plus de 30 s (idempotent : limite absolue). Renvoie le nombre réglés. */
+export async function retryPendingGrants(ctx: Ctx): Promise<number> {
+  const rows = ctx.db.prepare("SELECT id, user_id, amount_nusd, compile_id FROM grants WHERE status = 'pending' AND at < ? ORDER BY at LIMIT ?")
+    .all(ctx.now() - PENDING_RETRY.minAgeMs, PENDING_RETRY.batch) as { id: string; user_id: string; amount_nusd: number; compile_id: string }[];
+  let done = 0;
+  for (const g of rows) {
+    if (inFlight.has(g.id)) continue;
+    inFlight.add(g.id);
+    try {
+      await applyGrant(ctx, g.user_id, g.id, g.amount_nusd);
+      ctx.db.prepare("UPDATE compiles SET status = 'granted', payout_nusd = ? WHERE id = ?").run(g.amount_nusd, g.compile_id);
+      ctx.bus.publish('grant.done', `Your pending credits just landed · +$${(g.amount_nusd / 1e9).toFixed(3)}`, { grantId: g.id, amountNusd: g.amount_nusd }, g.user_id);
+      done++;
+    } catch (e) {
+      ctx.db.prepare('UPDATE grants SET last_error = ? WHERE id = ?').run(String((e as Error).message).slice(0, 300), g.id);
+    } finally {
+      inFlight.delete(g.id);
+    }
+  }
+  return done;
 }
 
 export const yieldInput = (ctx: Ctx, userId: string, pool: Pool) => {

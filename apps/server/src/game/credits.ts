@@ -9,6 +9,8 @@ export interface CreditsProvider {
   createKey(name: string, limitNusd: number): Promise<KeyInfo>;
   setLimit(keyId: string, limitNusd: number): Promise<void>;
   usage(keyIds: string[]): Promise<Record<string, number>>;
+  /** Révoque une clé (suppression de compte). */
+  revoke?(keyId: string): Promise<void>;
   /** Relais de chat (streaming) avec la clé du joueur. */
   chat(key: string, model: string, prompt: string, maxTokens: number): AsyncIterable<string>;
 }
@@ -30,6 +32,7 @@ export function simulatedCredits(totalNusd: number): CreditsProvider {
       if (k) k.limit = limitNusd;
       else keys.set(keyId, { limit: limitNusd, usage: 0 });
     },
+    async revoke(keyId) { keys.delete(keyId); },
     async usage(ids) { return Object.fromEntries(ids.map((id) => [id, keys.get(id)?.usage ?? 0])); },
     async *chat(_key, model, prompt) {
       const text = `(Simulated credits — this server runs without a NEAR AI account.) You asked ${model}: "${prompt.slice(0, 80)}". ` +

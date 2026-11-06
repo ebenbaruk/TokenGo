@@ -19,6 +19,7 @@ import { deliver, executeTrade, makeQuote, rescue, viewMerchant } from './game/m
 import { compile, viewForge } from './game/forge.ts';
 import { creditsView, playground, revealKey } from './game/creditsView.ts';
 import { pulseView } from './game/pulse.ts';
+import type { PublicConfig } from '@tokengo/shared';
 import { getMerchant, seedMerchants } from './game/merchants.ts';
 import { greetingFor } from './game/lines.ts';
 import type { NpcBrain } from './nearai/brain.ts';
@@ -26,6 +27,12 @@ import { kvSet } from './db.ts';
 import { proofsView, startChain } from './chain/chain.ts';
 import { chainStatus } from './chain/settler.ts';
 import type { ChainClient } from './chain/near.ts';
+import { googleClient, newAuthorization, realExchange, signInWithGoogle, type GoogleExchange } from './auth/google.ts';
+import { deleteAccount, leaderboards, setDistrict, setHandle } from './game/profile.ts';
+import { labSnapshot } from './game/pulse.ts';
+import { activeRunnerCount, runnersNear } from './game/runners.ts';
+import { invariantStatus } from './game/reserve.ts';
+import { judgeOpen } from './game/forge.ts';
 
 const SESSION_TTL = 30 * 24 * 3600_000;
 const WEB_DIST = new URL('../../web/dist/', import.meta.url).pathname;
@@ -42,6 +49,8 @@ export interface AppOptions {
   npc?: (ctx: Ctx) => NpcBrain | null;
   /** Client de chaîne injecté (tests : client factice) ; sinon client near-kit si `cfg.chain`. */
   chainClient?: ChainClient;
+  /** Échange OAuth Google (tests : faux échange) ; sinon arctic + id_token. */
+  googleExchange?: GoogleExchange;
 }
 
 export async function buildApp(cfg: Config, opts: AppOptions = {}) {
@@ -114,15 +123,24 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
     return req.userId;
   };
   const rl = (max: number, timeWindow = '1 minute') => ({ config: { rateLimit: { max, timeWindow } } });
+  const rlIp = (max: number, timeWindow = '1 minute') => ({ config: { rateLimit: { max, timeWindow, keyGenerator: (r: FastifyRequest) => r.ip } } });
+
+  /** Ouvre une session (rotation : l'éventuelle session précédente de ce navigateur est supprimée). */
+  const startSession = (req: FastifyRequest, reply: FastifyReply, userId: string) => {
+    const raw = req.cookies[cookieName];
+    const old = raw ? req.unsignCookie(raw) : null;
+    if (old?.valid && old.value) db.prepare('DELETE FROM sessions WHERE id_hash = ?').run(sha256hex(old.value));
+    const sid = randomId(32);
+    db.prepare('INSERT INTO sessions (id_hash, user_id, created_at, last_seen, expires_at) VALUES (?, ?, ?, ?, ?)').run(sha256hex(sid), userId, now(), now(), now() + SESSION_TTL);
+    reply.setCookie(cookieName, sid, { path: '/', httpOnly: true, sameSite: 'lax', secure: cfg.prod, signed: true, maxAge: SESSION_TTL / 1000 });
+  };
 
   // ── auth ──
   app.post('/auth/guest', { config: { rateLimit: { max: cfg.prod ? 3 : 1000, timeWindow: '1 hour', keyGenerator: (r: FastifyRequest) => r.ip } } }, async (req, reply) => {
     const body = z.object({ demo: z.boolean().optional(), token: z.string().max(200).optional() }).parse(req.body ?? {});
     const demoToken = !!(cfg.DEMO_TOKEN && body.token && body.token === cfg.DEMO_TOKEN);
-    const u = createUser(ctx, { kind: 'guest', demo: body.demo || demoToken, demoToken, ipHash: sha256hex(`${cfg.SESSION_SECRET}:${req.ip}`) });
-    const sid = randomId(32);
-    db.prepare('INSERT INTO sessions (id_hash, user_id, created_at, last_seen, expires_at) VALUES (?, ?, ?, ?, ?)').run(sha256hex(sid), u.id, now(), now(), now() + SESSION_TTL);
-    reply.setCookie(cookieName, sid, { path: '/', httpOnly: true, sameSite: 'lax', secure: cfg.prod, signed: true, maxAge: SESSION_TTL / 1000 });
+    const u = createUser(ctx, { kind: 'guest', demo: !!(body.demo || demoToken), demoToken, ipHash: sha256hex(`${cfg.SESSION_SECRET}:${req.ip}`) });
+    startSession(req, reply, u.id);
     return meView(ctx, u.id);
   });
   app.post('/auth/logout', async (req, reply) => {
@@ -133,13 +151,61 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
     return { ok: true };
   });
 
+  // ── Google (OAuth 2 + PKCE ; state et verifier dans un cookie signé de 10 min) ──
+  const google = googleClient(cfg);
+  const exchange = opts.googleExchange ?? (google ? realExchange(cfg, google) : null);
+  const OAUTH_COOKIE = 'tg_oauth';
+  const back = (reply: FastifyReply, query: string) => reply.redirect(`${cfg.PUBLIC_URL.replace(/\/$/, '')}/?${query}`);
+  app.get('/auth/google', rlIp(10), async (_req, reply) => {
+    if (!google || !exchange) return back(reply, 'auth=error&reason=disabled');
+    const a = newAuthorization(google);
+    reply.setCookie(OAUTH_COOKIE, `${a.state}.${a.codeVerifier}`, { path: '/auth/google', httpOnly: true, sameSite: 'lax', secure: cfg.prod, signed: true, maxAge: 600 });
+    return reply.redirect(a.url.toString());
+  });
+  app.get('/auth/google/callback', rlIp(10), async (req, reply) => {
+    if (!google || !exchange) return back(reply, 'auth=error&reason=disabled');
+    const q = z.object({ code: z.string().max(2000).optional(), state: z.string().max(200).optional(), error: z.string().max(200).optional() }).parse(req.query);
+    const raw = req.cookies[OAUTH_COOKIE];
+    const c = raw ? req.unsignCookie(raw) : null;
+    reply.clearCookie(OAUTH_COOKIE, { path: '/auth/google' });
+    const [state, verifier] = c?.valid && c.value ? c.value.split('.') : [];
+    if (q.error || !q.code || !q.state || !state || !verifier || q.state !== state) return back(reply, 'auth=error&reason=state');
+    let profile;
+    try {
+      profile = await exchange(q.code, verifier);
+    } catch (e) {
+      req.log.warn({ err: (e as Error).message }, 'google exchange failed');
+      return back(reply, 'auth=error&reason=exchange');
+    }
+    const r = signInWithGoogle(ctx, profile, req.userId);
+    if ('error' in r) return back(reply, `auth=error&reason=${r.error}`);
+    startSession(req, reply, r.userId);
+    return back(reply, `auth=google&outcome=${r.outcome}`);
+  });
+
+  app.get('/api/config', rlIp(60), async (): Promise<PublicConfig> =>
+    ({ googleEnabled: !!(google && exchange), simulatedCredits: credits.simulated, chain: cfg.chain, judgeOpen: judgeOpen(ctx) }));
+
+  // ── profil ──
+  app.post('/api/me/handle', rl(10), async (req) => setHandle(ctx, auth(req), z.object({ handle: z.string().max(40) }).parse(req.body).handle));
+  app.post('/api/me/district', rl(10), async (req) => setDistrict(ctx, auth(req), z.object({ district: z.number().int().min(1).max(20) }).parse(req.body).district));
+  app.delete('/api/me', rl(3), async (req, reply) => {
+    const r = await deleteAccount(ctx, auth(req));
+    reply.clearCookie(cookieName, { path: '/' });
+    return r;
+  });
+  app.get('/api/leaderboards', rlIp(60), async (req) => leaderboards(ctx, req.userId && getUser(ctx, req.userId) ? req.userId : null));
+  app.get('/api/lab/snapshot', rlIp(60), async () => labSnapshot(ctx, activeRunnerCount(ctx)));
+
   // ── jeu ──
   const LatLng = z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) });
   app.get('/api/me', async (req) => meView(ctx, auth(req)));
   app.post('/api/move', rl(40), async (req) => move(ctx, auth(req), LatLng.extend({ acc: z.number().min(0).max(10_000), heading: z.number().optional() }).parse(req.body)));
   app.get('/api/world', async (req) => {
     const q = z.object({ lat: z.coerce.number().min(-90).max(90), lng: z.coerce.number().min(-180).max(180) }).parse(req.query);
-    return worldView(ctx, auth(req), q.lat, q.lng);
+    const w = worldView(ctx, auth(req), q.lat, q.lng);
+    const runners = runnersNear(ctx, q.lat, q.lng);
+    return runners.length ? { ...w, runners } : w;
   });
   app.post('/api/catch/start', rl(30), async (req) => catchStart(ctx, auth(req), z.object({ spawnId: z.string().max(80) }).parse(req.body).spawnId));
   app.post('/api/catch/resolve', rl(30), async (req) => {
@@ -213,7 +279,11 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
   app.get('/healthz', async () => {
     db.prepare('SELECT 1').get();
     const cs = chainStatus(ctx);
-    return { ok: true, simulatedCredits: credits.simulated, chain: cs.enabled, chainPending: cs.pending + cs.inFlight, chainLagMs: cs.lagMs };
+    const inv = await invariantStatus(ctx);
+    return {
+      ok: true, simulatedCredits: credits.simulated, chain: cs.enabled, chainPending: cs.pending + cs.inFlight, chainLagMs: cs.lagMs,
+      invariantOk: inv.ok, invariant: inv,
+    };
   });
 
   if (existsSync(WEB_DIST)) {

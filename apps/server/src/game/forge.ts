@@ -4,7 +4,8 @@ import {
   type CompileResponse, type Family, type ForgeView, type Pool, type RecipeView, type Tier,
 } from '@tokengo/shared';
 import type { Ctx } from './context.ts';
-import { fail } from './context.ts';
+import { GameError, fail } from './context.ts';
+import { assertQuota } from './quotas.ts';
 import { randomId } from './crypto.ts';
 import { addXp, debit, getUser, inventory, levelOf, markTutorial, meView, tutorialOf, type UserRow } from './players.ts';
 import { assertCanAct } from './actions.ts';
@@ -14,7 +15,7 @@ import { poolAvail } from '@tokengo/shared';
 const LABEL: Record<Tier | 'first', string> = { first: 'First Compile', spark: 'Spark', prism: 'Prism', aura: 'Aura' };
 const HOUR = 3600_000;
 /** Attente max de la preuve de burn on-chain avant l'octroi (au-delà : on octroie quand même, le settler complète burn_tx). */
-export const BURN_PROOF = { timeoutMs: 15_000 };
+export const BURN_PROOF = { timeoutMs: 6_000 };
 
 function forgeOf(ctx: Ctx, forgeId: string) {
   const f = ctx.world.forges.find((x) => x.id === forgeId);
@@ -22,13 +23,15 @@ function forgeOf(ctx: Ctx, forgeId: string) {
   return f!;
 }
 
-const judgeOpen = (ctx: Ctx) => {
+export const judgeOpen = (ctx: Ctx) => {
   const now = ctx.now();
   return now >= Date.parse(ctx.cfg.JUDGE_POOL_FROM) && now < Date.parse(ctx.cfg.JUDGE_POOL_TO);
 };
 
 /** Quelle poche paie ce joueur pour cette recette ? null = XP seulement (avec la raison). */
 function poolFor(ctx: Ctx, u: UserRow, tier: Tier | 'first'): { pool: Pool | null; note: string | null } {
+  // runners-agents : jamais d'octroi (burn + XP seulement), quelle que soit la recette
+  if (u.is_agent) return { pool: null, note: 'Runner-agents compile for XP only.' };
   if (tier === 'first') {
     if (grantedSince(ctx, ctx.now() - HOUR, { pool: 'welcome' }) >= RESERVE.welcomeGrantsPerHour * FIRST_COMPILE.payout) {
       return { pool: null, note: 'Welcome credits are busy this hour — XP only, try again later.' };
@@ -87,6 +90,7 @@ export async function compile(ctx: Ctx, userId: string, forgeId: string, tier: T
   const u = getUser(ctx, userId)!;
   if (forgePaused(ctx)) fail('FORGE_PAUSED', 'The Forges are paused for maintenance.');
   assertCanAct(ctx, u, 'forge', f);
+  assertQuota(ctx, userId, 'compile');
   const t = tutorialOf(u);
   let needs: Partial<Record<Family, number>>;
   let fee = 0;
@@ -123,17 +127,20 @@ export async function compile(ctx: Ctx, userId: string, forgeId: string, tier: T
   // 2. octroi réel (ou simulé) ; si la Réserve refuse, la compilation paie en XP
   let payout = 0;
   let note = est.note;
+  let pending = false;
   if (est.pool && est.payout > 0) {
     try {
       await grantCredits(ctx, userId, est.pool, est.payout, compileId);
       payout = est.payout;
     } catch (e) {
       note = (e as Error).message;
+      pending = e instanceof GameError && e.code === 'GRANT_PENDING';
     }
   }
   const xp = tier === 'first' ? XP.compile.first : XP.compile[tier];
   const levelUp = ctx.db.transaction(() => {
-    ctx.db.prepare('UPDATE compiles SET status = ?, payout_nusd = ? WHERE id = ?').run(payout > 0 ? 'granted' : 'xp-only', payout, compileId);
+    ctx.db.prepare('UPDATE compiles SET status = ?, payout_nusd = ? WHERE id = ?')
+      .run(payout > 0 ? 'granted' : pending ? 'pending' : 'xp-only', pending ? est.payout : payout, compileId);
     if (tier === 'first') markTutorial(ctx, userId, 'firstCompile');
     return addXp(ctx, userId, xp);
   })();
@@ -143,6 +150,7 @@ export async function compile(ctx: Ctx, userId: string, forgeId: string, tier: T
   return {
     compileId, tier, payoutNusd: payout, simulated: ctx.credits.simulated, pool: payout > 0 ? est.pool : null, xp, note: payout > 0 ? null : note,
     equiv: equivalences(payout), burnTx, levelUp, me: meView(ctx, userId),
+    ...(pending ? { pending: true, pendingNusd: est.payout } : {}),
   };
 }
 

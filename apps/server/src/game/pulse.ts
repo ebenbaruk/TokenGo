@@ -1,8 +1,8 @@
 // City Pulse : ticker, Paris Shard Index, réserve, santé des marchands.
-import { FAMILIES, type Family, type PulseEvent, type PulseResponse } from '@tokengo/shared';
+import { FAMILIES, reserveHealth, type Family, type LabSnapshot, type MerchantState, type PulseEvent, type PulseResponse } from '@tokengo/shared';
 import type { Ctx } from './context.ts';
-import { allMerchants } from './merchants.ts';
-import { reserveView } from './reserve.ts';
+import { allMerchants, getP0 } from './merchants.ts';
+import { getPools, parisDay, reserveView } from './reserve.ts';
 
 export function pulseView(ctx: Ctx): PulseResponse {
   const events = (ctx.db.prepare('SELECT id, at, kind, text, data FROM events ORDER BY id DESC LIMIT 40').all() as
@@ -13,4 +13,19 @@ export function pulseView(ctx: Ctx): PulseResponse {
   const merchants = { open: 0, closing: 0, closed: 0 };
   for (const m of allMerchants(ctx)) merchants[m.status]++;
   return { events, index, reserve: reserveView(ctx), merchants };
+}
+
+/** Paris en direct pour l'Economy Lab : marchands dans l'ordre des nœuds market du monde (ordre attendu par createSim). */
+export function labSnapshot(ctx: Ctx, runners: number): LabSnapshot {
+  const rows = new Map((ctx.db.prepare('SELECT node_id, state FROM merchants').all() as { node_id: string; state: string }[]).map((r) => [r.node_id, r.state]));
+  const initialMerchants = ctx.world.nodes
+    .filter((n) => n.kind === 'market' && rows.has(n.id))
+    .map((n) => JSON.parse(rows.get(n.id)!) as MerchantState);
+  const merchants = { open: 0, closing: 0, closed: 0 };
+  for (const m of initialMerchants) merchants[m.status]++;
+  const pools = getPools(ctx);
+  return {
+    at: ctx.now(), day: parisDay(ctx.now()), initialMerchants, initialP0: getP0(ctx), initialPools: pools,
+    reserveHealth: reserveHealth(pools.main), merchants, runners,
+  };
 }

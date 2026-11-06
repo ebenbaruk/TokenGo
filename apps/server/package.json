@@ -8,6 +8,7 @@
     "@fastify/static": "^10.1.10",
     "@noble/curves": "^2.4.0",
     "@tokengo/shared": "*",
+    "arctic": "^3.7.0",
     "better-sqlite3": "^13.0.3",
     "fastify": "^5.12.8",
     "h3-js": "^4.5.0",

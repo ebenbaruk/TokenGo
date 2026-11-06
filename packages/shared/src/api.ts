@@ -1,15 +1,17 @@
 // Contrat d'API HTTP partagé entre apps/server et apps/web. Toutes les routes sous /api (sauf /auth).
 // Erreurs : HTTP 4xx avec { error: { code: ErrorCode, message: string, ...extra } }.
 import type { Family, NodeKind } from './types.ts';
-import type { PriceExplanation, MerchantStatus, Side } from './economy/pricing.ts';
+import type { PriceExplanation, MerchantState, MerchantStatus, Side } from './economy/pricing.ts';
 import type { Tier } from './economy/rules.ts';
+import type { Pools } from './economy/reserve.ts';
 
 export type ErrorCode =
   | 'UNAUTHENTICATED' | 'BAD_REQUEST' | 'NOT_FOUND' | 'FORBIDDEN_ORIGIN' | 'RATE_LIMITED'
   | 'NO_POSITION' | 'TOO_FAR' | 'IN_TRANSIT' | 'SUSPICIOUS_MOVE' | 'COOLDOWN' | 'LEVEL_LOCKED'
   | 'ALREADY_CAUGHT' | 'EXPIRED' | 'INSUFFICIENT' | 'PRICE_MOVED' | 'RESERVE_LOW' | 'FORGE_PAUSED'
   | 'CLOSED' | 'NOT_BUYING' | 'MERCHANT_NO_FLUX' | 'OUT_OF_STOCK' | 'CONTRACT_LOCK' | 'BAD_QTY'
-  | 'NO_CONTRACT' | 'NOT_STRUGGLING' | 'BAD_AMOUNT' | 'DEMO_CANNOT_SELL' | 'TUTORIAL_INCOMPLETE';
+  | 'NO_CONTRACT' | 'NOT_STRUGGLING' | 'BAD_AMOUNT' | 'DEMO_CANNOT_SELL' | 'TUTORIAL_INCOMPLETE'
+  | 'HANDLE_TAKEN' | 'BAD_HANDLE' | 'FORBIDDEN' | 'GRANT_PENDING';
 export interface ApiError { error: { code: ErrorCode; message: string; [k: string]: unknown } }
 
 export type Inventory = Record<Family, number>;
@@ -75,7 +77,12 @@ export interface WorldResponse {
   spawns: SpawnView[];      // éclats visibles (≤ 250 m), non encore capturés par le joueur
   reserve: ReserveView;
   objective: Objective | null;
+  /** Runners-agents (PNJ joueurs) dans ~1,2 km — points discrets sur la carte. Absent si les runners sont désactivés. */
+  runners?: RunnerView[];
 }
+
+/** Runner-agent visible sur la carte (position interpolée sur son trajet à vitesse de marche). */
+export interface RunnerView { id: string; handle: string; lat: number; lng: number }
 
 export interface CatchStartResponse {
   attemptId: string;
@@ -168,6 +175,9 @@ export interface CompileResponse {
   burnTx: string | null;
   levelUp: number | null;
   me: Me;
+  /** L'appel NEAR AI a échoué après le burn : octroi en attente (IOU), rejoué toutes les 2 min. UI : « Credit pending ». */
+  pending?: boolean;
+  pendingNusd?: number;
 }
 
 export interface CreditsView {
@@ -180,7 +190,10 @@ export interface CreditsView {
   expiresAt: string;
   baseUrl: string;
   models: { id: string; label: string; tier: 'cheap' | 'mid' | 'premium' }[];
-  grants: { at: number; amountNusd: number; forge: string; tier: string; pool: string; burnTx: string | null }[];
+  /** pending = octroi pas encore appliqué à la clé (IOU) → afficher « Credit pending ». */
+  grants: { at: number; amountNusd: number; forge: string; tier: string; pool: string; burnTx: string | null; pending: boolean }[];
+  /** Somme des octrois en attente (nUSD). */
+  pendingNusd: number;
 }
 
 export interface PulseEvent { id: number; at: number; kind: string; text: string; data?: Record<string, unknown> }
@@ -189,4 +202,56 @@ export interface PulseResponse {
   index: Record<Family, number[]>;   // P0 horaire (7 j max)
   reserve: ReserveView;
   merchants: { open: number; closing: number; closed: number };
+}
+
+// ───────────── Config publique, profil, classements, Lab ─────────────
+
+/** GET /api/config (public) : ce que l'UI doit savoir avant toute session. */
+export interface PublicConfig {
+  googleEnabled: boolean;      // afficher « Continue with Google » → navigation pleine page vers GET /auth/google
+  simulatedCredits: boolean;
+  chain: boolean;
+  judgeOpen: boolean;          // fenêtre du Judge Pool ouverte
+}
+// Retour de Google : redirection vers PUBLIC_URL + '/?auth=google' (succès) ou '/?auth=error&reason=<code>'
+// avec code ∈ 'state' | 'exchange' | 'unverified' | 'email_taken' | 'disabled'.
+
+/** POST /api/me/handle — 3 à 20 caractères [A-Za-z0-9], unique (insensible à la casse), filtré. → Me. Erreurs BAD_HANDLE, HANDLE_TAKEN. */
+export interface HandleRequest { handle: string }
+/** POST /api/me/district — arrondissement 1..20. → Me. */
+export interface DistrictRequest { district: number }
+/** DELETE /api/me → { ok: true } (compte anonymisé, clé API révoquée, sessions supprimées, cookie effacé). */
+
+export interface LeaderEntry {
+  rank: number;
+  id: string;
+  handle: string;
+  value: number;
+  agent: boolean;              // runner-agent (badge « agent »)
+  me: boolean;
+}
+/** GET /api/leaderboards (public ; `me` marqué si session). Semaine = depuis lundi 00:00 Europe/Paris. Top 20. */
+export interface LeaderboardsResponse {
+  weekStart: number;
+  runners: LeaderEntry[];      // XP gagnée cette semaine
+  traders: LeaderEntry[];      // profit des échanges cette semaine (Flux reçus en ventes − Flux payés en achats), > 0 seulement
+  patrons: LeaderEntry[];      // Flux investis dans des sauvetages (total)
+  districts: { district: number; points: number; agentPoints: number; players: number }[]; // capture 1, trade 1, contrat 5, compile 10
+}
+
+/**
+ * GET /api/lab/snapshot (public, 60/min/IP) : Paris en direct pour l'Economy Lab.
+ * `initialMerchants` est dans l'ordre des nœuds `market` de data/world/paris.json (l'ordre attendu par createSim).
+ * Usage : createSim({ world, days, players, seed, initialMerchants: snap.initialMerchants, ... }).
+ * `initialP0` / `initialPools` : prix de référence et poches de la Réserve actuels, à passer au simulateur s'il les accepte.
+ */
+export interface LabSnapshot {
+  at: number;
+  day: string;                 // jour de Paris (YYYY-MM-DD)
+  initialMerchants: MerchantState[];
+  initialP0: Record<Family, number>;
+  initialPools: Pools;
+  reserveHealth: number;
+  merchants: { open: number; closing: number; closed: number };
+  runners: number;             // runners-agents actifs
 }

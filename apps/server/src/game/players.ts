@@ -6,17 +6,24 @@ import {
 import type { Ctx } from './context.ts';
 import { fail } from './context.ts';
 import { randomId } from './crypto.ts';
+import { parisDay } from './reserve.ts';
 
 export interface UserRow {
   id: string; kind: 'guest' | 'google'; handle: string; mode: 'gps' | 'demo'; demo_token: number; xp: number; combo: number;
   last_catch_at: number | null; district: number | null; tutorial: string; tut_lat: number | null; tut_lng: number | null;
   move_state: string | null; walked_m: number; in_transit: number; flags: string; near_account: string | null; created_at: number;
+  is_agent: number; google_sub: string | null; email: string | null; email_norm: string | null; deleted_at: number | null;
 }
 
 const ADJ = ['Neon', 'Pixel', 'Turbo', 'Velvet', 'Cosmic', 'Lucky', 'Rapid', 'Sunny', 'Mellow', 'Brave', 'Fuzzy', 'Jolly'];
 const NOUN = ['Pigeon', 'Croissant', 'Gargoyle', 'Baguette', 'Moped', 'Macaron', 'Lantern', 'Bridge', 'Metro', 'Beret', 'Fox', 'Owl'];
 
-export function createUser(ctx: Ctx, opts: { kind: 'guest'; demo: boolean; demoToken?: boolean; ipHash?: string }): UserRow {
+export interface NewUser {
+  kind: 'guest' | 'google'; demo: boolean; demoToken?: boolean; ipHash?: string;
+  google?: { sub: string; email: string; emailNorm: string };
+}
+
+export function createUser(ctx: Ctx, opts: NewUser): UserRow {
   const id = randomId(12);
   let handle = '';
   for (let i = 0; i < 20; i++) {
@@ -26,8 +33,9 @@ export function createUser(ctx: Ctx, opts: { kind: 'guest'; demo: boolean; demoT
   }
   const now = ctx.now();
   ctx.db.transaction(() => {
-    ctx.db.prepare(`INSERT INTO users (id, kind, handle, mode, demo_token, xp, created_at, ip_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-      .run(id, opts.kind, handle, opts.demo ? 'demo' : 'gps', opts.demoToken ? 1 : 0, 0, now, opts.ipHash ?? null);
+    ctx.db.prepare(`INSERT INTO users (id, kind, handle, mode, demo_token, xp, created_at, ip_hash, google_sub, email, email_norm) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(id, opts.kind, handle, opts.demo ? 'demo' : 'gps', opts.demoToken ? 1 : 0, 0, now, opts.ipHash ?? null,
+        opts.google?.sub ?? null, opts.google?.email ?? null, opts.google?.emailNorm ?? null);
     // kit de départ : en démo, de quoi atteindre vite la First Compile (Docs/02 §7)
     if (opts.demoToken) {
       ctx.db.prepare('UPDATE users SET xp = ? WHERE id = ?').run(4291, id); // niveau 7
@@ -100,6 +108,10 @@ export function addXp(ctx: Ctx, userId: string, xp: number): number | null {
   const u = getUser(ctx, userId)!;
   const before = levelForXp(u.xp).level;
   ctx.db.prepare('UPDATE users SET xp = xp + ? WHERE id = ?').run(xp, userId);
+  if (xp > 0) {
+    ctx.db.prepare(`INSERT INTO xp_daily (user_id, day, xp) VALUES (?, ?, ?) ON CONFLICT(user_id, day) DO UPDATE SET xp = xp + excluded.xp`)
+      .run(userId, parisDay(ctx.now()), xp);
+  }
   const after = levelForXp(u.xp + xp).level;
   return after > before ? after : null;
 }

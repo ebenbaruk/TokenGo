@@ -14,6 +14,7 @@ import { merchantByNode } from './merchants.ts';
 import { getPools, reserveView } from './reserve.ts';
 import { parisDay } from './reserve.ts';
 import { reserveHealth } from '@tokengo/shared';
+import { assertQuota, bumpQuota } from './quotas.ts';
 
 const TUTORIAL_SPAWN = (userId: string) => `tut:${userId}`;
 
@@ -148,6 +149,7 @@ export function catchStart(ctx: Ctx, userId: string, spawnId: string): CatchStar
   if (!spawn) fail('EXPIRED', 'This shard has faded away.');
   if (ctx.db.prepare('SELECT 1 FROM catches WHERE user_id = ? AND spawn_id = ?').get(userId, spawnId)) fail('ALREADY_CAUGHT', 'Already caught.');
   assertCanAct(ctx, u, 'spawn', spawn!);
+  assertQuota(ctx, userId, 'catch');
   const now = ctx.now();
   for (const [k, a] of attempts) if (now - a.startedAt > CATCH.attemptTtlMs) attempts.delete(k);
   const id = rngFrom(ctx.cfg.SESSION_SECRET, 'attempt', userId, spawnId, now)().toString(36).slice(2) + now.toString(36);
@@ -170,6 +172,13 @@ export function catchResolve(ctx: Ctx, userId: string, attemptId: string, offset
   const isTut = spawn.id.startsWith('tut:');
   let res = resolveCatch(spawn.family, offsets.filter((o) => typeof o === 'number').slice(0, 3), rng, perfects, recent.length);
   if (isTut && (res.result === 'miss' || res.result === 'fled')) res = { result: 'good', bonus: false };
+  return grantCatch(ctx, userId, spawn, res, now);
+}
+
+type CatchOutcome = ReturnType<typeof resolveCatch>;
+
+/** Applique le résultat d'une capture (transaction) : inventaire, combo, XP, tutoriel. */
+function grantCatch(ctx: Ctx, userId: string, spawn: SpawnView, res: CatchOutcome, now: number): CatchResolveResponse {
   return ctx.db.transaction((): CatchResolveResponse => {
     const u = getUser(ctx, userId)!;
     if (ctx.db.prepare('SELECT 1 FROM catches WHERE user_id = ? AND spawn_id = ?').get(userId, spawn.id)) fail('ALREADY_CAUGHT', 'Already caught.');
@@ -191,12 +200,25 @@ export function catchResolve(ctx: Ctx, userId: string, attemptId: string, offset
   })();
 }
 
+/** Capture d'un runner-agent : mêmes contrôles serveur (éclat réel, distance, quota, unicité), mini-jeu court-circuité (« good »). */
+export function agentCatch(ctx: Ctx, userId: string, spawnId: string): CatchResolveResponse {
+  const u = getUser(ctx, userId)!;
+  if (!u.is_agent) fail('FORBIDDEN', 'Agents only.', 403);
+  const spawn = findSpawn(ctx, u, spawnId);
+  if (!spawn) fail('EXPIRED', 'This shard has faded away.');
+  if (ctx.db.prepare('SELECT 1 FROM catches WHERE user_id = ? AND spawn_id = ?').get(userId, spawnId)) fail('ALREADY_CAUGHT', 'Already caught.');
+  assertCanAct(ctx, u, 'spawn', spawn!);
+  assertQuota(ctx, userId, 'catch');
+  return grantCatch(ctx, userId, spawn!, { result: 'good', bonus: false }, ctx.now());
+}
+
 // ───── Relay ─────
 export function relaySync(ctx: Ctx, userId: string, nodeId: string): SyncResponse {
   const node = ctx.world.byId.get(nodeId);
   if (!node || node.kind !== 'relay') fail('NOT_FOUND', 'Unknown relay.', 404);
   const u = getUser(ctx, userId)!;
   assertCanAct(ctx, u, 'relay', node!);
+  assertQuota(ctx, userId, 'sync');
   const now = ctx.now();
   return ctx.db.transaction((): SyncResponse => {
     const last = ctx.db.prepare('SELECT at FROM relay_syncs WHERE user_id = ? AND node_id = ?').get(userId, nodeId) as { at: number } | undefined;
@@ -204,6 +226,7 @@ export function relaySync(ctx: Ctx, userId: string, nodeId: string): SyncRespons
       fail('COOLDOWN', 'Relay recharging.', 400, { cooldownUntil: last.at + RELAY.cooldownMs });
     }
     ctx.db.prepare('INSERT OR REPLACE INTO relay_syncs (user_id, node_id, at) VALUES (?, ?, ?)').run(userId, nodeId, now);
+    bumpQuota(ctx, userId, 'sync');
     const rng = rngFrom(ctx.cfg.SPAWN_SECRET, 'sync', userId, nodeId, now);
     const flux = randInt(rng, RELAY.fluxMin, RELAY.fluxMax);
     credit(ctx, userId, 'flux', flux, `sync:${nodeId}`);

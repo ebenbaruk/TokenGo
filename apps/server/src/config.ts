@@ -34,9 +34,12 @@ const Env = z.object({
   NEAR_ACCOUNT_PREFIX: z.string().regex(/^([a-z0-9]+-)?$/).optional(), // défaut : '' en prod, 'dev-' sinon (chain/accounts.ts)
   FEATURE_CHAIN: bool.optional(),
   JOBS: bool.default(true),
+  RUNNERS: z.coerce.number().int().min(0).max(24).default(24),
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
 });
 
-export type Config = z.infer<typeof Env> & { realCredits: boolean; chain: boolean; prod: boolean; allowedOrigins: string[] };
+export type Config = z.infer<typeof Env> & { realCredits: boolean; chain: boolean; prod: boolean; allowedOrigins: string[]; googleEnabled: boolean };
 
 export function loadConfig(overrides: Record<string, string | undefined> = {}): Config {
   const env = Env.parse({ ...process.env, ...overrides });
@@ -54,5 +57,6 @@ export function loadConfig(overrides: Record<string, string | undefined> = {}): 
     realCredits: env.FEATURE_REAL_CREDITS ?? hasNearAi,
     chain: env.FEATURE_CHAIN ?? (hasChain && env.NODE_ENV !== 'test'),
     allowedOrigins,
+    googleEnabled: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
   };
 }

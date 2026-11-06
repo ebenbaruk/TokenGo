@@ -19,6 +19,9 @@ const QUOTE_ERRORS: Record<string, string> = {
   BAD_QTY: 'Pick a quantity between 1 and 50.',
 };
 
+/** Les événements Pulse des runners-agents portent data.agent = true (badge « agent » dans le ticker). */
+export const agentTag = (u: { is_agent: number }): { agent?: true } => (u.is_agent ? { agent: true } : {});
+
 function isPatron(ctx: Ctx, merchantId: string, userId: string): boolean {
   return !!ctx.db.prepare('SELECT 1 FROM rescues WHERE merchant_id = ? AND user_id = ? AND at > ?').get(merchantId, userId, ctx.now() - MERCHANT.patronPerkMs);
 }
@@ -100,7 +103,7 @@ export function executeTrade(ctx: Ctx, userId: string, merchantId: string, quote
     const levelUp = addXp(ctx, userId, xp);
     markTutorial(ctx, userId, 'traded');
     ctx.bus.publish('trade', `${u.handle} ${q.side === 'sell' ? 'sold' : 'bought'} ${q.qty} ${q.family} ${q.side === 'sell' ? 'to' : 'from'} ${next.name} · ${q.total} ƒ`,
-      { merchantId, family: q.family, qty: q.qty, total: q.total, side: q.side });
+      { merchantId, family: q.family, qty: q.qty, total: q.total, side: q.side, ...agentTag(u) });
     return { ok: true, side: q.side, family: q.family, qty: q.qty, total: q.total, xp, levelUp, me: meView(ctx, userId), merchant: viewMerchant(ctx, userId, merchantId) };
   })();
 }
@@ -121,7 +124,7 @@ export function deliver(ctx: Ctx, userId: string, merchantId: string) {
     credit(ctx, userId, 'flux', r.reward, memo, merchantId);
     saveMerchant(ctx, r.m);
     const levelUp = addXp(ctx, userId, XP.contract);
-    ctx.bus.publish('contract', `${u.handle} delivered ${c!.qty} ${c!.family} to ${m.name} · +${r.reward} ƒ`, { merchantId });
+    ctx.bus.publish('contract', `${u.handle} delivered ${c!.qty} ${c!.family} to ${m.name} · +${r.reward} ƒ`, { merchantId, ...agentTag(u) });
     return { reward: r.reward, xp: XP.contract, levelUp, me: meView(ctx, userId), merchant: viewMerchant(ctx, userId, merchantId) };
   })();
 }
@@ -142,9 +145,9 @@ export function rescue(ctx: Ctx, userId: string, merchantId: string, amount: num
     const levelUp = addXp(ctx, userId, xp);
     if (r.events.some((e) => e.kind === 'reopened')) {
       const n = (ctx.db.prepare('SELECT COUNT(DISTINCT user_id) n FROM rescues WHERE merchant_id = ? AND at >= ?').get(merchantId, m.closingSince ?? 0) as { n: number }).n;
-      ctx.bus.publish('merchant.reopened', `${m.name} reopened thanks to ${n} patron${n > 1 ? 's' : ''}`, { merchantId });
+      ctx.bus.publish('merchant.reopened', `${m.name} reopened thanks to ${n} patron${n > 1 ? 's' : ''}`, { merchantId, ...agentTag(u) });
     } else {
-      ctx.bus.publish('rescue', `${u.handle} invested ${amount} ƒ in ${m.name}`, { merchantId });
+      ctx.bus.publish('rescue', `${u.handle} invested ${amount} ƒ in ${m.name}`, { merchantId, ...agentTag(u) });
     }
     return { xp, levelUp, me: meView(ctx, userId), merchant: viewMerchant(ctx, userId, merchantId) };
   })();
