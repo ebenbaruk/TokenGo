@@ -96,7 +96,7 @@ export interface ProofsView {
 }
 
 export const api = {
-  guest: (demo: boolean) => req<{ me?: Me } & Partial<Me>>('POST', '/auth/guest', { demo }),
+  guest: (demo: boolean, token?: string) => req<{ me?: Me } & Partial<Me>>('POST', '/auth/guest', token ? { demo, token } : { demo }),
   me: () => req<Me>('GET', '/api/me'),
   /** /api/me seulement s'il y a probablement une session (sinon null, sans requête). */
   meIfSession: (force = false): Promise<Me | null> => (force || hasSessionHint() ? req<Me>('GET', '/api/me').catch(() => null) : Promise.resolve(null)),

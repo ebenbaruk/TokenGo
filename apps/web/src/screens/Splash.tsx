@@ -11,7 +11,9 @@ import { AVATAR, SHARDS } from '../sprites/index.ts';
 import s from './Splash.module.css';
 
 const params = new URLSearchParams(location.search);
-const wantsDemo = () => params.get('demo') === '1';
+// lien juges : /?demo=1&k=<DEMO_TOKEN> → compte démo niveau 7 (crédits réels du Judge Pool)
+const passToken = params.get('k') ?? undefined;
+const wantsDemo = () => params.get('demo') === '1' || !!passToken;
 const AUTH_ERRORS: Record<string, string> = {
   state: 'Google sign-in expired — please try again.',
   exchange: 'Google sign-in failed — please try again.',
@@ -40,7 +42,11 @@ export function Splash() {
 
   const enter = async (demo: boolean, start: { lat: number; lng: number } | null) => {
     let me = existing;
-    if (!me || (demo && me.mode !== 'demo' && me.kind === 'guest')) me = unwrapMe(await api.guest(demo));
+    const needsPass = !!passToken && !(me && me.mode === 'demo' && me.level >= 7);
+    if (!me || needsPass || (demo && me.mode !== 'demo' && me.kind === 'guest')) {
+      try { me = unwrapMe(await api.guest(demo, passToken)); }
+      catch (e) { if (!me) throw e; toast('Demo pass already used today — continuing your session.', 'info'); }
+    }
     if (!me) throw new Error('no session');
     setMe(me);
     useGame.setState({ phase: 'play' });

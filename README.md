@@ -13,6 +13,8 @@ Built for the NEAR HACKATHON — tracks **games** and **agents**.
 
 ## Live demo
 - **Play:** _(URL added at deploy time)_ → "Play as guest" (works without GPS: *Demo Walk* lets you tap the map to walk).
+- **Judges' pass:** `/?demo=1&k=<DEMO_TOKEN>` (link given in the submission) → a level-7 demo account with a full bag, to see
+  Prism/Aura compiles and merchant rescues in one minute, paid in **real** credits from the Judge pool ($0.20 max per account).
 - **City Pulse** (`/pulse`, no account): live ticker, Paris Shard Index, reserve, merchants going bankrupt, on-chain settlements.
 - **Economy Lab** (`/lab`, no account): simulate a week of Paris with 200 bots in seconds, using the exact live rules.
 
@@ -82,8 +84,10 @@ Full design: [`Docs/03-economy.md`](Docs/03-economy.md).
   quotes are single-use and bound to the merchant version (`PRICE_MOVED`); catches are keyed `(user, spawn)`.
 - Movement: rolling 60 s speed → *in transit* (actions paused); impossible jumps → soft-lock + flag; action distance re-checked
   server-side; proof of walk (1.5 km) for Google accounts before the Main pool.
-- Money: guests get one $0.03 First Compile (global cap 4/hour) and the Judge pool during judging; demo passes cannot sell; per-player
-  and per-day caps; kill switch `POST /api/admin/forge/pause`.
+- Money: guests get one $0.03 First Compile (global cap 4/hour); only judge passes (`DEMO_TOKEN`, one per IP per day, cannot sell)
+  draw from the Judge pool; Google accounts need 1.5 km of proof of walk for the Main pool; compiles are serialized per player and
+  grants reserved inside the burn transaction (no double-spend under concurrency); per-player/day/city caps; kill switch
+  `POST /api/admin/forge/pause`.
 - Web: Origin check on every write, `SameSite=Lax` HttpOnly session cookie, strict CSP, rate limits per route, daily quotas,
   keys encrypted at rest (AES-256-GCM), no free-text input ever reaches the merchant LLM.
 - **Limits:** browser GPS can be spoofed; we bound what cheating earns rather than pretend to stop it. Player NEAR accounts are custodial.

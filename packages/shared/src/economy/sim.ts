@@ -51,9 +51,9 @@ export const SIM_BOT = {
   floodFamily: 'deepseek' as Family,
   floodStartDay: 1,          // le flood commence au 2e jour (on voit la cassure)…
   floodEndDay: 4,            // … et s'arrête après le 4e (on voit la reprise)
-  floodCatchMult: 8,
+  floodCatchMult: 15,
   floodSellAt: 10,
-  floodShare: 0.15,
+  floodShare: 0.3,
 };
 export type SimBotParams = typeof SIM_BOT;
 
