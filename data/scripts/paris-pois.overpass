@@ -1,0 +1,13 @@
+[out:json][timeout:120];
+area["boundary"="administrative"]["admin_level"="8"]["name"="Paris"]["ref:INSEE"="75056"]->.p;
+(
+  nwr["railway"="station"]["station"~"subway|light_rail|train"](area.p);
+  nwr["railway"="station"]["network"~"Métro|RER|Transilien"](area.p);
+  nwr["tourism"~"attraction|museum|viewpoint|artwork"](area.p);
+  nwr["historic"](area.p);
+  nwr["leisure"="park"](area.p);
+  nwr["amenity"="library"](area.p);
+  nwr["amenity"~"fountain|drinking_water"](area.p);
+  nwr["amenity"="cafe"]["wikidata"](area.p);
+);
+out center tags;

@@ -1,0 +1,13 @@
+node_modules/
+dist/
+var/
+.env
+*.db
+*.db-*
+target/
+e2e/__shots__/
+test-results/
+playwright-report/
+# Références de style privées (fan-art tiers, ne pas publier)
+Docs/design-ref/*.jpg
+Docs/design-ref/*.png
