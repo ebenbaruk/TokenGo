@@ -21,7 +21,8 @@
     "reconcile": "node apps/server/scripts/reconcile.ts",
     "check:secrets": "node scripts/check-secrets.ts",
     "verify": "node scripts/verify.ts",
-    "shots": "npm run -s build && playwright test --project=full && node scripts/collect-shots.ts"
+    "shots": "npm run -s build && playwright test --project=full && node scripts/collect-shots.ts",
+    "video": "bash scripts/video/run.sh"
   },
   "devDependencies": {
     "@playwright/test": "^1.65.0",
