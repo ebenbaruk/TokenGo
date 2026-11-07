@@ -161,7 +161,7 @@ export function ForgeScreen({ node, onClose }: { node: NodeView; onClose: () => 
             {res.pending ? <div className={s.pendingTicket} data-testid="ticket-pending">Credit pending — it reaches your key automatically within minutes.</div> : null}
             {res.note ? <div className={s.note2}>{res.note}</div> : null}
             <div className={s.ticketXp}><Sprite def={XP_STAR} scale={2} /> +{res.xp} XP</div>
-            {res.burnTx ? <a className={s.proof} href={txUrl(res.burnTx)} target="_blank" rel="noreferrer">Burn proof <ExternalLink size={12} /></a> : null}
+            {res.burnTx ? <a className={s.proof} href={txUrl(res.burnTx)} target="_blank" rel="noreferrer">Burn proof <ExternalLink size={12} /></a> : res.burnPending ? <span className={s.proof} data-testid="burn-pending">Burn settling on NEAR… proof in Profile › Proofs</span> : null}
           </div>
           <div className={s.ticketActions}>
             {res.payoutNusd > 0 ? <Button variant="gold" size="l" block testId="try-now" onClick={() => openOverlay({ kind: 'credits' })}>Try it now</Button> : null}

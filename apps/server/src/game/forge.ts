@@ -16,7 +16,8 @@ import { poolAvail } from '@tokengo/shared';
 const LABEL: Record<Tier | 'first', string> = { first: 'First Compile', spark: 'Spark', prism: 'Prism', aura: 'Aura' };
 const HOUR = 3600_000;
 /** Attente max de la preuve de burn on-chain avant l'octroi (au-delà : on octroie quand même, le settler complète burn_tx). */
-export const BURN_PROOF = { timeoutMs: 6_000 };
+// attente bornée du lot qui contient le burn (un lot de 50 ops des runners peut être en vol devant lui : ~2–3 s chacun)
+export const BURN_PROOF = { timeoutMs: 20_000 };
 
 function forgeOf(ctx: Ctx, forgeId: string) {
   const f = ctx.world.forges.find((x) => x.id === forgeId);
@@ -164,7 +165,7 @@ async function compileLocked(ctx: Ctx, userId: string, forgeId: string, tier: Ti
   }
   return {
     compileId, tier, payoutNusd: payout, simulated: ctx.credits.simulated, pool: payout > 0 ? est.pool : null, xp, note: payout > 0 ? null : note,
-    equiv: equivalences(payout), burnTx, levelUp, me: meView(ctx, userId),
+    equiv: equivalences(payout), burnTx, ...(ctx.chain && !burnTx ? { burnPending: true } : {}), levelUp, me: meView(ctx, userId),
     ...(pending ? { pending: true, pendingNusd: est.payout } : {}),
   };
 }

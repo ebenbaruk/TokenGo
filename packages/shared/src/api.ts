@@ -319,6 +319,8 @@ export interface CompileResponse {
   note: string | null;      // ex. « XP only — daily cap reached »
   equiv: { chats: number; tokens: { model: string; label: string; tokens: number }[] };
   burnTx: string | null;
+  /** chaîne active mais le lot du burn n'était pas encore final à la réponse : il se règle dans les secondes qui suivent (Profile › Proofs). */
+  burnPending?: boolean;
   levelUp: number | null;
   me: Me;
   /** L'appel NEAR AI a échoué après le burn : octroi en attente (IOU), rejoué toutes les 2 min. UI : « Credit pending ». */

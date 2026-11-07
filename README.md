@@ -15,7 +15,7 @@
 > Shards of **Claude, GPT, DeepSeek, Gemini and Qwen** spawn around real places. AI shopkeepers buy and sell them at prices
 > driven by their own stock, so the same shard is cheap at one café and expensive near the Louvre. You walk the spread,
 > haggle, complete a Forge recipe at a monument, and compile it into **inference credits on your own NEAR AI Cloud API key**.
-> Every item is a **NEP-245 token on NEAR**, every compile is preceded by an **on-chain burn**, and the player never sees a
+> Every item is a **NEP-245 token on NEAR**, every compile **burns its shards on-chain**, and the player never sees a
 > wallet, a seed phrase or a gas fee.
 
 Built from scratch for the **NEAR HACKATHON**, track **`games`**: *"Judged on the game loop, not the token — bonus if players
@@ -330,8 +330,9 @@ and the game says so; "export my account" is on the roadmap.
   and the chain never misses a move.
 - The **settler** batches pending ops every 8 s into `op_settle` with a deterministic `settlement_id`; retries check `is_settled`
   first, and "already applied" counts as success → **exactly-once on-chain**, even across crashes.
-- **Burn-before-credit:** a Forge compile is not paid until its burn is settled on NEAR; the tx hash is shown on the ticket as
-  **Burn proof ↗**. No proof, no credit.
+- **Burn-before-credit:** a compile debits the shards and queues their burn *before* anything is granted, then forces the settler
+  to push every pending op up to that burn and waits (up to 20 s) for its transaction, shown on the ticket as **Burn proof ↗**.
+  If the chain is slower than that, the ticket says "Burn settling on NEAR…" and the proof appears in Profile › Proofs seconds later.
 - **Reconcile:** `npm run reconcile` compares every on-chain balance with the database.
 
 ### Proofs the player can check without trusting us

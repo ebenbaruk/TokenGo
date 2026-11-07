@@ -47,6 +47,7 @@ npm run verify         # ce que lancera le juge IA : tests + build + e2e smoke (
 npm run shots          # captures d'écran clés → docs-assets/
 npm run video          # vidéo de démo (Playwright + ffmpeg) → docs-assets/video/
 E2E_PORT=8790 npx playwright test --project=full   # e2e sur un autre port (suites en parallèle)
+npx playwright test -c playwright.prod.config.ts   # parcours complet sur la démo EN LIGNE (chaîne, burn, Verify) — crée 1 invité
 node scripts/submit.ts # valide la soumission (var/submission.json) ; --send = envoi (HUMAIN uniquement)
 npm run reconcile      # compare chaîne et SQLite
 npm run check:secrets  # aucun secret dans le repo ni l'historique

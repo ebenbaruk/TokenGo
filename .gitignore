@@ -16,3 +16,4 @@ docs-assets/gen/*.png
 docs-assets/gen/codex.log
 apps/web/__shots__/
 .claude/worktrees/
+e2e-prod/__shots__/
