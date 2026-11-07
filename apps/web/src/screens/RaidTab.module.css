@@ -1,0 +1,74 @@
+/* Onglet Raid de la Forge — carte du boss façon écran CRT, classement en direct, choix de l'équipe (Pixel Pop). */
+.wrap { display: flex; flex-direction: column; gap: 10px; padding: 4px 16px 0; flex: 1; }
+.loading { font-family: var(--font-pixel); font-size: 20px; padding: 24px 16px; color: var(--sun); }
+.err { margin: 0 16px; font-weight: 800; color: var(--sun); }
+
+.boss {
+  position: relative; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 10px 12px; color: var(--white); overflow: visible;
+  background: var(--ink) repeating-linear-gradient(0deg, rgba(255,255,255,.04) 0 1px, transparent 1px 3px);
+  border: 3px solid var(--berry); border-radius: var(--radius-l); box-shadow: 4px 4px 0 var(--ink);
+  animation: drop .35s var(--ease-pop) both, edge 1.4s steps(2) infinite .4s;
+}
+@keyframes drop { from { transform: translateY(-14px); opacity: 0; } }
+@keyframes edge { 50% { border-color: var(--cyan); } }
+.bossHp { flex: 1 0 100%; }
+.bossArt { position: relative; flex: none; width: 104px; height: 88px; display: grid; place-items: center; border-radius: 12px; background: var(--night); border: 2px solid var(--plum); }
+.bossMain { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.kind { font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .08em; color: #ff6b7f; }
+.bossName { font-family: var(--font-pixel); font-size: 25px; line-height: 1; color: var(--white); text-shadow: 2px 0 0 var(--berry), -2px 0 0 var(--cyan); }
+.meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 12px; font-weight: 800; color: var(--mist); }
+.meta span { display: inline-flex; align-items: center; gap: 3px; }
+.meta b { color: var(--sun); }
+.bossTeam { display: inline-flex; gap: 3px; }
+.mini { display: inline-flex; align-items: center; gap: 2px; padding: 1px 3px; background: var(--panel); color: var(--ink); border: 2px solid var(--ink); border-radius: 8px; }
+.mini b { font-size: 11px; font-weight: 900; }
+
+.aff { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.rotate { margin-left: auto; font-size: 11px; font-weight: 800; color: var(--mist); }
+.rotate b { color: var(--sun); }
+
+.mine { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.mine span { display: flex; flex-direction: column; align-items: center; padding: 5px 4px; background: var(--panel); color: var(--ink); border: var(--border-thin); border-radius: 10px; box-shadow: var(--shadow-hard-s); }
+.mine small { font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .05em; color: var(--slate); }
+.mine b { font-family: var(--font-pixel); font-size: 22px; line-height: 1.05; }
+
+.board { padding: 8px 10px; background: var(--panel); color: var(--ink); border: var(--border-thin); border-radius: 12px; box-shadow: var(--shadow-hard-s); }
+.board h3 { font-size: 17px; margin: 0 0 4px; display: flex; align-items: center; gap: 6px; }
+.board h3 small { font-family: var(--font-ui); font-size: 10px; font-weight: 900; text-transform: uppercase; padding: 0 5px; border-radius: 4px; background: var(--berry); color: var(--white); animation: pulseRow 1.2s steps(2) infinite; }
+.board ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.board li { display: grid; grid-template-columns: 20px minmax(0, 1.2fr) 1fr auto; gap: 6px; align-items: center; font-size: 13px; font-weight: 800; padding: 2px 4px; border-radius: 6px; }
+.board li b { min-width: 40px; text-align: right; }
+.meRow { background: #fff3cf; outline: 2px solid var(--sun); animation: pulseRow 1.4s steps(2) 2; }
+@keyframes pulseRow { 50% { background: var(--sun); } }
+.rank { font-family: var(--font-pixel); font-size: 15px; color: var(--plum); text-align: center; }
+.who { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.who em { margin-left: 4px; padding: 0 4px; font-style: normal; font-size: 9px; font-weight: 900; text-transform: uppercase; background: var(--mist); border-radius: 4px; }
+.dmgBar { height: 9px; border: 1.5px solid var(--ink); border-radius: 3px; background: var(--white); overflow: hidden; }
+.dmgBar i { display: block; height: 100%; background: var(--berry); transition: width .6s var(--ease-out); }
+.empty { margin: 0; font-size: 13px; font-weight: 800; color: var(--slate); }
+
+.pickHead { display: flex; align-items: baseline; gap: 8px; color: var(--white); margin-top: 2px; }
+.pickHead h3 { font-size: 22px; text-shadow: 2px 2px 0 var(--ink); }
+.count { font-family: var(--font-pixel); font-size: 20px; color: var(--sun); }
+.pickHead small { margin-left: auto; display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 800; color: var(--mist); }
+.picks { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.pick {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 7px 2px 5px; color: var(--ink);
+  background: var(--panel); border: var(--border-thin); border-radius: 12px; box-shadow: var(--shadow-hard-s); cursor: pointer;
+  transition: transform 80ms var(--ease-out);
+}
+.pick:active:not(:disabled) { transform: translate(1px, 1px); box-shadow: none; }
+.pick:disabled { opacity: .5; filter: grayscale(.7); cursor: not-allowed; }
+.on { background: #fff6dc; outline: 4px solid var(--sun); outline-offset: -1px; animation: pick .25s var(--ease-pop); }
+@keyframes pick { 50% { transform: scale(1.06); } }
+.order { position: absolute; top: -8px; left: -6px; width: 20px; height: 20px; display: grid; place-items: center; background: var(--berry); color: var(--white); border: 2px solid var(--ink); border-radius: 50%; font-weight: 900; font-size: 12px; }
+.pickName { font-family: var(--font-pixel); font-size: 13px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-weight: 400; line-height: 1; white-space: nowrap; }
+.pickStat { display: inline-flex; align-items: center; gap: 2px; font-size: 12px; font-weight: 900; }
+.pickStat small { margin-left: 2px; font-size: 9px; color: var(--plum); }
+.none { font-size: 9px; font-weight: 900; color: var(--berry); }
+
+.action { position: sticky; bottom: 0; margin: 4px -16px 0; padding: 10px 16px 4px; background: linear-gradient(180deg, transparent, var(--plum) 22%); }
+.action :global(span) { color: var(--white); }
+.action button span { color: inherit; }
+.left { margin-top: 6px; text-align: center; font-size: 12px; font-weight: 800; color: var(--mist); }
+@media (prefers-reduced-motion: reduce) { .boss, .meRow { animation: none; } }

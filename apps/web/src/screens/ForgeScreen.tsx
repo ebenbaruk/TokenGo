@@ -10,6 +10,8 @@ import { play, buzz, feedback, HAPTIC } from '../lib/sound.ts';
 import { creditCard, shareImage } from '../lib/share.ts';
 import { HoldButton, Button, Tabs } from '../ui/index.tsx';
 import { ArenaTab } from './ArenaTab.tsx';
+import { RaidTab } from './RaidTab.tsx';         // Raid (Docs/13 §6)
+import { useLiveRaid } from '../lib/raid.ts';
 import { Sprite } from '../sprites/Sprite.tsx';
 import { FORGE, SHARDS, FLUX, XP_STAR } from '../sprites/index.ts';
 import s from './ForgeScreen.module.css';
@@ -35,7 +37,12 @@ export function ForgeScreen({ node, onClose }: { node: NodeView; onClose: () => 
   const [res, setRes] = useState<CompileResponse | null>(null);
   const [flying, setFlying] = useState<Family[]>([]);
   const [sharing, setSharing] = useState(false);
-  const [tab, setTab] = useState<'forge' | 'arena'>('forge'); // Forge | Arena (Docs/13 §4)
+  // Raid (Docs/13 §6) : onglet Raid tant qu'un boss attaque cette Forge (gardé jusqu'à la fermeture : écran de fin)
+  const liveRaid = useLiveRaid();
+  const raidHere = liveRaid && liveRaid.forgeId === node.id && liveRaid.status === 'active' ? liveRaid.eventId : null;
+  const [raidId, setRaidId] = useState<number | null>(raidHere);
+  useEffect(() => { if (raidHere) setRaidId(raidHere); }, [raidHere]);
+  const [tab, setTab] = useState<'forge' | 'arena' | 'raid'>(raidHere ? 'raid' : 'forge'); // Forge | Arena (Docs/13 §4) | Raid
   const share = async () => {
     if (!res) return;
     setSharing(true);
@@ -101,9 +108,10 @@ export function ForgeScreen({ node, onClose }: { node: NodeView; onClose: () => 
         <Tabs value={tab} onChange={setTab} items={[
           { id: 'forge', label: 'Forge' },
           { id: 'arena', label: node.arena?.holder === 'champion' ? `Arena · ${node.arena.mine ? 'yours' : 'held'}` : 'Arena' },
+          { id: 'raid', label: '⚠ Raid', dot: !!raidHere, hidden: !raidId },
         ]} />
       </div>
-      {tab === 'arena' ? <ArenaTab node={node} /> : <>
+      {tab === 'raid' && raidId ? <RaidTab node={node} eventId={raidId} /> : tab === 'arena' ? <ArenaTab node={node} /> : <>
 
       <div className={`${s.anvil} ${phase === 'fusing' ? s.fusing : ''}`}>
         <div className={s.glow} />

@@ -1,0 +1,53 @@
+/* Assaut de raid : l'écran de l'Arène (ArenaBattle.module.css) + boss, barre de PV, coups qui volent, glitchs. */
+.screen { background-color: #1d1530; }
+.boss {
+  position: relative; display: flex; gap: 10px; align-items: center; padding: 8px 10px; overflow: visible;
+  background: var(--ink) repeating-linear-gradient(0deg, rgba(255,255,255,.04) 0 1px, transparent 1px 3px);
+  border: 3px solid var(--berry); border-radius: 12px; box-shadow: var(--shadow-hard-s);
+}
+.shake { animation: shake .45s steps(6); }
+@keyframes shake {
+  20% { transform: translate(-6px, 2px) skewX(6deg); filter: hue-rotate(60deg); }
+  40% { transform: translate(5px, -3px); clip-path: inset(8% 0 22% 0); }
+  60% { transform: translate(-3px, 1px) skewX(-5deg); }
+  80% { transform: translate(2px, 0); filter: none; }
+}
+.bossArt { flex: none; width: 74px; height: 66px; display: grid; place-items: center; border-radius: 10px; background: var(--night); border: 2px solid var(--plum); }
+.bossMain { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.bossName { font-family: var(--font-pixel); font-size: 19px; font-weight: 400; color: #ff8a9b; text-shadow: 1px 0 0 var(--cyan); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.affs { margin-left: auto; display: inline-flex; gap: 4px; }
+.wk, .rs { display: inline-flex; align-items: center; gap: 2px; padding: 0 5px; border: 2px solid var(--ink); border-radius: 6px; font-size: 11px; font-weight: 900; color: var(--ink); }
+.wk { background: var(--lime); }
+.rs { background: var(--mist); }
+.bigHit {
+  position: absolute; left: 58%; top: 34px; font-family: var(--font-pixel); font-size: 48px; line-height: 1; color: var(--white); pointer-events: none;
+  text-shadow: 3px 3px 0 var(--berry), -2px -2px 0 var(--ink), 2px -2px 0 var(--ink); animation: bigHit 1.4s var(--ease-out) both;
+}
+@keyframes bigHit {
+  0% { transform: translateY(18px) scale(.3) rotate(-12deg); opacity: 0; }
+  18% { transform: translateY(-4px) scale(1.35) rotate(4deg); opacity: 1; }
+  70% { opacity: 1; }
+  100% { transform: translateY(-46px) scale(1); opacity: 0; }
+}
+.bossPlay { background: #ffe3e7; }
+.ribbon { padding: 1px 8px; border: 2px solid var(--ink); border-radius: 6px; font-family: var(--font-pixel); font-size: 15px; box-shadow: 2px 2px 0 var(--ink); }
+.ribbonWeak { background: var(--lime); animation: ribbon 1s steps(2) infinite; }
+.ribbonResist { background: var(--mist); }
+@keyframes ribbon { 50% { transform: rotate(-3deg) scale(1.06); } }
+.dmgLine {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; padding: 7px 12px; color: var(--white); background: var(--berry);
+  border: var(--border-thin); border-radius: 12px; box-shadow: var(--shadow-hard-s); animation: dmgIn .35s var(--ease-pop) both;
+}
+.dmgLine b { font-family: var(--font-pixel); font-size: 26px; line-height: 1; }
+.dmgLine span { font-size: 12px; font-weight: 800; color: #ffe3e7; }
+@keyframes dmgIn { from { transform: scale(.4) rotate(-4deg); opacity: 0; } }
+.dealt { font-size: 12px; font-weight: 800; color: var(--mist); }
+.dealt b { color: var(--sun); font-size: 14px; }
+.stamp { color: var(--berry); }
+.total { display: flex; flex-direction: column; align-items: center; color: var(--white); }
+.total small { font-size: 12px; font-weight: 800; color: var(--mist); }
+.total b { font-family: var(--font-pixel); font-size: 56px; line-height: 1; color: var(--sun); text-shadow: 3px 3px 0 var(--berry); }
+.rounds { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.roundChip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; background: var(--panel); color: var(--ink); border: 2px solid var(--ink); border-left: 8px solid var(--cat); border-radius: 8px; font-weight: 900; font-size: 13px; }
+.roundChip em { font-style: normal; font-size: 10px; padding: 0 4px; background: var(--lime); border-radius: 4px; }
+@media (prefers-reduced-motion: reduce) { .shake, .ribbonWeak { animation: none; } }

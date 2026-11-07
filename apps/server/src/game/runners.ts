@@ -16,6 +16,7 @@ import { getP0, merchantByNode } from './merchants.ts';
 import { DEMO_START, nodesNear } from './world.ts';
 import { parisDay } from './reserve.ts';
 import { accountPrefix } from '../chain/accounts.ts';
+import { raidBotTick } from './raid.ts';
 
 export type RunnerProfile = 'walker' | 'arbitrageur' | 'forger' | 'flooder';
 
@@ -398,6 +399,7 @@ export async function runnerTick(ctx: Ctx, n: number): Promise<number> {
     ORDER BY next_at LIMIT ?`).all(ctx.now(), ...ids, RUNNER.perLoop) as RunnerRow[];
   let trades = agentTradesLastHour(ctx);
   for (const r of rows) trades = await stepRunner(ctx, r, trades);
+  raidBotTick(ctx, ids); // Raid (Docs/13 §6) : un runner tape le boss de temps en temps
   return rows.length;
 }
 

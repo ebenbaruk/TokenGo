@@ -1,0 +1,21 @@
+/* Bannière du raid : aplat nuit + bord berry clignotant, scanlines, comme un écran qui déraille. */
+.banner {
+  position: relative; pointer-events: auto; align-self: stretch; display: flex; align-items: center; gap: 8px; padding: 5px 8px 6px 5px;
+  background: var(--ink) repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 1px, transparent 1px 3px);
+  color: var(--white); border: 3px solid var(--berry); border-radius: 12px; box-shadow: 3px 3px 0 var(--ink), 0 0 0 2px var(--ink);
+  text-align: left; cursor: pointer; font-family: var(--font-ui); overflow: visible;
+  animation: drop .45s var(--ease-pop) both, edge 1.2s steps(2) infinite .45s;
+}
+@keyframes drop { from { transform: translateY(-14px) scale(.9); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes edge { 50% { border-color: var(--cyan); } }
+.art { flex: none; width: 50px; height: 46px; display: grid; place-items: center; border-radius: 8px; background: var(--night); border: 2px solid var(--plum); }
+.body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; line-height: 1.1; }
+.title { font-weight: 800; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.warn { font-family: var(--font-pixel); font-weight: 400; font-size: 15px; color: #ff6b7f; letter-spacing: .02em; text-shadow: 1px 0 0 var(--cyan); }
+.sub { display: flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; color: var(--mist); white-space: nowrap; overflow: hidden; }
+.sub b { color: var(--lime); }
+.sub em { font-style: normal; color: var(--sun); }
+.boss { flex: none; color: var(--white); font-weight: 900; }
+.sub em { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.time { flex: none; align-self: flex-start; font-weight: 900; font-size: 13px; padding: 2px 6px; border-radius: 6px; background: var(--berry); color: var(--white); border: 2px solid var(--ink); }
+@media (prefers-reduced-motion: reduce) { .banner { animation: none; } }

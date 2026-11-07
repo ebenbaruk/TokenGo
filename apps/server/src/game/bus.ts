@@ -7,6 +7,8 @@ export interface Bus {
   publish: (kind: string, text: string, data?: Record<string, unknown>, userId?: string) => PulseEvent;
   subscribe: (fn: Listener) => () => void;
   subscribeUser: (userId: string, fn: Listener) => () => void;
+  /** Diffusion éphémère à tous (id 0, NON stockée dans le Pulse) : PV du raid en direct, trop fréquents pour le ticker. */
+  broadcast: (kind: string, text: string, data?: Record<string, unknown>) => void;
 }
 
 export function createBus(db: DB, now: () => number): Bus {
@@ -28,6 +30,10 @@ export function createBus(db: DB, now: () => number): Bus {
       return e;
     },
     subscribe(fn) { pub.add(fn); return () => pub.delete(fn); },
+    broadcast(kind, text, data) {
+      const e: PulseEvent = { id: 0, at: now(), kind, text, ...(data ? { data } : {}) };
+      for (const fn of pub) fn(e);
+    },
     subscribeUser(userId, fn) {
       const set = users.get(userId) ?? new Set();
       set.add(fn);

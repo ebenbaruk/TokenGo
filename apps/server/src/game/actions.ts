@@ -22,6 +22,7 @@ import { activeEvent, eventById, eventView } from './events.ts';
 import { addMastery, arenaOnCatch } from './mastery.ts'; // Arène (Docs/13 §2) : maîtrise à la capture
 import { arenaBadge } from './arena.ts';      // Arène (Docs/13 §4) : couronne / bouclier des forges
 import { missionBump, missionsOnCatch } from './missions.ts'; // Missions du jour (Docs/13 §7) : compteurs
+import { withRaid } from './raid.ts';         // Raid (Docs/13 §6) : PV du boss joints à l'événement
 // Décodage (Docs/13 §3) : import direct — la banque de questions n'est pas dans l'index du paquet partagé (bundle web)
 import { decodePublic, decodeRequired, judgeDecode, pickDecode, type DecodeChallenge } from '@tokengo/shared/economy/decode.ts';
 
@@ -147,7 +148,7 @@ export function worldView(ctx: Ctx, userId: string, lat: number, lng: number, ip
   const region = ctx.regions?.ensure(lat, lng, ipHash, anchored);
   return {
     now, nodes: views, spawns: visibleSpawns(ctx, u, lat, lng), reserve: reserveView(ctx), objective: objective(ctx, u, lat, lng), route,
-    event: eventView(event), ...(region ? { region } : {}),
+    event: withRaid(ctx, eventView(event)), ...(region ? { region } : {}),
   };
 }
 

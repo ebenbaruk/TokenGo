@@ -19,6 +19,7 @@ import { ProofsSheet } from './screens/ProofsSheet.tsx';
 import { CodexSheet } from './screens/CodexSheet.tsx';
 import { RouteSheet, RouteCelebration } from './screens/RouteSheet.tsx';
 import { FlyLayer } from './hud/FlyLayer.tsx';
+import { RaidEndHost } from './screens/RaidEnd.tsx'; // Raid (Docs/13 §6) : fin collective
 
 const GameMap = lazy(() => import('./map/GameMap.tsx'));
 
@@ -93,6 +94,7 @@ export function App() {
       {overlay?.kind === 'route' ? <RouteSheet onClose={closeOverlay} /> : null}
       {overlay?.kind === 'jump' ? <JumpSheet node={overlay.node} onClose={closeOverlay} onOpen={() => openNode(overlay.node)} /> : null}
       <FlyLayer />
+      <RaidEndHost />
       {celebration?.kind === 'route' ? <RouteCelebration c={celebration} /> : null}
       <ToastHost />
     </>

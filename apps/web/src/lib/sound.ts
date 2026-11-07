@@ -4,7 +4,8 @@ export type SoundName =
   | 'tap' | 'catch' | 'perfect' | 'miss' | 'fled' | 'sync' | 'trade' | 'forge' | 'error' | 'level'
   | 'discover' | 'shiny' | 'stop' | 'route' | 'reveal' | 'coin' | 'whoosh' | 'share' | 'event' | 'pop'
   | 'clash' | 'crown'
-  | 'decodeIn' | 'decoded' | 'glitch' | 'tick';
+  | 'decodeIn' | 'decoded' | 'glitch' | 'tick'
+  | 'rogue' | 'raidHit' | 'raidWin'; // Raid « Rogue Model » (Docs/13 §6)
 
 let ctx: AudioContext | null = null;
 const KEY = 'tg.muted';
@@ -121,6 +122,17 @@ export function play(name: SoundName, pitch = 0): void {
       tone(a, 420, 0.02, 0.45, 'sawtooth', 0.045, 70); tone(a, 433, 0.02, 0.45, 'square', 0.03, 75);
       break;
     case 'tick': tone(a, 1760, 0, 0.025, 'square', 0.025); break;
+    // Raid (Docs/13 §6) : alarme du boss (sirène descendante + parasites), coup porté (crunch), ville victorieuse (fanfare)
+    case 'rogue':
+      tone(a, 880, 0, 0.32, 'sawtooth', 0.05, 440); tone(a, 880, 0.34, 0.32, 'sawtooth', 0.05, 440);
+      noise(a, 0.1, 0.5, 0.05, 200, 6000);
+      break;
+    case 'raidHit': noise(a, 0, 0.12, 0.11, 2000, 200); tone(a, 150, 0, 0.16, 'square', 0.07, 60); tone(a, 1175, 0.03, 0.07, 'square', 0.04); break;
+    case 'raidWin':
+      noise(a, 0, 0.3, 0.08, 5000, 300);
+      arp(a, [523, 659, 784, 1046, 784, 1046, 1318], 0.09, 0.2, 'square', 0.05, 0.25);
+      arp(a, [1568, 2093, 2637], 0.08, 0.4, 'triangle', 0.06, 0.95);
+      break;
   }
 }
 
@@ -140,6 +152,8 @@ export const HAPTIC = {
   crown: [50, 50, 50, 50, 50, 50, 250],
   decoded: [20, 30, 50],
   glitch: [60, 30, 20, 30, 90],
+  raidHit: [40, 20, 40],                     // Raid (Docs/13 §6)
+  raidWin: [60, 40, 60, 40, 60, 40, 300],
 } as const satisfies Record<string, number | readonly number[]>;
 
 export function buzz(pattern: number | readonly number[]): void {

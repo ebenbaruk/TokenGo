@@ -61,3 +61,7 @@
 .evBadge[data-kind='flash_crash'] { background: var(--berry); color: var(--white); }
 .evBadge[data-kind='hype'] { background: var(--green); color: var(--white); }
 .evBadge[data-kind='strike'] { background: var(--slate); color: var(--white); }
+/* Raid « Rogue Model » (Docs/13 §6) */
+.evBadge[data-kind='rogue'] { background: var(--ink); color: #ff6b7f; }
+.raidHp { margin-top: 6px; display: flex; flex-direction: column; gap: 3px; }
+.raidHp small { font-size: 11px; font-weight: 800; color: var(--slate); }

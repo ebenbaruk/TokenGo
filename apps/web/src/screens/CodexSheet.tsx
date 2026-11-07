@@ -61,8 +61,8 @@ export function CodexSheet({ onClose }: { onClose: () => void }) {
             <div className={s.bar}><i style={{ width: `${v.pct}%` }} /><span>{v.pct}% collected</span></div>
             <div className={s.titles}>
               {v.titles.map((t) => (
-                <span key={t.id} className={`${s.tTag} ${t.unlocked ? s.tOn : ''}`} title={`${t.need} entries`}>
-                  {t.unlocked ? '★' : <Lock size={11} strokeWidth={3} />} {t.name} <small>{t.need}</small>
+                <span key={t.id} className={`${s.tTag} ${t.unlocked ? s.tOn : ''}`} title={t.need ? `${t.need} entries` : 'Win a Rogue Model raid'} data-testid={`codex-title-${t.id}`} data-unlocked={t.unlocked ? '1' : '0'}>
+                  {t.unlocked ? '★' : <Lock size={11} strokeWidth={3} />} {t.name} <small>{t.need || 'raid'}</small>
                 </span>
               ))}
             </div>
