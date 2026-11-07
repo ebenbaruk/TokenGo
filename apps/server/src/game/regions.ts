@@ -46,8 +46,11 @@ export const parseOverpassUrls = (v: string): string[] =>
   v.trim() === 'off' ? [] : v.split(',').map((s) => s.trim()).filter((s) => /^https?:\/\//.test(s));
 
 export interface Regions {
-  /** Statut de couverture autour d'une position ; lance (en fond) les régions manquantes dans la limite des plafonds. */
-  ensure(lat: number, lng: number, ipHash: string | null): RegionStatus;
+  /**
+   * Statut de couverture autour d'une position ; lance (en fond) les régions manquantes dans la limite des plafonds,
+   * seulement si `allowNew` (la position est celle du joueur pour le serveur, voir worldView).
+   */
+  ensure(lat: number, lng: number, ipHash: string | null, allowNew?: boolean): RegionStatus;
   /** Résolu quand la file de génération est vide (tests). */
   idle(): Promise<void>;
   /** Résolu quand les requêtes OSM de fond (remplacement procédural → OSM) sont terminées (tests). */
@@ -206,7 +209,7 @@ export function createRegions(ctx: Ctx, fetcher: OverpassFetch | null, log: (msg
   // redémarrage pendant qu'une requête de fond tournait : on la relance pour les quartiers procéduraux encore frais
   if (fetcher) {
     for (const r of rows) {
-      if (r.source === 'procedural' && regionFresh({ source: r.source, createdAt: r.created_at }, activity(r.id), ctx.now())) {
+      if (r.source === 'procedural' && ctx.now() - r.created_at < WORLD_GEN.upgradeWindowMs && regionFresh({ source: r.source, createdAt: r.created_at }, activity(r.id), ctx.now())) {
         upgradeLater(r.id, fetcher(overpassQuery(r.id)));
       }
     }
@@ -226,13 +229,13 @@ export function createRegions(ctx: Ctx, fetcher: OverpassFetch | null, log: (msg
   };
 
   return {
-    ensure(lat, lng, ipHash) {
+    ensure(lat, lng, ipHash, allowNew = true) {
       const w = ctx.world;
       const ids = regionsAround(lat, lng);
       const own = ids[0]!;
       let capped = false;
       for (const id of ids) {
-        if (w.parisRegions.has(id) || w.regions.has(id) || pending.has(id)) continue;
+        if (w.parisRegions.has(id) || w.regions.has(id) || pending.has(id) || !allowNew) continue;
         if (!ctx.cfg.WORLD_ANYWHERE || capReached(ipHash)) { if (id === own) capped = true; continue; }
         start(id, ipHash);
       }

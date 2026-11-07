@@ -264,7 +264,9 @@ export const WORLD_GEN = {
   regionRes: 7,                 // une région = une cellule H3 r7 (~5 km², ~1,2 km de rayon)
   ensureRadiusM: 600,           // on prépare les régions touchées par un disque de 600 m autour du joueur
   maxRegionsPerDay: 300,        // au global (jour de Paris)
-  maxRegionsPerIpPerDay: 12,
+  maxRegionsPerIpPerDay: 12,    // par réseau : IPv4, ou /64 en IPv6
+  anchorMaxM: 1000,             // on ne génère qu'autour de la position serveur du joueur (/api/move) : ≤ 1 km…
+  anchorFreshMs: 5 * 60_000,    // … et reçue il y a ≤ 5 min (jamais autour d'un lat/lng arbitraire de /api/world)
   maxRelays: 80,                // plafonds de nœuds par région
   maxMarkets: 8,
   maxForges: 2,

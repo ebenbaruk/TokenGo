@@ -7,6 +7,7 @@ import { loadConfig } from './config.ts';
 import { buildApp, SSE_LIMITS, type AppOptions } from './app.ts';
 import { simulatedCredits, type CreditsProvider } from './game/credits.ts';
 import { grantCredits, retryPendingGrants } from './game/reserve.ts';
+import { netKey } from './game/crypto.ts';
 
 const ORIGIN = 'http://localhost:5173';
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -193,6 +194,25 @@ describe('X-Forwarded-For is only trusted behind TRUST_PROXY hops', () => {
     // un client qui forge un XFF en tête : le proxy ajoute la vraie IP à la fin, c'est elle qui compte
     const c = await s.client('10.7.0.1').post('/auth/guest', { token: 'judge-pass' }, { 'x-forwarded-for': '9.9.9.9, 2.2.2.2' });
     expect([a.status, b.status, c.status]).toEqual([200, 200, 429]);
+    await s.app.close();
+  });
+});
+
+describe('per-IP caps key IPv6 by /64 (revue 2026-11-07)', () => {
+  it('netKey: IPv4 as is (and IPv4-mapped), IPv6 reduced to its /64', () => {
+    expect(netKey('10.0.0.1')).toBe('10.0.0.1');
+    expect(netKey('::ffff:10.0.0.1')).toBe('10.0.0.1');
+    expect(netKey('2001:db8:77:1::5')).toBe('2001:db8:77:1::/64');
+    expect(netKey('2001:0db8:0077:0001:aaaa:bbbb:cccc:dddd')).toBe('2001:db8:77:1::/64');
+    expect(netKey('2001:db8::1')).toBe('2001:db8:0:0::/64');
+    expect(netKey('2001:db8:77:2::5')).not.toBe(netKey('2001:db8:77:1::5'));
+  });
+
+  it('a demo pass cannot be replayed by rotating addresses inside one IPv6 /64', async () => {
+    const s = await setup();
+    const a = await s.client('2001:db8:5:5::1').post('/auth/guest', { token: 'judge-pass' });
+    const b = await s.client('2001:db8:5:5::2').post('/auth/guest', { token: 'judge-pass' });
+    expect([a.status, b.status]).toEqual([200, 429]);
     await s.app.close();
   });
 });
