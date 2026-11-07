@@ -34,6 +34,7 @@ import { labSnapshot } from './game/pulse.ts';
 import { activeRunnerCount, runnersNear } from './game/runners.ts';
 import { invariantStatus, parisDay } from './game/reserve.ts';
 import { judgeOpen } from './game/forge.ts';
+import { createRegions, overpassFetcher, parseOverpassUrls, type OverpassFetch } from './game/regions.ts';
 
 const SESSION_TTL = 30 * 24 * 3600_000;
 /** Connexions SSE simultanées max : par joueur (/api/stream), par IP (/api/pulse/stream), au total. */
@@ -56,6 +57,8 @@ export interface AppOptions {
   chainClient?: ChainClient;
   /** Échange OAuth Google (tests : faux échange) ; sinon arctic + id_token. */
   googleExchange?: GoogleExchange;
+  /** Client Overpass (tests : faux client ; null = procédural seulement) ; sinon miroirs de OVERPASS_URLS. */
+  overpass?: OverpassFetch | null;
 }
 
 export async function buildApp(cfg: Config, opts: AppOptions = {}) {
@@ -76,6 +79,8 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
     bodyLimit: 32 * 1024,
   });
   app.decorateRequest('userId', null);
+  ctx.regions = createRegions(ctx, opts.overpass !== undefined ? opts.overpass : overpassFetcher(parseOverpassUrls(cfg.OVERPASS_URLS)),
+    (msg) => app.log.info({ world: true }, msg));
   const stopChain = startChain(ctx, opts.chainClient, { log: (level, msg) => app.log[level]({ chain: true }, msg) });
   await app.register(cookie, { secret: cfg.SESSION_SECRET });
   await app.register(rateLimit, {
@@ -222,7 +227,7 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
   app.post('/api/move', rl(40), async (req) => move(ctx, auth(req), LatLng.extend({ acc: z.number().min(0).max(10_000), heading: z.number().optional() }).parse(req.body)));
   app.get('/api/world', async (req) => {
     const q = z.object({ lat: z.coerce.number().min(-90).max(90), lng: z.coerce.number().min(-180).max(180) }).parse(req.query);
-    const w = worldView(ctx, auth(req), q.lat, q.lng);
+    const w = worldView(ctx, auth(req), q.lat, q.lng, sha256hex(`${cfg.SESSION_SECRET}:${req.ip}`));
     const runners = runnersNear(ctx, q.lat, q.lng);
     return runners.length ? { ...w, runners } : w;
   });

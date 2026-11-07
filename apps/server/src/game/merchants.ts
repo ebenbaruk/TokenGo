@@ -17,9 +17,12 @@ export function getP0(ctx: Ctx): Record<Family, number> {
   return kvGet<Record<Family, number>>(ctx.db, 'p0') ?? initialP0();
 }
 
-/** Crée les marchands manquants (idempotent). Un marchand près du Louvre démarre en difficulté (démo faillite/sauvetage). */
-export function seedMerchants(ctx: Ctx) {
-  const markets = ctx.world.nodes.filter((n) => n.kind === 'market');
+/**
+ * Crée les marchands manquants (idempotent), même graine partout (Paris ou région générée).
+ * Un marchand près du Louvre démarre en difficulté (démo faillite/sauvetage).
+ */
+export function seedMerchants(ctx: Ctx, nodes: readonly WorldNode[] = ctx.world.nodes) {
+  const markets = nodes.filter((n) => n.kind === 'market');
   const exists = ctx.db.prepare('SELECT 1 FROM merchants WHERE node_id = ?');
   const insert = ctx.db.prepare('INSERT INTO merchants (id, node_id, state, version) VALUES (?, ?, ?, 0)');
   const nearLouvre = markets

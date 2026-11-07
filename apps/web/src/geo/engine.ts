@@ -1,8 +1,8 @@
-// Boucle de position : GPS (watchPosition filtré + lissé) ou Demo Walk (tap-to-walk à 30 km/h, jump 3 s),
-// envoi throttlé à POST /api/move, rafraîchissement du monde.
-import { haversineM, MOVE, type LatLng } from '@tokengo/shared';
+// Boucle de position : GPS (watchPosition filtré + lissé) ou Remote Scout (pigeon-drone piloté au tap : vol à 30 km/h,
+// Dash 3 s, batterie vérifiée par le serveur), envoi throttlé à POST /api/move, rafraîchissement du monde.
+import { haversineM, scoutCharge, scoutCost, MOVE, SCOUT, type LatLng, type ScoutState } from '@tokengo/shared';
 import { api, ApiFail } from '../lib/api.ts';
-import { useGame, setMe, toast, type Pos } from '../lib/store.ts';
+import { useGame, setMe, toast, rebaseScout, type Pos } from '../lib/store.ts';
 
 export const LOUVRE: LatLng = { lat: 48.8611, lng: 2.3358 };
 const SEND_EVERY_MS = 3000;
@@ -13,6 +13,7 @@ const WORLD_MOVE_M = 40;
 
 let lastSent: { p: Pos; at: number } | null = null;
 let lastWorld: { p: LatLng; at: number } | null = null;
+let scoutingTimer = 0;
 let worldInflight = false;
 let gpsWatch: number | null = null;
 let timers: number[] = [];
@@ -28,7 +29,14 @@ export async function refreshWorld(force = false): Promise<void> {
     const world = await api.world(pos.lat, pos.lng);
     lastWorld = { p: { lat: pos.lat, lng: pos.lng }, at: Date.now() };
     const visible = new Set(world.spawns.map((s) => s.id));
+    const before = useGame.getState().world?.region?.status;
     useGame.setState({ world, serverDown: false, hiddenSpawns: useGame.getState().hiddenSpawns.filter((id) => visible.has(id)) });
+    // monde « partout » : quartier en cours de repérage → on réinterroge vite ; annonce quand il est prêt
+    if (world.region?.status === 'scouting') { clearTimeout(scoutingTimer); scoutingTimer = window.setTimeout(() => void refreshWorld(true), 1500); }
+    if (before === 'scouting' && world.region?.status === 'ready') {
+      const n = (k: string) => world.nodes.filter((x) => x.kind === k).length;
+      toast(`Your neighbourhood is live · ${n('relay')} relays · ${n('market')} merchants${n('forge') ? ' · a Forge' : ''}`, 'good', 'xp', 4000);
+    }
   } catch (e) {
     if (e instanceof ApiFail && e.code === 'NETWORK') useGame.setState({ serverDown: true });
   } finally {
@@ -50,6 +58,17 @@ async function maybeSend(p: Pos, force = false): Promise<void> {
   lastSent = { p, at: now };
   try {
     const r = await api.move({ lat: p.lat, lng: p.lng, acc: Math.round(p.acc), heading: p.heading });
+    if (r.scout) useGame.setState({ scout: rebaseScout(r.scout) });
+    if (r.refused) {
+      // le serveur a refusé ce vol : le Scout reste à sa dernière position acceptée
+      stopWalk();
+      if (r.at) { const back = { ...r.at, acc: 5, t: Date.now() }; lastSent = { p: back, at: now }; useGame.setState({ pos: back }); }
+      if (Date.now() - lastRefusalToast > 4000) {
+        lastRefusalToast = Date.now();
+        toast(r.refused === 'BATTERY_EMPTY' ? 'Battery empty — your scout is recharging.' : 'Too far for one dash — fly there instead.', 'bad');
+      }
+      return;
+    }
     const was = useGame.getState().inTransit;
     if (r.inTransit !== was) useGame.setState({ inTransit: r.inTransit });
     if (r.suspicious) toast('Re-syncing your position…', 'info');
@@ -59,6 +78,25 @@ async function maybeSend(p: Pos, force = false): Promise<void> {
     if (e instanceof ApiFail && e.code === 'NETWORK') useGame.setState({ serverDown: true });
   }
   void refreshWorld();
+}
+
+let lastRefusalToast = 0;
+
+/** Batterie du Scout à cet instant (prédiction locale ; le serveur reste autoritaire). */
+export function scoutNow(): ScoutState | null {
+  const s = useGame.getState().scout;
+  return s ? scoutCharge(s, Date.now()) : null;
+}
+
+/** Coût d'un Dash vers `target` (null si pas de Scout) et s'il est possible maintenant. */
+export function dashCost(target: LatLng): { cost: number; ok: boolean; tooFar: boolean } | null {
+  const { pos } = useGame.getState();
+  const sc = scoutNow();
+  if (!pos || !sc) return null;
+  const d = haversineM(pos, target);
+  const cost = scoutCost(d, true);
+  const tooFar = d > SCOUT.dashMaxM;
+  return { cost, ok: !tooFar && !sc.grounded && cost <= sc.battery, tooFar };
 }
 
 function setPos(p: Pos, force = false): void {
@@ -87,7 +125,7 @@ export function startGps(): void {
       setPos(smooth({ lat: g.coords.latitude, lng: g.coords.longitude, acc, heading, t: Date.now() }), !lastSent);
     },
     (err) => {
-      if (err.code === err.PERMISSION_DENIED) { stopGps(); switchToDemo('Location is off — switched to Demo Walk.'); }
+      if (err.code === err.PERMISSION_DENIED) { stopGps(); switchToDemo('Location is off — switched to Remote Scout.'); }
       else useGame.setState({ gps: 'weak' });
     },
     { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 },
@@ -111,21 +149,27 @@ export function probeGps(timeoutMs = 7000): Promise<LatLng | null> {
   });
 }
 
-// ───────── Demo Walk ─────────
+// ───────── Remote Scout ─────────
 let walkRaf = 0;
 export function switchToDemo(msg?: string): void {
   useGame.setState({ demo: true, gps: 'demo' });
-  if (!useGame.getState().pos) setPos({ ...LOUVRE, acc: 5, t: Date.now() }, true);
+  // le Scout repart d'où il s'était posé (sinon de la base : la Pyramide du Louvre)
+  const last = useGame.getState().me?.scout?.last;
+  if (!useGame.getState().pos) setPos({ ...(last ?? LOUVRE), acc: 5, t: Date.now() }, true);
   if (msg) toast(msg, 'info');
 }
 
-/** Marche (30 km/h) ou saut animé (durationMs fixé) vers une cible ; positions envoyées comme du GPS. */
+/** Vol (30 km/h) ou Dash animé (durationMs fixé) vers une cible ; positions envoyées comme du GPS. */
 export function walkTo(target: LatLng, durationMs?: number): void {
   const start = useGame.getState().pos;
   if (!start) return;
+  if (useGame.getState().demo && scoutNow()?.grounded) {
+    if (Date.now() - lastRefusalToast > 2500) { lastRefusalToast = Date.now(); toast('Battery empty — your scout is recharging.', 'bad'); }
+    return;
+  }
   cancelAnimationFrame(walkRaf);
   const dist = haversineM(start, target);
-  const dur = durationMs ?? (dist / ((MOVE.demoWalkKmh * 1000) / 3600)) * 1000;
+  const dur = durationMs ?? (dist / ((SCOUT.cruiseKmh * 1000) / 3600)) * 1000;
   const heading = bearing(start, target);
   const t0 = performance.now();
   useGame.setState({ walkTarget: target });

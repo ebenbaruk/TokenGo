@@ -1,11 +1,11 @@
-// Feuilles secondaires : Bag (inventaire), Quests (recettes du jour + contrats), Jump (Demo Walk), Menu.
+// Feuilles secondaires : Bag (inventaire), Quests (recettes du jour + contrats), Dash (Remote Scout), Menu.
 import { useEffect, useState } from 'react';
 import { FAMILIES, FAMILY_INFO, haversineM, type Family, type ForgeView, type NodeView } from '@tokengo/shared';
 import { Zap, Info, Volume2, VolumeX, UserRound, ShieldCheck, Activity, FlaskConical, Users } from 'lucide-react';
 import { api } from '../lib/api.ts';
 import { useGame, openOverlay, setShowRunners } from '../lib/store.ts';
 import { famName, fmtDist, fmtUsd, RARITY_LABEL } from '../lib/format.ts';
-import { walkTo } from '../geo/engine.ts';
+import { dashCost, walkTo } from '../geo/engine.ts';
 import { Sheet, Button, Card } from '../ui/index.tsx';
 import { Sprite } from '../sprites/Sprite.tsx';
 import { SHARDS, FLUX, XP_STAR, FORGE, RELAY, marketSprite, merchantSprite, BADGE } from '../sprites/index.ts';
@@ -88,22 +88,25 @@ export function QuestsSheet({ onClose }: { onClose: () => void }) {
 export function JumpSheet({ node, onClose, onOpen }: { node: NodeView; onClose: () => void; onOpen: () => void }) {
   const pos = useGame((st) => st.pos);
   const d = pos ? haversineM(pos, node) : 0;
+  const dash = dashCost(node);
   const icon = node.kind === 'forge' ? <Sprite def={FORGE} scale={2} anim /> : node.kind === 'market'
     ? <Sprite def={marketSprite(node.merchant?.id ?? node.id, node.merchant?.status === 'closed')} scale={2} /> : <Sprite def={RELAY} scale={2} anim />;
   return (
     <Sheet open onClose={onClose} title={node.name} subtitle={`${node.kind === 'market' ? node.merchant?.name ?? 'Market' : node.kind} · ${fmtDist(d)} away`} icon={icon} testId="jump-sheet">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <Button variant="primary" size="l" block testId="jump-btn" onClick={() => {
-          onClose();
-          // atterrit à ~12 m du nœud (dans le rayon d'action)
-          const k = Math.max(0, (d - 12) / Math.max(d, 1));
-          if (pos) walkTo({ lat: pos.lat + (node.lat - pos.lat) * k, lng: pos.lng + (node.lng - pos.lng) * k }, 3000);
-        }}>🎯 Jump here</Button>
+        <Button variant="primary" size="l" block testId="jump-btn" disabled={!!dash && !dash.ok}
+          reason={!dash || dash.ok ? null : dash.tooFar ? 'Too far for one dash — fly closer first' : 'Not enough battery — fly there or wait a bit'}
+          onClick={() => {
+            onClose();
+            // atterrit à ~12 m du nœud (dans le rayon d'action)
+            const k = Math.max(0, (d - 12) / Math.max(d, 1));
+            if (pos) walkTo({ lat: pos.lat + (node.lat - pos.lat) * k, lng: pos.lng + (node.lng - pos.lng) * k }, 3000);
+          }}>⚡ Dash here{dash ? <small style={{ opacity: 0.8 }}> · −{Math.max(1, Math.round(dash.cost))}% battery</small> : null}</Button>
         <div style={{ display: 'flex', gap: 10 }}>
-          <Button block onClick={() => { onClose(); if (pos) walkTo(node); }}>Walk there</Button>
+          <Button block onClick={() => { onClose(); if (pos) walkTo(node); }} testId="fly-btn">Fly there</Button>
           <Button block variant="ghost" onClick={onOpen} testId="peek-btn">Peek</Button>
         </div>
-        <p className="dim" style={{ margin: 0, fontSize: 13, textAlign: 'center' }}>Demo Walk: jumps are fine here; real rewards still need you in range.</p>
+        <p className="dim" style={{ margin: 0, fontSize: 13, textAlign: 'center' }}>Remote Scout: dashes cost 1.5× battery. Real rewards still need you in range.</p>
       </div>
     </Sheet>
   );
@@ -114,7 +117,7 @@ export function MenuSheet({ onClose }: { onClose: () => void }) {
   const [muted, setM] = useState(isMuted());
   const showRunners = useGame((st) => st.showRunners);
   return (
-    <Sheet open onClose={onClose} title={me?.handle ?? 'Runner'} subtitle={me ? `Level ${me.level} · ${me.kind === 'guest' ? 'Guest' : 'Google'} · ${me.mode === 'demo' ? 'Demo Walk' : 'GPS'}` : undefined} testId="menu-sheet">
+    <Sheet open onClose={onClose} title={me?.handle ?? 'Runner'} subtitle={me ? `Level ${me.level} · ${me.kind === 'guest' ? 'Guest' : 'Google'} · ${me.mode === 'demo' ? 'Remote Scout' : 'Walking (GPS)'}` : undefined} testId="menu-sheet">
       <div className={s.menu}>
         <Button block variant="gold" onClick={() => openOverlay({ kind: 'credits' })} testId="menu-credits"><Zap size={20} /> Credits & Playground</Button>
         <div className={s.menuGrid}>

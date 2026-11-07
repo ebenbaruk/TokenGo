@@ -210,6 +210,43 @@ export const MOVE = {
   demoWalkKmh: 30,
 } as const;
 
+// ───────────────────────────── Remote Scout (jouer depuis chez soi) ─────────────────────────────
+/**
+ * Le Scout est un pigeon-drone piloté à distance : vitesse plafonnée, batterie qui se recharge en temps réel.
+ * Réglage : la boucle complète de démo (capture → relais → marchand → forge, ~2–3 km autour du Louvre) tient sur
+ * une batterie pleine en 5–10 min ; voler en continu la vide en ~14 min ; un Dash de 1 km en coûte 45 %.
+ * Récompenses inchangées : un Scout est un compte « démo » (pas de poche principale, Judge Pool via pass seulement).
+ */
+export const SCOUT = {
+  batteryMax: 100,              // %
+  cruiseKmh: 30,                // vitesse de vol du client (tap sur la carte, « Fly there »)
+  maxKmh: 40,                   // au-delà, le déplacement est un « Dash » (saut) …
+  dashMult: 1.5,                // … qui coûte 1,5 × la batterie d'un vol normal …
+  dashMaxM: 1500,               // … et jamais plus de 1,5 km d'un coup (sinon refusé)
+  drainPerKm: 30,               // % de batterie par km volé (≈ 3,3 km sur une batterie pleine)
+  rechargePerMin: 8,            // % / min, en continu (pleine en 12,5 min)
+  resumeAtPct: 10,              // batterie vide → au sol jusqu'à 10 % (≈ 75 s)
+  relaunchAfterMs: 15 * 60_000, // sans position depuis 15 min : relance libre (nouvelle session, retour à la base)
+  freeHopM: 3,                  // tremblote < 3 m : gratuit
+} as const;
+
+// ───────────────────────────── Monde « partout » (régions générées depuis OSM) ─────────────────────────────
+export const WORLD_GEN = {
+  regionRes: 7,                 // une région = une cellule H3 r7 (~5 km², ~1,2 km de rayon)
+  ensureRadiusM: 600,           // on prépare les régions touchées par un disque de 600 m autour du joueur
+  maxRegionsPerDay: 300,        // au global (jour de Paris)
+  maxRegionsPerIpPerDay: 12,
+  maxRelays: 80,                // plafonds de nœuds par région
+  maxMarkets: 8,
+  maxForges: 2,
+  forgeMinSpacingM: 1000,
+  minOsmRelays: 8,              // en dessous → génération procédurale
+  minOsmMarkets: 2,
+  procedural: { relays: 36, markets: 5, forges: 1 },
+  overpassBudgetMs: 35_000,     // budget total, miroirs essayés dans l'ordre (mesuré : 20–45 s un jour chargé) ; au-delà : procédural
+  overpassMaxElements: 900,
+} as const;
+
 // ───────────────────────────── Équivalences en tokens (affichage) ─────────────────────────────
 /** Prix mixte (1 entrée : 3 sortie) en $ par million de tokens, vérifiés le 2026-11-06 sur /v1/model/list. */
 export const MODEL_EQUIV = [

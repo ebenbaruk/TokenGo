@@ -19,7 +19,7 @@ export function pulseView(ctx: Ctx): PulseResponse {
 export function labSnapshot(ctx: Ctx, runners: number): LabSnapshot {
   const rows = new Map((ctx.db.prepare('SELECT node_id, state FROM merchants').all() as { node_id: string; state: string }[]).map((r) => [r.node_id, r.state]));
   const initialMerchants = ctx.world.nodes
-    .filter((n) => n.kind === 'market' && rows.has(n.id))
+    .filter((n) => n.kind === 'market' && !n.region && rows.has(n.id)) // Paris seulement : l'ordre attendu par createSim
     .map((n) => JSON.parse(rows.get(n.id)!) as MerchantState);
   const merchants = { open: 0, closing: 0, closed: 0 };
   for (const m of initialMerchants) merchants[m.status]++;

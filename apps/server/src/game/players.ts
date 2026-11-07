@@ -1,6 +1,6 @@
 // Joueurs : création, inventaire (miroir de jeu + outbox on-chain), XP, vue « Me ».
 import {
-  FAMILIES, levelForXp, newMoveState, shardToken, type Family, type Inventory, type Me, type MoveState, type TokenId,
+  FAMILIES, levelForXp, newMoveState, newScout, scoutCharge, scoutResumeAt, type ScoutState, type ScoutView, shardToken, type Family, type Inventory, type Me, type MoveState, type TokenId,
   type TutorialState,
 } from '@tokengo/shared';
 import type { Ctx } from './context.ts';
@@ -13,6 +13,7 @@ export interface UserRow {
   last_catch_at: number | null; district: number | null; tutorial: string; tut_lat: number | null; tut_lng: number | null;
   move_state: string | null; walked_m: number; in_transit: number; flags: string; near_account: string | null; created_at: number;
   is_agent: number; google_sub: string | null; email: string | null; email_norm: string | null; deleted_at: number | null;
+  scout_state: string | null;
 }
 
 const ADJ = ['Neon', 'Pixel', 'Turbo', 'Velvet', 'Cosmic', 'Lucky', 'Rapid', 'Sunny', 'Mellow', 'Brave', 'Fuzzy', 'Jolly'];
@@ -129,6 +130,12 @@ export function markTutorial(ctx: Ctx, userId: string, step: keyof TutorialState
   ctx.db.prepare('UPDATE users SET tutorial = ? WHERE id = ?').run(JSON.stringify(t), userId);
 }
 
+export const scoutOf = (u: UserRow, now: number): ScoutState => (u.scout_state ? (JSON.parse(u.scout_state) as ScoutState) : newScout(now));
+export const saveScout = (ctx: Ctx, userId: string, s: ScoutState) =>
+  ctx.db.prepare('UPDATE users SET scout_state = ? WHERE id = ?').run(JSON.stringify(s), userId);
+export const scoutView = (s: ScoutState, last: { lat: number; lng: number } | null): ScoutView =>
+  ({ battery: Math.round(s.battery * 10) / 10, at: s.at, grounded: s.grounded, resumeAt: scoutResumeAt(s), last });
+
 export const moveStateOf = (u: UserRow): MoveState => (u.move_state ? (JSON.parse(u.move_state) as MoveState) : newMoveState());
 
 export function meView(ctx: Ctx, userId: string): Me {
@@ -149,5 +156,11 @@ export function meView(ctx: Ctx, userId: string): Me {
     walkedM: u.walked_m,
     district: u.district,
     tutorial: tutorialOf(u),
+    scout: u.mode === 'demo' ? scoutMe(u, ctx.now()) : null,
   };
+}
+
+function scoutMe(u: UserRow, now: number): ScoutView {
+  const last = moveStateOf(u).last;
+  return scoutView(scoutCharge(scoutOf(u, now), now), last ? { lat: last.lat, lng: last.lng } : null);
 }

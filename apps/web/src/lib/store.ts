@@ -1,6 +1,6 @@
 // État global (Zustand). Exposé en lecture sur window.__tg pour les tests E2E (la carte WebGL n'est pas lisible).
 import { create } from 'zustand';
-import type { Me, NodeView, SpawnView, WorldResponse, Family } from '@tokengo/shared';
+import type { Me, NodeView, SpawnView, WorldResponse, Family, ScoutView } from '@tokengo/shared';
 
 export interface Pos { lat: number; lng: number; acc: number; heading?: number; t: number }
 
@@ -39,6 +39,8 @@ interface State {
   walkTarget: { lat: number; lng: number } | null;
   serverDown: boolean;
   showRunners: boolean;
+  /** Remote Scout : batterie (dernier état serveur ; l'UI la fait progresser avec scoutCharge) */
+  scout: ScoutView | null;
 }
 
 export const useGame = create<State>(() => ({
@@ -55,6 +57,7 @@ export const useGame = create<State>(() => ({
   hiddenSpawns: [],
   walkTarget: null,
   serverDown: false,
+  scout: null,
   showRunners: (() => { try { return localStorage.getItem('tg.runners') !== '0'; } catch { return true; } })(),
 }));
 
@@ -68,8 +71,14 @@ export function toast(text: string, tone: Toast['tone'] = 'info', icon?: Toast['
   setTimeout(() => set({ toasts: get().toasts.filter((t) => t.id !== id) }), ms);
 }
 
+/** L'heure du serveur et celle du téléphone diffèrent : on recale la batterie du Scout sur l'horloge locale à la réception. */
+export function rebaseScout(v: ScoutView): ScoutView {
+  const now = Date.now();
+  return { ...v, at: now, resumeAt: v.resumeAt === null ? null : now + Math.max(0, v.resumeAt - v.at) };
+}
+
 export function setMe(me: Me, levelUp?: number | null): void {
-  set({ me });
+  set(me.scout ? { me, scout: rebaseScout(me.scout) } : { me });
   if (levelUp) toast(`Level ${levelUp}! New things unlocked.`, 'good', 'level', 3500);
 }
 
@@ -88,6 +97,6 @@ declare global {
 if (typeof window !== 'undefined') {
   window.__tg = () => {
     const s = get();
-    return { phase: s.phase, position: s.pos, me: s.me, world: s.world, lastResult: s.lastResult, overlay: s.overlay?.kind ?? null, demo: s.demo, gps: s.gps, toasts: s.toasts.map((t) => t.text) };
+    return { phase: s.phase, position: s.pos, me: s.me, world: s.world, lastResult: s.lastResult, overlay: s.overlay?.kind ?? null, demo: s.demo, gps: s.gps, scout: s.scout, toasts: s.toasts.map((t) => t.text) };
   };
 }

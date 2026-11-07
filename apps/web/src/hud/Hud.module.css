@@ -19,7 +19,29 @@
 .resBar i, .comboTrack i { width: 7px; height: 12px; background: var(--white); border: 2px solid var(--ink); }
 .resBar i.on { background: var(--green); }
 .sim { font-size: 10px; background: var(--mist); border-radius: 4px; padding: 0 4px; }
-.demo { background: var(--sun); font-size: 13px; }
+.scoutBadge { background: var(--sun); font-size: 13px; gap: 4px; padding-left: 4px; }
+.walkBadge { background: var(--lime); font-size: 13px; gap: 4px; }
+.battery { font-size: 13px; gap: 5px; padding: 3px 8px; }
+.batBody { position: relative; display: inline-flex; gap: 1px; padding: 2px; border: 2px solid var(--ink); border-radius: 3px; background: var(--white); }
+.batBody::after { content: ''; position: absolute; right: -5px; top: 3px; width: 3px; height: 6px; background: var(--ink); border-radius: 0 2px 2px 0; }
+.batBody i { width: 4px; height: 8px; background: transparent; }
+.batHigh i.on { background: var(--green); }
+.batMid i.on { background: var(--sun); }
+.batLow i.on { background: var(--berry); }
+.batGrounded { background: #ffe1dc; animation: blink 1s steps(2) infinite; }
+@keyframes blink { 50% { box-shadow: 0 0 0 3px var(--berry); } }
+.grounded { background: var(--berry); }
+.regionCard {
+  pointer-events: auto; align-self: stretch; display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+  background: var(--panel); border: var(--border); border-radius: var(--radius-l); box-shadow: var(--shadow-hard);
+  animation: pop .35s var(--ease-pop);
+}
+.regionCard b { display: block; font-family: var(--font-pixel); font-size: 18px; font-weight: 400; }
+.regionCard small { display: block; font-weight: 700; color: var(--slate); font-size: 13px; }
+.regionCard a { color: var(--blue); font-weight: 800; }
+.regionArt { flex: none; animation: flap .8s ease-in-out infinite; }
+@keyframes flap { 50% { transform: translateY(-5px); } }
+@keyframes pop { from { transform: scale(.85); opacity: 0; } }
 .warn { background: var(--orange); font-size: 13px; }
 .mute { margin-left: auto; width: 36px; height: 36px; display: grid; place-items: center; border: var(--border-thin); border-radius: 10px; background: var(--panel); box-shadow: var(--shadow-hard-s); cursor: pointer; }
 .banner { pointer-events: auto; align-self: center; display: flex; gap: 6px; align-items: center; padding: 6px 12px; background: var(--night); color: var(--white); border-radius: 8px; font-weight: 800; font-size: 14px; }

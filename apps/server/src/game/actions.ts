@@ -15,13 +15,27 @@ import { getPools, reserveView } from './reserve.ts';
 import { parisDay } from './reserve.ts';
 import { reserveHealth } from '@tokengo/shared';
 import { assertQuota, bumpQuota } from './quotas.ts';
+import { scoutHop } from '@tokengo/shared';
+import { saveScout, scoutOf, scoutView } from './players.ts';
 
 const TUTORIAL_SPAWN = (userId: string) => `tut:${userId}`;
 
 export function move(ctx: Ctx, userId: string, req: MoveRequest): MoveResponse {
   const u = getUser(ctx, userId)!;
   const now = ctx.now();
-  const v = applyMove(moveStateOf(u), { lat: req.lat, lng: req.lng, acc: req.acc, at: now }, u.mode === 'demo');
+  const ms = moveStateOf(u);
+  // Remote Scout (mode démo) : vitesse plafonnée et batterie, vérifiées ici — un vol refusé ne déplace pas le joueur
+  let scout: MoveResponse['scout'];
+  if (u.mode === 'demo') {
+    const h = scoutHop(scoutOf(u, now), ms.last, req, now);
+    saveScout(ctx, userId, h.state);
+    if (!h.ok) {
+      const at = ms.last ? { lat: ms.last.lat, lng: ms.last.lng } : null;
+      return { ok: true, inTransit: false, ignored: true, suspicious: false, walkedM: u.walked_m, scout: scoutView(h.state, at), refused: h.code, at };
+    }
+    scout = scoutView(h.state, { lat: req.lat, lng: req.lng });
+  }
+  const v = applyMove(ms, { lat: req.lat, lng: req.lng, acc: req.acc, at: now }, u.mode === 'demo');
   const walked = Math.round(v.state.walkedM);
   const flags = JSON.parse(u.flags) as Record<string, unknown>;
   if (v.flagged && !flags.flagged) {
@@ -32,7 +46,7 @@ export function move(ctx: Ctx, userId: string, req: MoveRequest): MoveResponse {
   const tut = u.tut_lat === null && !v.ignored ? offsetM(req, 0, 20) : null;
   ctx.db.prepare(`UPDATE users SET move_state = ?, walked_m = ?, in_transit = ? ${tut ? ', tut_lat = ?, tut_lng = ?' : ''} WHERE id = ?`)
     .run(JSON.stringify(v.state), walked, v.inTransit ? 1 : 0, ...(tut ? [tut.lat, tut.lng] : []), userId);
-  return { ok: true, inTransit: v.inTransit, ignored: v.ignored, suspicious: v.suspicious, walkedM: walked };
+  return { ok: true, inTransit: v.inTransit, ignored: v.ignored, suspicious: v.suspicious, walkedM: walked, ...(scout ? { scout } : {}) };
 }
 
 /** Vérifie qu'un joueur peut agir sur une cible (position récente, pas en transit, assez près). */
@@ -81,7 +95,7 @@ function findSpawn(ctx: Ctx, u: UserRow, spawnId: string): SpawnView | null {
   return spawnsForCell(ctx.cfg.SPAWN_SECRET, cell, w, cellInfo(ctx.world, cell), health).find((s) => s.id === spawnId) ?? null;
 }
 
-export function worldView(ctx: Ctx, userId: string, lat: number, lng: number): WorldResponse {
+export function worldView(ctx: Ctx, userId: string, lat: number, lng: number, ipHash: string | null = null): WorldResponse {
   const u = getUser(ctx, userId)!;
   const now = ctx.now();
   const nodes = nodesNear(ctx.world, lat, lng, 1200);
@@ -102,7 +116,11 @@ export function worldView(ctx: Ctx, userId: string, lat: number, lng: number): W
     if (n.kind === 'forge') v.theme = ctx.world.forges.find((f) => f.id === n.id)?.theme ?? n.affinities;
     return v;
   });
-  return { now, nodes: views, spawns: visibleSpawns(ctx, u, lat, lng), reserve: reserveView(ctx), objective: objective(ctx, u, lat, lng) };
+  const region = ctx.regions?.ensure(lat, lng, ipHash);
+  return {
+    now, nodes: views, spawns: visibleSpawns(ctx, u, lat, lng), reserve: reserveView(ctx), objective: objective(ctx, u, lat, lng),
+    ...(region ? { region } : {}),
+  };
 }
 
 /** Objectif épinglé : la recette la plus proche d'être complète + où trouver ce qui manque. */

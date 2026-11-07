@@ -37,6 +37,10 @@ const Env = z.object({
   FEATURE_CHAIN: bool.optional(),
   JOBS: bool.default(true),
   RUNNERS: z.coerce.number().int().min(0).max(24).default(24),
+  /** Monde « partout » : génère un quartier jouable autour d'un joueur hors de Paris (OSM, sinon procédural). */
+  WORLD_ANYWHERE: bool.default(true),
+  /** Miroirs Overpass essayés dans l'ordre, séparés par des virgules ; 'off' = procédural seulement (hors ligne, tests). */
+  OVERPASS_URLS: z.string().default('https://overpass-api.de/api/interpreter,https://maps.mail.ru/osm/tools/overpass/api/interpreter'),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
 });
