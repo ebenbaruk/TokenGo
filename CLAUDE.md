@@ -67,5 +67,7 @@ Testnet, déploiements de démo et crédits NEAR AI déjà alloués au Reserve :
 - La géolocalisation navigateur exige HTTPS (sauf localhost) : la démo publique doit être en HTTPS.
 - Base de dev : `var/tokengo.db` (chemin résolu depuis la racine). Avec `.env` chargé, la chaîne est active (comptes `dev-…`) : `FEATURE_CHAIN=0` pour l'éviter.
 - E2E : gestes de glisser via CDP `Input.dispatchTouchEvent` et attendre ~700 ms la fin de l'animation des feuilles.
+- Settler bloqué avec « Server error » / `LackBalanceForState` : `tokengo.testnet` manque de NEAR **de test** pour le stockage du contrat →
+  `node apps/server/scripts/fund-testnet.ts 3` (faucet testnet, +10 NEAR par compte jetable). Le règlement reprend tout seul.
 - Budget réel total : **10 €** de crédits NEAR AI. Le Reserve ne doit **jamais** promettre plus que son solde
   (invariant : somme des `spend_limit` restants ≤ solde de l'organisation − marge).

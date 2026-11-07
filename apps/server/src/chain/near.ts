@@ -35,7 +35,11 @@ export const explorerAccount = (id: string) => `https://testnet.nearblocks.io/ad
 
 export function classify(e: unknown): ChainError {
   if (e instanceof ChainError) return e;
-  const msg = String((e as Error)?.message ?? e);
+  const data = (e as { data?: unknown })?.data;
+  let msg = String((e as Error)?.message ?? e);
+  if (data !== undefined) msg += ` ${JSON.stringify(data).slice(0, 300)}`;
+  // compte opérateur à court de NEAR pour le stockage du contrat : node apps/server/scripts/fund-testnet.ts
+  if (/LackBalanceForState/.test(msg)) msg = `operator lacks NEAR for contract storage (run apps/server/scripts/fund-testnet.ts) ${msg}`;
   if (/settlement already applied/.test(msg)) return new ChainError('already', msg);
   if (/panicked|Smart contract|FunctionCallError|ExecutionError|MethodNotFound/i.test(msg)) return new ChainError('contract', msg);
   return new ChainError('network', msg);
