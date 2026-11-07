@@ -1,6 +1,6 @@
 // État global (Zustand). Exposé en lecture sur window.__tg pour les tests E2E (la carte WebGL n'est pas lisible).
 import { create } from 'zustand';
-import { FAMILY_INFO, FAMILIES } from '@tokengo/shared';
+import { FAMILY_INFO, FAMILIES, MISSION_CATALOG } from '@tokengo/shared';
 import { play } from './sound.ts';
 import type { Me, NodeView, SpawnView, WorldResponse, Family, Variant, RouteCheckin, CompileResponse, ScoutView, WalkerView } from '@tokengo/shared';
 
@@ -110,6 +110,11 @@ export function setMe(me: Me, levelUp?: number | null): void {
   // Maîtrise (Docs/13 §2) : une montée de niveau = toast + son, d'où qu'elle vienne (capture, arène)
   const up = prev?.mastery && me.mastery ? FAMILIES.find((f) => me.mastery[f].level > prev.mastery[f].level) : undefined;
   if (up) { toast(`${FAMILY_INFO[up].name} Mastery ${me.mastery[up].level}!`, 'good', up, 3200); play('level'); }
+  // Missions du jour (Docs/13 §7) : toast au moment où un compteur atteint l'objectif (même jour, nouvelle mission prête)
+  const fresh = prev?.missions && me.missions ? me.missions.readyIds.filter((k) => !prev.missions!.readyIds.includes(k)) : [];
+  if (fresh.length && me.missions!.claimed >= prev!.missions!.claimed) {
+    toast(`Mission complete! ${MISSION_CATALOG[fresh[0]!].title} — claim it in Quests`, 'good', 'xp', 3400); play('discover');
+  }
 }
 
 export function setShowRunners(v: boolean): void {

@@ -24,3 +24,9 @@ export const fmtClock = (t: number) => new Date(t).toLocaleTimeString('en-GB', {
 export const RARITY_LABEL = { common: 'Common', uncommon: 'Uncommon', rare: 'Rare', epic: 'Epic' } as const;
 /** Lien de preuve : URL telle quelle, sinon hash de tx testnet. */
 export const txUrl = (tx: string) => (tx.startsWith('http') ? tx : `https://testnet.nearblocks.io/txns/${tx}`);
+/** Durée courte « 2d 4h », « 3h 12m », « 8m » (missions, contrôle de la ville — Docs/13 §7–8). */
+export function fmtSpan(ms: number): string {
+  const m = Math.max(0, Math.floor(ms / 60_000));
+  const d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60), mm = m % 60;
+  return d > 0 ? `${d}d ${h}h` : h > 0 ? `${h}h ${String(mm).padStart(2, '0')}m` : `${Math.max(1, mm)}m`;
+}

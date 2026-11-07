@@ -64,3 +64,25 @@ export function cityControl(ctx: Ctx, viewer: string | null): CityControlRespons
     .map(({ userId: _u, ...t }) => t);
   return { now, arenas, top, windowDays: CITY_WINDOW_DAYS };
 }
+
+/**
+ * Tests seulement (route montée si NODE_ENV=test, jeton admin) : installe un Champion sur une arène depuis `hoursAgo` h,
+ * ou (userId null) rend l'arène à son Gardien.
+ */
+export function holdForTest(ctx: Ctx, forgeId: string, userId: string | null, hoursAgo: number): void {
+  if (!ctx.world.forges.some((f) => f.id === forgeId)) return;
+  const now = ctx.now();
+  if (!userId) {
+    ctx.db.prepare('DELETE FROM arenas WHERE forge_id = ?').run(forgeId);
+    holdEnd(ctx, forgeId, now);
+    return;
+  }
+  const since = now - Math.round(hoursAgo * 3600_000);
+  ctx.db.transaction(() => {
+    ctx.db.prepare(`INSERT INTO arenas (forge_id, champion_user, team, mastery, since, active_at, last_paid) VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(forge_id) DO UPDATE SET champion_user = excluded.champion_user, team = excluded.team, mastery = excluded.mastery,
+        since = excluded.since, active_at = excluded.active_at, last_paid = excluded.last_paid`)
+      .run(forgeId, userId, JSON.stringify(['deepseek', 'qwen', 'gemini']), JSON.stringify({ deepseek: 2, qwen: 2, gemini: 2 }), since, now, now);
+    holdStart(ctx, forgeId, userId, since);
+  })();
+}

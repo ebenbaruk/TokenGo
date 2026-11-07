@@ -5,6 +5,7 @@ import type {
   PulseResponse, PublicConfig, LeaderboardsResponse, LabSnapshot, CodexView, HaggleCard, HaggleView, HaggleDealResponse,
   ArenaView, ArenaStartResponse, ArenaPlayResponse, Family, Technique,
   DecodeView, DecodeAnswerResponse,
+  MissionsView, MissionClaimResponse, CityControlResponse,
 } from '@tokengo/shared';
 
 export class ApiFail extends Error {
@@ -144,6 +145,10 @@ export const api = {
   arenaStart: (forgeId: string, team: Family[]) => req<ArenaStartResponse>('POST', `/api/arena/${enc(forgeId)}/start`, { team }),
   arenaPlay: (battleId: string, family: Family, technique: Technique) =>
     req<ArenaPlayResponse>('POST', `/api/arena/battle/${enc(battleId)}/play`, { family, technique }),
+  // ── Missions du jour (Docs/13 §7) et contrôle de la ville (§8) ──
+  missions: () => req<MissionsView>('GET', '/api/missions'),
+  claimMission: (id: string) => req<MissionClaimResponse>('POST', `/api/missions/${enc(id)}/claim`, {}),
+  cityControl: () => req<CityControlResponse>('GET', '/api/city/control'),
   greet: (id: string) => req<{ greeting: string; source: 'llm' | 'lines' }>('GET', `/api/merchant/${enc(id)}/greet`),
   /** Réponse en texte brut streamé. */
   async playground(model: string, prompt: string, onChunk: (t: string) => void, signal?: AbortSignal): Promise<void> {

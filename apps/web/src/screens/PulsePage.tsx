@@ -6,6 +6,7 @@ import { FAMILIES, FAMILY_INFO, midAt, type Family, type MerchantState, type Pul
 import { api } from '../lib/api.ts';
 import { fmtClock, fmtCountdown, fmtUsd } from '../lib/format.ts';
 import { PageShell } from './PageShell.tsx';
+import { CityControl } from './CityControl.tsx'; // Contrôle de la ville (Docs/13 §8)
 import { Card, Gauge, Sparkline } from '../ui/index.tsx';
 import { Sprite } from '../sprites/Sprite.tsx';
 import { SHARDS, FAMILY_DARK } from '../sprites/index.ts';
@@ -174,6 +175,8 @@ export default function PulsePage() {
               </div>
             )}
           </Card>
+
+          <Card testId="pulse-city"><CityControl /></Card>
 
           <Card testId="pulse-ticker">
             <h2 className={s.h2}>Live ticker</h2>

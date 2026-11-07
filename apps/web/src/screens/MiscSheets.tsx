@@ -11,6 +11,8 @@ import { Sprite } from '../sprites/Sprite.tsx';
 import { SHARDS, FLUX, XP_STAR, FORGE, RELAY, marketSprite, merchantSprite, BADGE } from '../sprites/index.ts';
 import { isMuted, setMuted, hapticsOn, setHaptics, canVibrate, buzz, HAPTIC } from '../lib/sound.ts';
 import { MasteryBar } from './arenaUi.tsx';
+import { MissionsPanel } from './MissionsPanel.tsx'; // Missions du jour (Docs/13 §7)
+import { CityControl } from './CityControl.tsx';     // Contrôle de la ville (Docs/13 §8)
 import s from './MiscSheets.module.css';
 
 export function BagSheet({ onClose }: { onClose: () => void }) {
@@ -57,7 +59,8 @@ export function QuestsSheet({ onClose }: { onClose: () => void }) {
   const contracts = (world?.nodes ?? []).filter((n) => n.kind === 'market' && n.merchant?.hasContract && n.merchant.status !== 'closed')
     .map((n) => ({ n, d: pos ? haversineM(pos, n) : 0 })).sort((a, b) => a.d - b.d).slice(0, 5);
   return (
-    <Sheet open onClose={onClose} title="Quests" subtitle="Today’s recipes & contracts nearby" testId="quests-sheet">
+    <Sheet open onClose={onClose} title="Quests" subtitle="Daily missions, recipes & who holds Paris" testId="quests-sheet">
+      <MissionsPanel />
       {world?.objective ? <div className={s.objective}>◎ {world.objective.text}</div> : null}
       <h3 className={s.h3}>Forge recipes {nearest ? `· ${nearest.name}` : ''}</h3>
       {forge ? forge.recipes.map((r) => (
@@ -83,6 +86,9 @@ export function QuestsSheet({ onClose }: { onClose: () => void }) {
           <div className={s.rowEnd}>{n.merchant!.contractFamily ? <Sprite def={SHARDS[n.merchant!.contractFamily]} scale={2} /> : <Sprite def={BADGE} scale={2} />}<span>{fmtDist(d)}</span></div>
         </button>
       ))}
+      <div style={{ marginTop: 16 }}>
+        <CityControl onOpen={(id) => { const n = forges.find((f) => f.id === id); if (n) openOverlay({ kind: 'forge', node: n }); }} />
+      </div>
     </Sheet>
   );
 }

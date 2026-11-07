@@ -8,6 +8,7 @@ import { useGame } from '../lib/store.ts';
 import { SHARDS, AVATAR, SCOUT, RELAY, RELAY_COOLDOWN, FORGE, BADGE, ACCENTS, hashStr, marketSprite, spriteImageData, gridsOf, type SpriteDef } from '../sprites/index.ts';
 import { NODE_GRIDS } from '../sprites/nodes.grids.ts';
 import { CROWN, SHIELD } from '../sprites/arena.grids.ts';
+import { crownDef } from '../lib/districts.ts'; // Contrôle de la ville (Docs/13 §8) : couronnes aux couleurs des districts
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { mapCtl } from './ctl.ts';
 import { addLivingLayers, attachLiving, registerWalkerImages, type Living } from './living.ts';
@@ -53,6 +54,7 @@ function registerImages(map: MLMap): Anim[] {
   add('market-closed', marketSprite('x', true), 2);
   add('arena-crown', CROWN, 2);   // Arène (Docs/13 §4) : forge tenue par un Champion…
   add('arena-shield', SHIELD, 2); // … ou par le Gardien
+  for (let d = 1; d <= 20; d++) add(`arena-crown-d${d}`, crownDef(d), 2); // couronne teintée par le district du Champion (Docs/13 §8)
   return anims;
 }
 
@@ -136,7 +138,7 @@ export default function GameMap({ handlers }: { handlers: MapHandlers }) {
         icon: n.kind === 'relay' ? ((n.cooldownUntil ?? 0) > now ? 'relay-cd' : 'relay') : n.kind === 'forge' ? 'forge' : marketIcon(n),
         badge: n.kind === 'market' && n.merchant?.hasContract && n.merchant.status !== 'closed' ? 1 : 0,
         sort: n.kind === 'forge' ? 3 : n.kind === 'market' ? 2 : 1,
-        arena: n.kind === 'forge' ? (n.arena?.holder === 'champion' ? 'arena-crown' : 'arena-shield') : '',
+        arena: n.kind === 'forge' ? (n.arena?.holder === 'champion' ? (n.arena.district ? `arena-crown-d${n.arena.district}` : 'arena-crown') : 'arena-shield') : '',
         label: n.kind === 'forge' && n.arena?.champion ? `${n.name}\n${n.arena.mine ? 'Your arena' : `Champion ${n.arena.champion}`}` : n.name,
       }))));
       syncSpawns();

@@ -2,6 +2,18 @@
 
 Mettre à jour à la fin de chaque bloc de travail. Le plus récent en haut.
 
+## 2026-11-08 — Missions du jour + Contrôle de la ville (Docs/13 §7–8)
+- **Fait** : catalogue `MISSION_CATALOG` / `MISSIONS` (rules.ts) + tirage pur `economy/missions.ts` (3/jour, ≥ 1 Arène/Décodage, graine jour + joueur) ;
+  migration `012_missions.sql` (missions du jour, compteurs, marques « distinctes », détentions d'arènes) ; serveur `game/missions.ts`
+  (`GET /api/missions`, `POST /api/missions/:id/claim` : +40 XP +15 ƒ, coffre des 3 = +60 ƒ + 1 Gemini une fois par jour, via `credit`/outbox),
+  pastille `me.missions` dans chaque réponse ; `game/city.ts` (`GET /api/city/control` public, Top Champions sur 7 jours). Compteurs branchés :
+  capture (familles distinctes, combo ×3, variante Night/Landmark), Décodage (bonus + obligatoire), relais, commerce (marchands distincts),
+  marchandage conclu, manches et victoires d'arène. Web : 3 cartes + coffre en haut de Quests, pastille rouge, toast « Mission complete! »,
+  « Who holds the city » (Quests + /pulse), couronnes de la carte à la couleur du district (20 couleurs Sweetie 16). `e2e/missions.spec.ts`.
+- **Raid** : la mission `raid_damage` (clé de compteur `raid_damage`) n'est proposée que si un événement `rogue` est actif au tirage ; le développeur
+  du raid appelle `missionBump(ctx, userId, 'raid_damage', dégâts)` dans la transaction de l'assaut.
+- **Reste** : la mission raid n'apparaît que si le raid est déjà en cours au premier affichage du jour (tirage figé).
+
 ## 2026-11-08 — Arène des modèles + Maîtrise (Docs/13 §1, §2, §4)
 - **Fait** : moteur pur `packages/shared/src/economy/arena.ts` + banque `arena-bank.ts` ; migration `009_arena.sql` ; serveur `game/arena.ts`,
   `game/mastery.ts` (routes `/api/arena/...`, Gardien du jour, Champion fantôme figé, 48 h, revenu +4 ƒ/10 min ≤ 240/jour, frais 10 ƒ, 12/jour,

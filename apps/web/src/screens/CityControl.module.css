@@ -1,0 +1,39 @@
+/* « Who holds the city » (Docs/13 §8). */
+.wrap { display: flex; flex-direction: column; gap: 6px; }
+.head { display: flex; align-items: baseline; justify-content: space-between; gap: 4px 8px; flex-wrap: wrap; }
+.h3 { font-size: 20px; margin: 0; }
+.h4 { font-family: var(--font-pixel); font-size: 17px; margin: 8px 0 2px; }
+.sub { font-size: 12px; font-weight: 800; color: var(--slate); text-transform: uppercase; letter-spacing: .04em; margin-top: 4px; }
+.score { font-size: 12px; font-weight: 800; color: var(--slate); }
+.score b { font-size: 15px; color: var(--ink); }
+.skeleton { height: 200px; border-radius: 12px; border: var(--border-thin); background: var(--panel-alt); opacity: .6; }
+.tap { cursor: pointer; }
+.tap:active { transform: translate(1px, 1px); box-shadow: none !important; }
+
+/* arènes tenues par un Champion */
+.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.row { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 10px; align-items: center;
+  padding: 6px 10px 6px 6px; background: #fff6dc; border: var(--border-thin); border-radius: 10px; box-shadow: var(--shadow-hard-s); }
+.row.mine { background: #e3f3ff; outline: 3px solid var(--sky); outline-offset: -1px; }
+.badge { grid-row: 1 / 3; width: 48px; height: 40px; display: grid; place-items: center; border-radius: 8px; background: var(--night); border: 2px solid var(--ink); }
+.forge { font-family: var(--font-pixel); font-size: 18px; line-height: 1.05; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.holder { grid-column: 2; display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 13px; font-weight: 800; }
+.name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.since { grid-row: 1 / 3; grid-column: 3; display: flex; flex-direction: column; align-items: flex-end; font-weight: 800; font-size: 15px; white-space: nowrap; }
+.since small { font-size: 11px; color: var(--slate); text-transform: uppercase; }
+.chip { flex: none; display: inline-block; padding: 0 6px; font-size: 11px; font-weight: 800; line-height: 17px; border: 2px solid var(--ink); border-radius: 6px; }
+
+/* arènes gardées par leur Sentinelle : tuiles compactes */
+.tiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.tile { display: flex; align-items: center; gap: 6px; padding: 5px 8px; background: var(--panel-alt); border: var(--border-thin); border-radius: 8px; min-height: 36px; }
+.tileName { font-weight: 800; font-size: 13px; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Top Champions */
+.top { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.top li { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--panel); border: var(--border-thin); border-radius: 10px; font-weight: 800; font-size: 14px; }
+.top li.mine { background: #e3f3ff; }
+.rank { width: 22px; text-align: center; font-size: 16px; }
+.top .name { flex: 1; min-width: 0; }
+.crowns { display: inline-flex; align-items: center; gap: 2px; font-size: 12px; }
+.held { font-size: 15px; }
+.empty { margin: 0; font-size: 13px; color: var(--slate); font-weight: 700; }

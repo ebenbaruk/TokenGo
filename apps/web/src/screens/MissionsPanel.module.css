@@ -1,0 +1,60 @@
+/* Missions du jour (Docs/13 §7) — cartes « Pixel Pop » : aplats, contour encre, ombre dure. */
+.panel { display: flex; flex-direction: column; gap: 8px; margin-bottom: 4px; }
+.head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 2px; }
+.h3 { font-size: 20px; margin: 0; }
+.reset { font-size: 12px; font-weight: 800; color: var(--slate); white-space: nowrap; }
+.skeleton { height: 230px; border-radius: 12px; background: repeating-linear-gradient(90deg, var(--panel-alt) 0 40px, var(--panel) 40px 80px); border: var(--border-thin); opacity: .6; }
+
+.card { position: relative; display: flex; align-items: center; gap: 10px; padding: 10px; background: var(--panel); border: var(--border-thin); border-radius: 12px; box-shadow: var(--shadow-hard-s); min-height: 72px; }
+.card.ready { background: #fff6dc; border-color: var(--ink); box-shadow: 3px 3px 0 var(--ink); animation: readyIn .5s var(--ease-pop); }
+.card.claimed { background: #e9f8ec; }
+.card.claimed .title, .card.claimed .hint { opacity: .65; }
+@keyframes readyIn { from { transform: scale(.94); } }
+
+.icon { flex: none; width: 42px; height: 42px; display: grid; place-items: center; font-size: 22px; border: var(--border-thin); border-radius: 10px; box-shadow: var(--shadow-hard-s); }
+.main { flex: 1; min-width: 0; }
+.title { font-family: var(--font-pixel); font-size: 18px; line-height: 1.05; }
+.hint { font-size: 12px; color: var(--slate); font-weight: 700; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.barRow { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.bar { flex: 1; height: 10px; background: var(--panel-alt); border: 2px solid var(--ink); border-radius: 6px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--green); transition: width .6s var(--ease-out); box-shadow: inset 0 -3px 0 rgba(0,0,0,.15); }
+.ready .bar i { background: var(--sun); }
+.count { font-size: 13px; font-weight: 800; min-width: 34px; text-align: right; }
+
+.end { flex: none; display: flex; align-items: center; justify-content: flex-end; min-width: 64px; text-align: right; }
+.reward { font-size: 12px; line-height: 1.25; color: var(--slate); font-weight: 700; }
+.reward b { color: var(--ink); font-size: 14px; }
+.done { display: inline-flex; align-items: center; gap: 3px; font-weight: 800; font-size: 14px; color: var(--green); }
+.ready .end :global(button) { animation: wiggle 1.6s ease-in-out infinite; }
+@keyframes wiggle { 0%, 80%, 100% { transform: rotate(0); } 85% { transform: rotate(-4deg); } 90% { transform: rotate(4deg); } 95% { transform: rotate(-2deg); } }
+
+/* petite fête à la réclamation : éclats qui partent du bouton + gain qui monte */
+.burst { position: absolute; right: 36px; top: 50%; pointer-events: none; }
+.burst i { position: absolute; width: 8px; height: 8px; background: var(--c); border: 2px solid var(--ink); animation: pop .8s var(--ease-out) var(--d) forwards; }
+@keyframes pop { from { transform: rotate(var(--a)) translateY(0) scale(1); opacity: 1; } to { transform: rotate(var(--a)) translateY(-54px) scale(.4); opacity: 0; } }
+.float { position: absolute; right: -24px; top: -12px; white-space: nowrap; font-family: var(--font-pixel); font-size: 18px; color: var(--ink); background: var(--sun); border: 2px solid var(--ink); border-radius: 6px; padding: 0 6px; animation: rise 1.3s var(--ease-out) forwards; }
+@keyframes rise { 0% { transform: translateY(6px) scale(.6); opacity: 0; } 20% { transform: translateY(-14px) scale(1.05); opacity: 1; } 100% { transform: translateY(-42px); opacity: 0; } }
+
+/* coffre du jour */
+.chest { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: var(--plum); color: var(--white); border: var(--border-thin); border-radius: 12px; box-shadow: var(--shadow-hard-s); }
+.chest .hint { color: #f0d9f0; white-space: normal; }
+.chestOpen { background: var(--teal); }
+.pips { display: flex; gap: 4px; }
+.pips i { width: 14px; height: 14px; border: 2px solid var(--ink); border-radius: 4px; background: var(--night); }
+.pips i.pipOn { background: var(--sun); }
+
+/* plein écran : coffre ouvert */
+.party { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 16px; background: rgba(26, 28, 44, .55); animation: fadeIn .25s ease-out; }
+@keyframes fadeIn { from { opacity: 0; } }
+.confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.confetti i { position: absolute; top: -20px; left: var(--x); width: 10px; height: 14px; background: var(--c); border: 2px solid var(--ink); animation: fall 2.2s linear var(--d) infinite; }
+@keyframes fall { to { transform: translateY(110vh) rotate(var(--r)); } }
+.partyCard { position: relative; width: min(340px, 100%); padding: 16px; text-align: center; background: var(--panel); border: var(--border); border-radius: var(--radius-l); box-shadow: var(--shadow-hard); animation: cardIn .5s var(--ease-pop); display: flex; flex-direction: column; gap: 10px; }
+@keyframes cardIn { from { transform: scale(.5) rotate(-6deg); opacity: 0; } }
+.kicker { align-self: center; font-family: var(--font-pixel); font-size: 15px; padding: 1px 10px; background: var(--plum); color: var(--white); border-radius: 6px; }
+.partyChest { display: grid; place-items: center; animation: chestBounce .9s var(--ease-pop) .1s both; }
+@keyframes chestBounce { 0% { transform: translateY(-30px) scale(.6); } 60% { transform: translateY(4px) scale(1.08); } 100% { transform: none; } }
+.partyTitle { font-family: var(--font-pixel); font-size: 34px; margin: 0; }
+.partyRewards { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px 14px; font-weight: 800; font-size: 20px; }
+.partyRewards span { display: inline-flex; align-items: center; gap: 4px; }
+@media (prefers-reduced-motion: reduce) { .confetti, .burst { display: none; } .card.ready, .ready .end :global(button) { animation: none; } }

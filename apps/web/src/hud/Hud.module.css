@@ -96,3 +96,7 @@
 .routeDone { background: var(--lime); }
 .routeDone svg { color: var(--green); }
 .streak { font-size: 13px; padding: 0 5px; background: var(--sun); border: 2px solid var(--ink); border-radius: 6px; }
+/* Missions du jour (Docs/13 §7) : pastille du bouton Quests, qui pulse doucement */
+.dot { pointer-events: none; animation: dotPulse 1.8s ease-in-out infinite; }
+@keyframes dotPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.18); } }
+@media (prefers-reduced-motion: reduce) { .dot { animation: none; } }

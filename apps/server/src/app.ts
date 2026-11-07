@@ -44,7 +44,7 @@ import { playBattle, startBattle, viewArena } from './game/arena.ts';
 import { TECHNIQUES } from '@tokengo/shared';
 import { MISSION_KINDS } from '@tokengo/shared';
 import { claimMission, missionsForTest, missionsView } from './game/missions.ts'; // Missions du jour (Docs/13 §7)
-import { cityControl } from './game/city.ts';                                      // Contrôle de la ville (Docs/13 §8)
+import { cityControl, holdForTest } from './game/city.ts';                         // Contrôle de la ville (Docs/13 §8)
 import { createRegions, overpassFetcher, parseOverpassUrls, type OverpassFetch, type RegionTimings } from './game/regions.ts';
 
 const SESSION_TTL = 30 * 24 * 3600_000;
@@ -418,6 +418,13 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
         bump: z.object({ key: kind, n: z.number().int().min(1).max(1000) }).optional(),
       }).parse(req.body);
       return missionsForTest(ctx, b.userId, b as Parameters<typeof missionsForTest>[2]);
+    });
+    // Contrôle de la ville, e2e seulement : installe un Champion sur une arène (captures d'écran déterministes).
+    app.post('/api/test/city/hold', async (req, reply) => {
+      if (!isAdmin(req)) return reply.code(403).send({ error: { code: 'FORBIDDEN', message: 'No.' } });
+      const b = z.object({ forgeId: z.string().max(80), userId: z.string().max(40).nullable(), hoursAgo: z.number().min(0).max(24 * 7).default(0) }).parse(req.body);
+      holdForTest(ctx, b.forgeId, b.userId, b.hoursAgo);
+      return { ok: true };
     });
   }
 

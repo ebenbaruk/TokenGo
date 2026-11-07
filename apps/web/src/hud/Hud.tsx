@@ -238,6 +238,8 @@ export function Hud({ onAction }: { onAction: (t: Target) => void }) {
           </div>
           <div className={s.side}>
             <IconButton label="Quests" showLabel onClick={() => openOverlay({ kind: 'quests' })} testId="quests-btn"><ScrollText strokeWidth={2.5} /></IconButton>
+            {/* Missions du jour (Docs/13 §7) : pastille rouge = au moins une mission à réclamer */}
+            {me?.missions?.ready ? <span className={`${s.count} ${s.dot}`} data-testid="quests-dot">{me.missions.ready}</span> : null}
           </div>
         </div>
       </div>
