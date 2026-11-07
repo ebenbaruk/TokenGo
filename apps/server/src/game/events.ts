@@ -7,6 +7,8 @@ import {
 import { kvGet, kvSet } from '../db.ts';
 import type { Ctx } from './context.ts';
 import { parisDayStart } from './reserve.ts';
+// Raid « Rogue Model » (Docs/13 §6) : boss créé avec l'événement `rogue`, échec résolu quand l'événement se termine
+import { createRaid, maybeAutoRogue, settleRaids } from './raid.ts';
 
 const parse = (r: { data: string } | undefined): CityEvent | null => (r ? (JSON.parse(r.data) as CityEvent) : null);
 
@@ -35,6 +37,7 @@ export function endEvent(ctx: Ctx): CityEvent | null {
   ctx.db.prepare('UPDATE city_events SET ends_at = ?, data = ? WHERE id = ?').run(now, JSON.stringify({ ...e, endsAt: now }), e.id);
   kvSet(ctx.db, 'city-event-ended', e.id);
   ctx.bus.publish('city.event.end', `${eventTitle(e)} is over`, { eventId: e.id });
+  settleRaids(ctx); // raid : arrêté avant la victoire → échec (consolation)
   return e;
 }
 
@@ -50,8 +53,10 @@ export function startEvent(ctx: Ctx, spec: Omit<CityEventSpec, 'startsAt'>, sour
       .run(spec.kind, spec.family ?? null, spec.zone, now, now, source).lastInsertRowid);
     const ev = makeCityEvent(id, { ...spec, startsAt: now });
     ctx.db.prepare('UPDATE city_events SET family = ?, ends_at = ?, data = ? WHERE id = ?').run(ev.family, ev.endsAt, JSON.stringify(ev), id);
+    createRaid(ctx, ev); // raid : le boss naît avec l'événement (sans effet pour les autres genres)
     return ev;
   })();
+  settleRaids(ctx); // un raid remplacé par ce nouvel événement échoue
   const mins = Math.round((e.endsAt - e.startsAt) / 60_000);
   ctx.bus.publish('city.event', `${eventTitle(e)} — ${mins} min: ${eventEffectText(e)}`, { eventId: e.id, kind: e.kind, family: e.family, zone: e.zone, endsAt: e.endsAt });
   return e;
@@ -68,6 +73,7 @@ export function eventTick(ctx: Ctx): CityEvent | null {
     kvSet(ctx.db, 'city-event-ended', last.id);
     ctx.bus.publish('city.event.end', `${eventTitle(last)} is over`, { eventId: last.id });
   }
+  settleRaids(ctx);
   if (isEventActive(last, now)) return null;
   const seq = (ctx.db.prepare('SELECT COUNT(*) n FROM city_events').get() as { n: number }).n + 1;
   let next = kvGet<number>(ctx.db, 'city-event-next');
@@ -77,7 +83,8 @@ export function eventTick(ctx: Ctx): CityEvent | null {
   if (h < CITY_EVENT.firstHour || h >= CITY_EVENT.lastHour) return null;
   const today = (ctx.db.prepare('SELECT COUNT(*) n FROM city_events WHERE starts_at >= ?').get(parisDayStart(now)) as { n: number }).n;
   if (today >= CITY_EVENT.maxPerDay) return null;
-  const e = startEvent(ctx, drawCityEvent(ctx.cfg.SPAWN_SECRET, seq, now), 'auto');
+  // raid automatique (≤ 2 / jour, créneau propre) sinon tirage habituel
+  const e = startEvent(ctx, maybeAutoRogue(ctx, seq, h) ?? drawCityEvent(ctx.cfg.SPAWN_SECRET, seq, now), 'auto');
   kvSet(ctx.db, 'city-event-next', e.endsAt + eventGapMs(ctx.cfg.SPAWN_SECRET, seq));
   return e;
 }

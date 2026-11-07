@@ -3,7 +3,7 @@ import { cellToLatLng } from 'h3-js';
 import type { Family } from '../types.ts';
 import { haversineM, offsetM, type LatLng } from '../geo.ts';
 import { pick, rngFrom, weightedPick } from '../rng.ts';
-import { CITY_EVENT, CITY_EVENTS, EVENT_ZONES, FAMILY_INFO, SPAWN_WINDOW_MS, type CityEventKind, type EventZoneId } from './rules.ts';
+import { CITY_EVENT, CITY_EVENTS, EVENT_ZONES, FAMILY_INFO, RAID, SPAWN_WINDOW_MS, type CityEventKind, type EventZoneId } from './rules.ts';
 import type { Spawn } from './spawns.ts';
 
 export interface CityEvent {
@@ -21,9 +21,14 @@ export interface CityEvent {
   priceMult: number | null;
   extraSpawnChance: number | null;
   strike: boolean;
+  // ── Raid « Rogue Model » (Docs/13 §6), kind 'rogue' seulement : la Forge attaquée et le nom du boss ──
+  forgeId?: string;
+  boss?: string;
 }
 
-export interface CityEventSpec { kind: CityEventKind; family?: Family | null; zone: EventZoneId; startsAt: number; durationMs?: number }
+/** Raid (kind 'rogue') : l'événement est centré sur une Forge (et non sur une zone nommée). */
+export interface RogueSpot { forgeId: string; name: string; lat: number; lng: number; boss: string }
+export interface CityEventSpec { kind: CityEventKind; family?: Family | null; zone: EventZoneId; startsAt: number; durationMs?: number; rogue?: RogueSpot }
 
 const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
 
@@ -35,6 +40,16 @@ export function makeCityEvent(id: number, spec: CityEventSpec): CityEvent {
   if (!zone) throw new Error(`unknown zone ${spec.zone}`);
   const family = rule.families.length ? (spec.family && rule.families.includes(spec.family) ? spec.family : rule.families[0]!) : null;
   const duration = clamp(spec.durationMs ?? rule.durationMs, 60_000, CITY_EVENT.durationMaxMs);
+  if (spec.kind === 'rogue') {
+    // raid : centré sur la Forge du boss, aucun effet de prix ni de spawn (zone = quartier nommé le plus proche, pour l'historique)
+    if (!spec.rogue) throw new Error('rogue event needs a forge');
+    const r = spec.rogue;
+    return {
+      id, kind: 'rogue', family: null, zone: zone.id, zoneName: r.name, lat: r.lat, lng: r.lng, radiusM: RAID.zoneRadiusM,
+      startsAt: spec.startsAt, endsAt: spec.startsAt + duration, priceMult: null, extraSpawnChance: null, strike: false,
+      forgeId: r.forgeId, boss: r.boss,
+    };
+  }
   return {
     id, kind: spec.kind, family, zone: zone.id, zoneName: zone.name, lat: zone.lat, lng: zone.lng, radiusM: CITY_EVENT.radiusM,
     startsAt: spec.startsAt, endsAt: spec.startsAt + duration,
@@ -91,13 +106,14 @@ export function eventSpawnsForCell(secret: string, e: CityEvent | null | undefin
 const pct = (m: number) => `${m < 1 ? '−' : '+'}${Math.round(Math.abs(m - 1) * 100)}%`;
 
 export function eventTitle(e: Pick<CityEvent, 'kind' | 'zoneName'>): string {
-  const at = { flash_crash: 'Flash crash at', hype: 'Forge hype at', gold_rush: 'Gold rush near', strike: 'Merchant strike at' }[e.kind];
+  const at = { flash_crash: 'Flash crash at', hype: 'Forge hype at', gold_rush: 'Gold rush near', strike: 'Merchant strike at', rogue: 'Rogue model at' }[e.kind];
   return `${at} ${e.zoneName}`;
 }
 
 /** Effet en une ligne courte (bannière, Pulse). */
-export function eventEffectText(e: Pick<CityEvent, 'kind' | 'family' | 'priceMult'>): string {
+export function eventEffectText(e: Pick<CityEvent, 'kind' | 'family' | 'priceMult'> & { boss?: string }): string {
   const fam = e.family ? FAMILY_INFO[e.family].name : '';
+  if (e.kind === 'rogue') return `${e.boss ?? 'A rogue model'} broke loose — the whole city can attack it`;
   if (e.kind === 'gold_rush') return `extra ${fam} shards`;
   if (e.kind === 'strike') return 'shops buy but won’t sell';
   return `${fam} prices ${pct(e.priceMult ?? 1)}`;

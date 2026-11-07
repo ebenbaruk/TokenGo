@@ -365,7 +365,7 @@ export const DAILY_ROUTE = {
  *  - strike : les marchands de la zone ne vendent plus (ils achètent toujours, au prix normal).
  * Rien ne touche la Réserve : les crédits réels restent bornés par les plafonds de la Forge.
  */
-export type CityEventKind = 'flash_crash' | 'hype' | 'gold_rush' | 'strike';
+export type CityEventKind = 'flash_crash' | 'hype' | 'gold_rush' | 'strike' | 'rogue'; // rogue : raid (section RAID)
 export interface CityEventRule {
   durationMs: number;
   families: Family[];        // familles tirées au sort (vide : sans famille)
@@ -379,6 +379,8 @@ export const CITY_EVENTS: Record<CityEventKind, CityEventRule> = {
   hype: { durationMs: 20 * 60_000, families: ['gemini', 'gpt'], priceMult: 1.25, weight: 2 },
   gold_rush: { durationMs: 20 * 60_000, families: ['gpt', 'claude'], extraSpawnChance: 0.3, weight: 2 },
   strike: { durationMs: 15 * 60_000, families: [], strike: true, weight: 1 },
+  // Raid « Rogue Model » (Docs/13 §6) : poids 0 → jamais tiré par drawCityEvent ; le serveur le lance à part (RAID.autoMaxPerDay)
+  rogue: { durationMs: 45 * 60_000, families: [], weight: 0 },
 };
 export const CITY_EVENT_KINDS = Object.keys(CITY_EVENTS) as CityEventKind[];
 export const CITY_EVENT = {
@@ -510,4 +512,57 @@ export const MASTERY = {
   xpDecodeBonus: 5,
   xpRound: 10,                    // manche d'arène jouée avec la famille
   xpRoundWon: 10,                 // … et gagnée
+} as const;
+
+// ═════════════════════════════ RAID « Rogue Model » (Docs/13 §6) ═════════════════════════════
+/**
+ * Boss coopératif de ville : un événement de ville `rogue` sur une Forge. Toute la ville tape sur une barre de PV commune.
+ * Assaut = mini-combat de 3 manches avec le moteur de l'Arène (budget 6 tokens, rate limit) contre l'équipe du boss.
+ * Récompenses en XP / Flux / maîtrise seulement (bornées ci-dessous) : aucun éclat créé, rien ne touche la Réserve.
+ * Formules pures : raid.ts.
+ */
+export const RAID_BOSSES = [
+  { id: 'glitch9', name: 'GL1TCH-9' },
+  { id: 'overfit', name: 'Overfit Prime' },
+  { id: 'hallucinator', name: 'The Hallucinator' },
+  { id: 'loop', name: 'Loop.exe' },
+  { id: 'hydra', name: 'Token Hydra' },
+] as const;
+export type RaidBossId = (typeof RAID_BOSSES)[number]['id'];
+
+export const RAID = {
+  durationMs: 45 * 60_000,
+  hpBase: 800,                    // PV = 800 + 120 × joueurs actifs dans la dernière heure…
+  hpPerPlayer: 120,
+  hpMin: 800,                     // … borné 800–6 000
+  hpMax: 6000,
+  activeWindowMs: 3600_000,
+  sliceMs: 10 * 60_000,           // faiblesse / résistance retirées toutes les 10 min (graine)
+  weakMult: 1.5,
+  resistMult: 0.6,
+  wonRoundMult: 1.5,              // manche gagnée contre le boss : dégâts × 1,5
+  damageScale: 5,                 // dégâts d'une manche = puissance × 5 × multiplicateurs (puissance ≈ 5–15 → 25–110 PV)
+  rounds: 3,                      // un assaut = 3 manches, toutes jouées
+  tokenBudget: 6,
+  teamSize: 3,
+  bossMastery: 3,
+  assaultsPerRaid: 3,             // assauts max par joueur et par raid (gratuits)
+  assaultTtlMs: 10 * 60_000,      // un assaut abandonné expire (les manches jouées ont déjà fait leurs dégâts)
+  autoMaxPerDay: 2,               // raids automatiques max par jour de Paris (+ admin)
+  autoChance: 0.35,               // chance qu'un événement automatique dû soit un raid (sous le plafond)
+  autoFirstHour: 11,              // créneau des raids automatiques (heure de Paris)
+  autoLastHour: 22,
+  activityRadiusM: 2000,          // forge choisie près de l'activité récente (joueurs vus dans l'heure)
+  zoneRadiusM: 300,               // zone affichée autour de la Forge du boss (bannière « you're in the zone »)
+  // runners (bots) : un coup modeste de temps en temps
+  botEveryMs: 60_000,             // au plus un coup de bot par minute…
+  botChance: 0.5,                 // … tiré à chaque boucle des runners une fois la minute écoulée
+  botDamageMin: 15,
+  botDamageMax: 30,
+  rewards: {
+    win: { xp: 80, flux: 30, mastery: 20 }, // chaque participant ; maîtrise +20 par famille utilisée
+    top3Flux: 40,                           // top 3 des dégâts (joueurs réels)
+    fail: { xp: 20 },                       // consolation, temps écoulé
+  },
+  title: { id: 'rogue-slayer', name: 'Rogue Slayer' }, // titre Codex au premier raid gagné
 } as const;

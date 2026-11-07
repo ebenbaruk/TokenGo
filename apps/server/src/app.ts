@@ -42,6 +42,7 @@ import { withLock } from './game/lock.ts';
 import { HAGGLE_CARDS } from '@tokengo/shared';
 import { playBattle, startBattle, viewArena } from './game/arena.ts';
 import { TECHNIQUES } from '@tokengo/shared';
+import { playAssault, rogueSpec, setRaidHpForTest, startAssault, viewRaid, withRaid } from './game/raid.ts'; // Raid (Docs/13 §6)
 import { createRegions, overpassFetcher, parseOverpassUrls, type OverpassFetch, type RegionTimings } from './game/regions.ts';
 
 const SESSION_TTL = 30 * 24 * 3600_000;
@@ -317,6 +318,21 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
     return withLock(`arena:${userId}`, async () => playBattle(ctx, userId, battleId, b));
   });
 
+  // ── Raid « Rogue Model » (Docs/13 §6) : gratuit, 3 assauts par raid ; verrou par joueur (pas de double manche) ──
+  const EventId = z.object({ eventId: z.coerce.number().int().min(1) });
+  app.get('/api/raid/:eventId', rl(40), async (req) => viewRaid(ctx, auth(req), EventId.parse(req.params).eventId));
+  app.post('/api/raid/:eventId/attack', rl(15), async (req) => {
+    const userId = auth(req);
+    const b = z.object({ team: z.array(z.enum(FAMILIES)).length(3) }).parse(req.body);
+    return withLock(`raid:${userId}`, async () => startAssault(ctx, userId, EventId.parse(req.params).eventId, b.team));
+  });
+  app.post('/api/raid/assault/:assaultId/play', rl(30), async (req) => {
+    const userId = auth(req);
+    const { assaultId } = z.object({ assaultId: z.string().max(40) }).parse(req.params);
+    const b = z.object({ family: z.enum(FAMILIES), technique: z.enum(TECHNIQUES) }).parse(req.body);
+    return withLock(`raid:${userId}`, async () => playAssault(ctx, userId, assaultId, b));
+  });
+
   app.get('/api/credits', async (req) => creditsView(ctx, auth(req)));
   app.post('/api/credits/reveal', rl(5, '1 hour'), async (req) => revealKey(ctx, auth(req)));
   app.post('/api/credits/playground', rl(10), async (req, reply) => {
@@ -360,7 +376,8 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
     // événements privés du joueur + événements de ville (city.*) partagés par tous
     return sse(req, reply, `user:${userId}`, SSE_LIMITS.perUser, (fn) => {
       const offUser = ctx.bus.subscribeUser(userId, fn);
-      const offCity = ctx.bus.subscribe((e) => { if (e.kind.startsWith('city.')) fn(e); });
+      // + PV du raid en direct (raid.hp, éphémère)
+      const offCity = ctx.bus.subscribe((e) => { if (e.kind.startsWith('city.') || e.kind === 'raid.hp') fn(e); });
       return () => { offUser(); offCity(); };
     });
   });
@@ -381,7 +398,15 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
       zone: z.enum(EVENT_ZONES.map((x) => x.id) as [string, ...string[]]).default('louvre'),
       family: z.enum(FAMILIES).optional(),
       minutes: z.number().int().min(1).max(Math.floor(CITY_EVENT.durationMaxMs / 60_000)).optional(),
+      forge: z.string().max(80).optional(), // raid (kind 'rogue') : Forge attaquée ; défaut = près de l'activité récente
     }).parse(req.body);
+    if (b.kind === 'rogue') {
+      const seq = (db.prepare('SELECT COUNT(*) n FROM city_events').get() as { n: number }).n + 1;
+      const spec = rogueSpec(ctx, b.forge ?? null, seq);
+      if (!spec) throw new GameError('NOT_FOUND', 'Unknown forge.', 404);
+      const e = startEvent(ctx, { ...spec, ...(b.minutes ? { durationMs: b.minutes * 60_000 } : {}) }, 'admin');
+      return { ok: true, event: withRaid(ctx, eventView(e)) };
+    }
     const e = startEvent(ctx, {
       kind: b.kind as never, zone: b.zone as never, ...(b.family ? { family: b.family } : {}), ...(b.minutes ? { durationMs: b.minutes * 60_000 } : {}),
     }, 'admin');
@@ -396,6 +421,12 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
     app.get('/api/test/decode/:attemptId', async (req, reply) => {
       if (!isAdmin(req)) return reply.code(403).send({ error: { code: 'FORBIDDEN', message: 'No.' } });
       return { correctId: decodeAnswerForTest(z.object({ attemptId: z.string().max(80) }).parse(req.params).attemptId) };
+    });
+    // Raid, e2e seulement : force les PV du boss (victoire testable). Même garde : NODE_ENV=test + jeton admin.
+    app.post('/api/test/raid/:eventId/hp', async (req, reply) => {
+      if (!isAdmin(req)) return reply.code(403).send({ error: { code: 'FORBIDDEN', message: 'No.' } });
+      const { eventId } = z.object({ eventId: z.coerce.number().int().min(1) }).parse(req.params);
+      return { ok: true, raid: setRaidHpForTest(ctx, eventId, z.object({ hp: z.number().int().min(1).max(10_000) }).parse(req.body).hp) };
     });
   }
 

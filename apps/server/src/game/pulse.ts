@@ -5,6 +5,7 @@ import { allMerchants, getP0 } from './merchants.ts';
 import { getPools, parisDay, reserveView } from './reserve.ts';
 import { activeEvent, eventView } from './events.ts';
 import { walkerCounts } from './walkers.ts';
+import { withRaid } from './raid.ts';
 
 export function pulseView(ctx: Ctx): PulseResponse {
   const events = (ctx.db.prepare('SELECT id, at, kind, text, data FROM events ORDER BY id DESC LIMIT 40').all() as
@@ -14,7 +15,7 @@ export function pulseView(ctx: Ctx): PulseResponse {
   const index = Object.fromEntries(FAMILIES.map((f) => [f, ticks.map((t) => Math.round((JSON.parse(t.p0) as Record<Family, number>)[f] * 10) / 10)])) as Record<Family, number[]>;
   const merchants = { open: 0, closing: 0, closed: 0 };
   for (const m of allMerchants(ctx)) merchants[m.status]++;
-  return { events, index, reserve: reserveView(ctx), merchants, cityEvent: eventView(activeEvent(ctx)), walkers: walkerCounts(ctx) };
+  return { events, index, reserve: reserveView(ctx), merchants, cityEvent: withRaid(ctx, eventView(activeEvent(ctx))), walkers: walkerCounts(ctx) }; // cityEvent.raid : PV du raid (Docs/13 §6)
 }
 
 /** Paris en direct pour l'Economy Lab : marchands dans l'ordre des nœuds market du monde (ordre attendu par createSim). */

@@ -21,7 +21,9 @@ export type ErrorCode =
   // Arène (Docs/13 §4)
   | 'MODEL_RATE_LIMITED' | 'NO_TOKENS' | 'OWN_ARENA' | 'BAD_TEAM'
   // Décodage (Docs/13 §3)
-  | 'NO_DECODE';
+  | 'NO_DECODE'
+  // Raid « Rogue Model » (Docs/13 §6)
+  | 'RAID_OVER' | 'NO_ASSAULTS';
 export interface ApiError { error: { code: ErrorCode; message: string; [k: string]: unknown } }
 
 export type Inventory = Record<Family, number>;
@@ -523,3 +525,76 @@ export interface ArenaBattleView {
 }
 export interface ArenaStartResponse { battle: ArenaBattleView; me: Me }
 export interface ArenaPlayResponse { round: ArenaRoundView; battle: ArenaBattleView; me: Me }
+
+// ═════════════ Raid « Rogue Model » (Docs/13 §6) — bloc séparé ═════════════
+// GET /api/raid/:eventId → RaidView ; POST /api/raid/:eventId/attack { team: Family[3] } → RaidStartResponse (à ≤ rayon Forge) ;
+// POST /api/raid/assault/:assaultId/play { family, technique } → RaidPlayResponse. Le serveur décide de tout.
+// Temps réel : SSE `raid.hp` (éphémère, non stocké) { eventId, hp, maxHp, by, damage } ; `city.raid.end` (ticker) à la fin.
+
+/** État public du raid (bannière, carte, /pulse) — joint à CityEventView.raid quand l'événement est un raid. */
+export interface RaidLive {
+  eventId: number;
+  forgeId: string;
+  forgeName: string;
+  boss: string;                // nom du boss (« Overfit Prime »)
+  bossId: string;
+  hp: number;
+  maxHp: number;
+  status: 'active' | 'won' | 'failed';
+  endsAt: number;
+  weakness: Category;          // ×1,5 pendant la tranche de 10 min en cours
+  resist: Category;            // ×0,6
+  sliceEndsAt: number;         // prochaine rotation faiblesse / résistance
+  participants: number;        // joueurs réels qui ont attaqué
+}
+export interface CityEventView { raid?: RaidLive | null }
+
+export interface RaidLeaderEntry { rank: number; handle: string; damage: number; agent: boolean; me: boolean }
+export interface RaidResultView {
+  outcome: 'won' | 'failed';
+  boss: string;
+  xp: number;
+  flux: number;
+  top3: boolean;
+  rank: number | null;
+  damage: number;
+  /** part des dégâts du joueur (0..1) */
+  share: number;
+  /** titre Codex débloqué par ce raid (« Rogue Slayer » au premier raid gagné) */
+  title: string | null;
+  masteryGains: Partial<Record<Family, number>>;
+  masteryUps: { family: Family; level: number }[];
+  levelUp: number | null;
+}
+export interface RaidRoundView extends ArenaRoundView { damage: number; mult: number }
+export interface RaidAssaultView {
+  assaultId: string;
+  eventId: number;
+  boss: string;
+  rounds: number;
+  weakness: Category;          // figées au début de l'assaut
+  resist: Category;
+  affinities: Family[];
+  challenge: ArenaChallengeView | null;
+  me: ArenaSideView;
+  opp: ArenaSideView;          // l'équipe du boss
+  history: RaidRoundView[];
+  damage: number;              // total infligé par cet assaut
+  status: 'open' | 'done' | 'expired';
+  expiresAt: number;
+}
+export interface RaidView {
+  raid: RaidLive;
+  bossTeam: ArenaMember[];
+  leaderboard: RaidLeaderEntry[];      // top 10 (runners-agents compris, badge « agent »)
+  mine: { damage: number; assaults: number; assaultsLeft: number; rank: number | null };
+  families: { family: Family; owned: number; mastery: MasteryProgress }[];
+  openAssault: RaidAssaultView | null;
+  /** résultat du joueur une fois le raid résolu (null s'il n'a pas participé ou si le raid est en cours) */
+  result: RaidResultView | null;
+  me: Me;
+}
+export interface RaidStartResponse { assault: RaidAssaultView; raid: RaidLive; me: Me }
+export interface RaidPlayResponse { round: RaidRoundView; assault: RaidAssaultView; raid: RaidLive; result: RaidResultView | null; me: Me }
+/** SSE `raid.hp` */
+export interface RaidHpEvent { eventId: number; hp: number; maxHp: number; by: string; damage: number }

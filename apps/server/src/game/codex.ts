@@ -2,7 +2,7 @@
 // les tirages et la sélection des arrêts sont des fonctions pures de packages/shared (codex.ts, route.ts).
 import { cellToLatLng, latLngToCell } from 'h3-js';
 import {
-  ACTION_ACC_BONUS_MAX_M, ACTION_RADIUS_M, CODEX, DAILY_ROUTE, FAMILIES, VARIANTS, VARIANT_HINT, codexSummary, dailyRoute, haversineM,
+  ACTION_ACC_BONUS_MAX_M, ACTION_RADIUS_M, CODEX, DAILY_ROUTE, RAID, FAMILIES, VARIANTS, VARIANT_HINT, codexSummary, dailyRoute, haversineM,
   newTitle, placeShort, rngFrom, rollVariant, routeLengthM, routeReward, routeStreak, shardToken, solarHour, variantName,
   type CatchCodex, type CodexView, type DailyRouteView, type Family, type LatLng, type RouteCandidate, type RouteCheckin, type SpawnView,
   type Variant,
@@ -11,6 +11,7 @@ import type { Ctx } from './context.ts';
 import { addXp, credit, meView, type UserRow } from './players.ts';
 import { nodesNear } from './world.ts';
 import { parisDay } from './reserve.ts';
+import { specialTitles } from './raid.ts'; // Raid (Docs/13 §6) : titre « Rogue Slayer »
 
 // ───── Codex ─────
 
@@ -69,9 +70,19 @@ export function codexView(ctx: Ctx, userId: string): CodexView {
   const c = ctx.db.prepare(`SELECT COUNT(*) n, SUM(quality = 'perfect') p FROM catches WHERE user_id = ? AND quality != 'fled'`).get(userId) as { n: number; p: number | null };
   const days = completedDays(ctx, userId);
   return {
-    entries, found: sum.found, total: sum.total, pct: sum.pct, byFamily: sum.byFamily, titles: sum.titles, title: sum.title,
+    entries, found: sum.found, total: sum.total, pct: sum.pct, byFamily: sum.byFamily, ...withSpecialTitles(ctx, userId, sum),
     records: { bestCombo: u.best_combo, catches: c.n, perfects: c.p ?? 0, routesDone: days.length, routeStreak: routeStreak(days, parisDay(ctx.now())) },
   };
+}
+
+/**
+ * Raid (Docs/13 §6) : titre d'exploit « Rogue Slayer » (need 0 = pas un palier de collection), toujours listé ;
+ * une fois gagné, c'est le titre affiché (plus rare que les titres de collection).
+ */
+function withSpecialTitles(ctx: Ctx, userId: string, sum: { titles: CodexView['titles']; title: string | null }) {
+  const won = new Set(specialTitles(ctx, userId));
+  const slayer = { id: RAID.title.id, name: RAID.title.name, need: 0, unlocked: won.has(RAID.title.id) };
+  return { titles: [...sum.titles, slayer], title: slayer.unlocked ? slayer.name : sum.title };
 }
 
 // ───── Daily Route ─────
