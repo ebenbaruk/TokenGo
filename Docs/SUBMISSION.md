@@ -8,6 +8,8 @@ Règles : https://nearhackathon.com/HACKATHON.md (relire juste avant d'envoyer).
 ## Checklist (≈ 45 min en tout)
 1. **Héberger la démo (Railway, ~15 min).** railway.com → New Project → Deploy from GitHub repo → `ebenbaruk/TokenGo`
    (le `Dockerfile` et `railway.json` sont détectés). Puis :
+   - ⚠️ Railway détecte un monorepo et propose **un service par workspace** (`@tokengo/web`, `@tokengo/server`…) : refuser / supprimer ces services.
+     Il faut **un seul service**, Root Directory vide (racine), Builder = Dockerfile, aucune Custom Start/Build Command.
    - Service → *Volumes* → ajouter un volume monté sur **`/data`** (la base SQLite y vit).
    - Service → *Settings* → *Networking* → **Generate Domain** (HTTPS, nécessaire au GPS) → noter l'URL `https://….up.railway.app`.
    - Service → *Variables* : coller (générer chaque secret avec `openssl rand -base64 32`) :
