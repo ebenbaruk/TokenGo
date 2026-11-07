@@ -62,6 +62,25 @@ export const CATCH = {
   comboMax: 5,
 } as const;
 
+// ───────────────────────────── Décodage « Next token » (Docs/13 §3) ─────────────────────────────
+/**
+ * 2ᵉ temps de capture : une phrase à compléter, 3 jetons, un seul bon.
+ *  - Rare / Épique : obligatoire après un Lock-on réussi ; raté → l'éclat « hallucine » (fuite à CATCH.fleeAfterMiss, sinon on relance le Lock-on).
+ *  - Commun / Peu commun : bonus facultatif après la capture : +XP, +maîtrise et chance de Shiny ×2 sur la capture SUIVANTE
+ *    (aucun éclat en plus : l'offre ne bouge pas).
+ * Le délai est mesuré côté serveur, à partir de l'envoi de la question.
+ */
+export const DECODE = {
+  timeMs: { common: 4000, uncommon: 4000, rare: 4000, epic: 5000 } satisfies Record<Rarity, number>,
+  networkGraceMs: 1000,          // tolérance réseau ajoutée au délai affiché
+  required: { common: false, uncommon: false, rare: true, epic: true } satisfies Record<Rarity, boolean>,
+  bonusXp: 5,
+  masteryBonus: 5,               // maîtrise +5 si Décodage réussi (appliquée par le module Maîtrise, Docs/13 §2)
+  luckyShinyMult: 2,             // bonus réussi : chance de Shiny ×2 sur la prochaine capture réussie (non cumulable)
+  bonusOpenTtlMs: 60_000,        // le bonus s'ouvre au plus 60 s après la capture
+  choices: 3,
+} as const;
+
 // ───────────────────────────── Relays ─────────────────────────────
 export const RELAY = {
   cooldownMs: 5 * 60_000,
