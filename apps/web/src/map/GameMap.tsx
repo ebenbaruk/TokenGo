@@ -5,7 +5,7 @@ import { Map as MLMap, AttributionControl, setWorkerUrl, type GeoJSONSource, typ
 import type { Feature, FeatureCollection } from 'geojson';
 import { FAMILIES, ACTION_RADIUS_M, haversineM, type NodeView, type SpawnView, type LatLng } from '@tokengo/shared';
 import { useGame } from '../lib/store.ts';
-import { SHARDS, AVATAR, RUNNER, RELAY, RELAY_COOLDOWN, FORGE, BADGE, ACCENTS, hashStr, marketSprite, spriteImageData, gridsOf, type SpriteDef } from '../sprites/index.ts';
+import { SHARDS, AVATAR, SCOUT, RUNNER, RELAY, RELAY_COOLDOWN, FORGE, BADGE, ACCENTS, hashStr, marketSprite, spriteImageData, gridsOf, type SpriteDef } from '../sprites/index.ts';
 import { NODE_GRIDS } from '../sprites/nodes.grids.ts';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { mapCtl } from './ctl.ts';
@@ -45,6 +45,7 @@ function registerImages(map: MLMap): Anim[] {
   add('relay-cd', RELAY_COOLDOWN, 2);
   add('forge', FORGE, 2, { shadow: true });
   add('avatar', AVATAR, 2, { shadow: true });
+  add('scout', SCOUT, 2, { shadow: true });
   add('runner', RUNNER, 1);
   add('badge', BADGE, 2);
   ACCENTS.forEach((_, i) => add(`market-${i}`, { frames: NODE_GRIDS.market, keys: { A: ACCENTS[i]!.a, B: ACCENTS[i]!.b }, outline: true, fps: 1 }, 2));
@@ -147,9 +148,9 @@ export default function GameMap({ handlers }: { handlers: MapHandlers }) {
     };
     const syncMe = () => {
       if (!ready) return;
-      const p = useGame.getState().pos;
+      const { pos: p, demo } = useGame.getState();
       if (!p) return;
-      (map.getSource('me') as GeoJSONSource).setData(fc([pt(p, {})]));
+      (map.getSource('me') as GeoJSONSource).setData(fc([pt(p, { icon: demo ? 'scout' : 'avatar' })]));
       (map.getSource('radius') as GeoJSONSource).setData(fc([circlePoly(p, ACTION_RADIUS_M.spawn + Math.min(p.acc, 20))]));
       syncSpawns();
       if (following) map.easeTo({ center: [p.lng, p.lat], pitch: FOLLOW.pitch, zoom: FOLLOW.zoom, duration: 600 });
@@ -204,7 +205,7 @@ export default function GameMap({ handlers }: { handlers: MapHandlers }) {
         'icon-offset': ['case', ['==', ['get', 'off'], 1], ['literal', [30, -6]], ['literal', [0, 0]]],
       } });
       map.addLayer({ id: 'me', type: 'symbol', source: 'me', layout: {
-        'icon-image': 'avatar', 'icon-anchor': 'bottom', 'icon-allow-overlap': true, 'icon-ignore-placement': true,
+        'icon-image': ['get', 'icon'], 'icon-anchor': 'bottom', 'icon-allow-overlap': true, 'icon-ignore-placement': true,
       } });
       ready = true;
       sync();

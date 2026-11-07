@@ -8,12 +8,14 @@ import {
 } from '@tokengo/shared';
 import type { Ctx } from './context.ts';
 import { fail } from './context.ts';
-import { addXp, credit, getUser, inventory, levelOf, markTutorial, meView, moveStateOf, tutorialOf, type UserRow } from './players.ts';
+import {
+  addXp, credit, getUser, inventory, levelOf, markTutorial, meView, moveStateOf, saveScout, scoutOf, scoutView, tutorialOf, type UserRow,
+} from './players.ts';
 import { cellInfo, cellOf, nodesNear } from './world.ts';
 import { merchantByNode } from './merchants.ts';
 import { getPools, reserveView } from './reserve.ts';
 import { parisDay } from './reserve.ts';
-import { reserveHealth } from '@tokengo/shared';
+import { reserveHealth, scoutHop } from '@tokengo/shared';
 import { assertQuota, bumpQuota } from './quotas.ts';
 import { recordCatchVariant, routeCheckin, routeFor } from './codex.ts';
 
@@ -22,7 +24,19 @@ const TUTORIAL_SPAWN = (userId: string) => `tut:${userId}`;
 export function move(ctx: Ctx, userId: string, req: MoveRequest): MoveResponse {
   const u = getUser(ctx, userId)!;
   const now = ctx.now();
-  const v = applyMove(moveStateOf(u), { lat: req.lat, lng: req.lng, acc: req.acc, at: now }, u.mode === 'demo');
+  const ms = moveStateOf(u);
+  // Remote Scout (mode démo) : vitesse plafonnée et batterie, vérifiées ici — un vol refusé ne déplace pas le joueur
+  let scout: MoveResponse['scout'];
+  if (u.mode === 'demo') {
+    const h = scoutHop(scoutOf(u, now), ms.last, req, now);
+    saveScout(ctx, userId, h.state);
+    if (!h.ok) {
+      const at = ms.last ? { lat: ms.last.lat, lng: ms.last.lng } : null;
+      return { ok: true, inTransit: false, ignored: true, suspicious: false, walkedM: u.walked_m, scout: scoutView(h.state, at), refused: h.code, at };
+    }
+    scout = scoutView(h.state, { lat: req.lat, lng: req.lng });
+  }
+  const v = applyMove(ms, { lat: req.lat, lng: req.lng, acc: req.acc, at: now }, u.mode === 'demo');
   const walked = Math.round(v.state.walkedM);
   const flags = JSON.parse(u.flags) as Record<string, unknown>;
   if (v.flagged && !flags.flagged) {
@@ -36,7 +50,7 @@ export function move(ctx: Ctx, userId: string, req: MoveRequest): MoveResponse {
   // Daily Route : validation des arrêts sur une position acceptée (pas en transit, pas de saut suspect)
   const route = !v.ignored && !v.suspicious && !v.inTransit && now >= v.state.suspiciousUntil
     ? routeCheckin(ctx, userId, { lat: req.lat, lng: req.lng, acc: req.acc }) : undefined;
-  return { ok: true, inTransit: v.inTransit, ignored: v.ignored, suspicious: v.suspicious, walkedM: walked, ...(route ? { route } : {}) };
+  return { ok: true, inTransit: v.inTransit, ignored: v.ignored, suspicious: v.suspicious, walkedM: walked, ...(route ? { route } : {}), ...(scout ? { scout } : {}) };
 }
 
 /** Vérifie qu'un joueur peut agir sur une cible (position récente, pas en transit, assez près). */
@@ -85,7 +99,7 @@ function findSpawn(ctx: Ctx, u: UserRow, spawnId: string): SpawnView | null {
   return spawnsForCell(ctx.cfg.SPAWN_SECRET, cell, w, cellInfo(ctx.world, cell), health).find((s) => s.id === spawnId) ?? null;
 }
 
-export function worldView(ctx: Ctx, userId: string, lat: number, lng: number): WorldResponse {
+export function worldView(ctx: Ctx, userId: string, lat: number, lng: number, ipHash: string | null = null): WorldResponse {
   const u = getUser(ctx, userId)!;
   const now = ctx.now();
   const nodes = nodesNear(ctx.world, lat, lng, 1200);
@@ -108,7 +122,11 @@ export function worldView(ctx: Ctx, userId: string, lat: number, lng: number): W
   });
   // la route s'ancre sur la dernière position reçue par /api/move (pas sur les paramètres de /api/world)
   const route = routeFor(ctx, u, moveStateOf(u).last);
-  return { now, nodes: views, spawns: visibleSpawns(ctx, u, lat, lng), reserve: reserveView(ctx), objective: objective(ctx, u, lat, lng), route };
+  const region = ctx.regions?.ensure(lat, lng, ipHash);
+  return {
+    now, nodes: views, spawns: visibleSpawns(ctx, u, lat, lng), reserve: reserveView(ctx), objective: objective(ctx, u, lat, lng), route,
+    ...(region ? { region } : {}),
+  };
 }
 
 /** Objectif épinglé : la recette la plus proche d'être complète + où trouver ce qui manque. */

@@ -2,6 +2,22 @@
 
 Mettre à jour à la fin de chaque bloc de travail. Le plus récent en haut.
 
+## 2026-11-07 (jour) — Jouer partout + Remote Scout
+- **Fait** :
+  - **Monde « partout »** : un joueur GPS hors de Paris déclenche la génération de son quartier (cellule H3 r7) en fond — Overpass
+    (2 miroirs, budget 35 s, User-Agent poli) → même sélection que Paris (code extrait dans `game/worldgen.ts`, `paris.json` reconstruit à
+    l'identique), sinon repli procédural déterministe ; persistance `regions` (migration 005), marchands semés comme à Paris, caps
+    300/jour et 12/jour/IP. UI : carte « Scouting your neighbourhood… » puis toast « Your neighbourhood is live ». Vérifié en réel à Lisbonne
+    (823 POI → 2 forges, 8 marchands, 63 relais ; `node apps/server/scripts/region-spike.ts`).
+  - **Remote Scout** remplace Demo Walk : pigeon-coursier à hélice (nouveau sprite), batterie et plafond de vitesse vérifiés par le serveur
+    (`economy/scout.ts`, constantes `SCOUT`), badge Scout/Walking + batterie dans le HUD, « Dash » (ex-Jump) avec coût affiché, Splash à deux
+    choix (« Remote Scout » / « Play for real · GPS ») + « TokenGo is meant to be played walking — Remote Scout lets you try it from your couch ».
+    Récompenses inchangées pour les comptes démo.
+  - Tests : 131 unitaires/API (+18 : batterie, génération, fallback, caps, persistance, partie complète à Lisbonne), e2e 20/20
+    (nouveau `e2e/anywhere.spec.ts`), `E2E_PORT` pour lancer plusieurs suites en parallèle.
+- **Limites connues** : les miroirs Overpass publics sont lents (20–90 s mesurés) → au-delà de 35 s le quartier est procédural (définitif pour
+  cette région) ; une r7 en bordure de Paris compte comme « Paris » même si sa partie hors Paris est vide.
+- **Prochaine étape** : déploiement HTTPS (GPS réel), tester un vrai quartier hors Paris au téléphone.
 ## 2026-11-07 — Game feel + raisons de revenir (Codex, Daily Route, cartes partageables)
 - **Fait** : passe « juice » sur la capture (combo ressenti : son qui monte, aura/flamme, secousse + confettis PERFECT,
   révélation de variante, XP qui roule, éclat → sac), vibrations par événement + réglage ; Codex de 25 variantes cosmétiques

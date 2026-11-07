@@ -13,3 +13,4 @@ export * from './affinity.ts';
 export * from './codex.ts';
 export * from './route.ts';
 export * from './haggle.ts';
+export * from './scout.ts';

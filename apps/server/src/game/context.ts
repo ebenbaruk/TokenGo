@@ -4,6 +4,7 @@ import type { World } from './world.ts';
 import type { Bus } from './bus.ts';
 import type { CreditsProvider } from './credits.ts';
 import type { Settler } from '../chain/settler.ts';
+import type { Regions } from './regions.ts';
 
 /** Tout ce dont la logique de jeu a besoin. `now` est injectable pour les tests. */
 export interface Ctx {
@@ -15,6 +16,8 @@ export interface Ctx {
   now: () => number;
   /** Settler on-chain (absent quand la chaîne est désactivée : les ops restent `pending`). */
   chain?: Settler | undefined;
+  /** Monde « partout » (régions générées hors de Paris). */
+  regions?: Regions | undefined;
 }
 
 export class GameError extends Error {

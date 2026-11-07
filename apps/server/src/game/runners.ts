@@ -86,7 +86,7 @@ export function seedRunners(ctx: Ctx, n: number): string[] {
   const ids = runnerIds(n);
   const now = ctx.now();
   const center = { lat: 48.8566, lng: 2.3522 };
-  const candidates = ctx.world.nodes.filter((x) => x.kind !== 'forge');
+  const candidates = ctx.world.nodes.filter((x) => x.kind !== 'forge' && !x.region); // runners : Paris seulement
   const nearLouvre = candidates.filter((x) => haversineM(DEMO_START, x) < 900);
   const central = candidates.filter((x) => haversineM(center, x) < 4000);
   const contract = ctx.cfg.NEAR_CONTRACT_ID ?? 'tokengo.testnet';

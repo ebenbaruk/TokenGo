@@ -20,6 +20,10 @@ export interface WorldNode {
   district: number;      // arrondissement 1..20 (0 si inconnu)
   category: string;      // ex. 'metro', 'museum', 'park', 'cafe', 'library', 'forge'
   affinities: Family[];  // familles favorisées par ce lieu (0..2)
+  /** Région générée (cellule H3 r7) ; absent pour Paris. */
+  region?: string;
+  /** Forge générée : thème des recettes. */
+  theme?: Family[];
 }
 
 export type Archetype =

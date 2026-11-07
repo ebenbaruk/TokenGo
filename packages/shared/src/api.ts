@@ -3,6 +3,7 @@
 import type { Family, NodeKind } from './types.ts';
 import type { PriceExplanation, MerchantState, MerchantStatus, Side } from './economy/pricing.ts';
 import type { Tier, Variant } from './economy/rules.ts';
+import type { ScoutRefusal } from './economy/scout.ts';
 import type { Pools } from './economy/reserve.ts';
 import type { HaggleCard, HaggleEvent, HaggleFace, HagglePhase, HaggleTrait } from './economy/haggle.ts';
 
@@ -36,6 +37,17 @@ export interface Me {
   walkedM: number;
   district: number | null;
   tutorial: TutorialState;
+  /** Remote Scout (mode 'demo') : batterie et dernière position acceptée ; null en GPS. */
+  scout: ScoutView | null;
+}
+
+/** Batterie du Scout à l'instant `at` (le client la fait progresser avec scoutCharge). */
+export interface ScoutView {
+  battery: number;          // 0..100 %
+  at: number;
+  grounded: boolean;
+  resumeAt: number | null;  // au sol : quand il pourra repartir
+  last: { lat: number; lng: number } | null;
 }
 
 export interface MoveRequest { lat: number; lng: number; acc: number; heading?: number }
@@ -43,6 +55,11 @@ export interface MoveResponse {
   ok: true; inTransit: boolean; ignored: boolean; suspicious: boolean; walkedM: number;
   /** Arrêt(s) de la Daily Route validé(s) par cette position (absent sinon). */
   route?: RouteCheckin;
+  /** Scout : batterie après ce vol. */
+  scout?: ScoutView;
+  /** Scout : vol refusé (batterie, saut trop long) — la position serveur reste `at`. */
+  refused?: ScoutRefusal;
+  at?: { lat: number; lng: number } | null;
 }
 
 export interface NodeView {
@@ -86,6 +103,15 @@ export interface WorldResponse {
   route?: DailyRouteView | null;
   /** Runners-agents (PNJ joueurs) dans ~1,2 km — points discrets sur la carte. Absent si les runners sont désactivés. */
   runners?: RunnerView[];
+  /** Couverture du monde à cette position : Paris, région générée (OSM ou procédurale), en cours de repérage, ou plafond atteint. */
+  region?: RegionStatus;
+}
+
+export interface RegionStatus {
+  status: 'ready' | 'scouting' | 'capped';
+  source: 'paris' | 'osm' | 'procedural' | null;
+  /** régions de ce secteur (cellules H3 r7) */
+  ids: string[];
 }
 
 /** Runner-agent visible sur la carte (position interpolée sur son trajet à vitesse de marche). */
