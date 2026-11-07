@@ -118,9 +118,9 @@ export function Splash() {
           {existing ? (
             <>
               <Button variant="gold" size="l" block onClick={() => void play('auto')} loading={busy !== null} testId="play-guest">
-                Continue as {existing.handle}
+                Continue
               </Button>
-              <p className={s.modeNow}>{existing.mode === 'demo' ? '🕊 Remote Scout' : '👟 Walking for real'}</p>
+              <p className={s.modeNow}>{existing.handle} · {existing.mode === 'demo' ? '🕊 Remote Scout' : '👟 Walking for real'}</p>
             </>
           ) : scoutFirst ? <>{scoutBtn(true)}{gpsBtn(false)}</> : <>{gpsBtn(true)}{scoutBtn(false)}</>}
           {config?.googleEnabled && existing?.kind !== 'google' ? (

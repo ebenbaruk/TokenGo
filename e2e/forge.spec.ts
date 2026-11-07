@@ -68,7 +68,8 @@ test('demo pass (DEMO_TOKEN) compiles a Spark → credit ticket', async ({ page 
   // le cookie de session est httpOnly : le front s'appuie sur un indice local pour savoir qu'une session existe
   await page.addInitScript(() => { try { localStorage.setItem('tg.session', '1'); } catch { /* */ } });
   await page.goto('/?demo=1');
-  await expect(page.getByTestId('play-guest')).toContainText(`Continue as ${me.handle}`);
+  await expect(page.getByTestId('play-guest')).toContainText('Continue');
+  await expect(page.getByText(me.handle)).toBeVisible();
   await startGuest(page, null);
   expect((await tg(page)).me!.flux).toBe(600);
   await openForge(page);

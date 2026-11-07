@@ -18,6 +18,8 @@ const path = location.pathname.replace(/\/+$/, '') || '/';
 const Page = ROUTES[path];
 // le jeu (pas les pages) : cadre de téléphone + panneau d'explication sur grand écran (global.css)
 if (!Page) document.body.classList.add('game');
+// grand écran : QR vers ce même site (sans les paramètres de pass juge) pour passer au téléphone et marcher pour de vrai
+if (!Page && matchMedia('(min-width: 900px)').matches) void import('./lib/deskQr.ts').then((m) => m.mountDeskQr());
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     {Page ? <Suspense fallback={<div className="route-loading pixel">Loading…</div>}><Page /></Suspense> : <App />}
