@@ -2,6 +2,12 @@
 
 Mettre à jour à la fin de chaque bloc de travail. Le plus récent en haut.
 
+## 2026-11-08 — Arène des modèles + Maîtrise (Docs/13 §1, §2, §4)
+- **Fait** : moteur pur `packages/shared/src/economy/arena.ts` + banque `arena-bank.ts` ; migration `009_arena.sql` ; serveur `game/arena.ts`,
+  `game/mastery.ts` (routes `/api/arena/...`, Gardien du jour, Champion fantôme figé, 48 h, revenu +4 ƒ/10 min ≤ 240/jour, frais 10 ƒ, 12/jour,
+  Pulse) ; web : onglets Forge | Arena, écran de combat, couronne, carte (couronne/bouclier), maîtrise dans Sac et Codex ; `e2e/arena.spec.ts`.
+- **Reste** : ligne finale par le cerveau LLM (budget NPC) ; Décodage (§3, autre développeur).
+
 
 ## 2026-11-07 (nuit) — Démo en ligne + saison démo + chaîne vérifiée de bout en bout
 - **En ligne** : https://tokengo-production-195c.up.railway.app (Railway, 1 service Dockerfile, volume `/data`). Corrigés : `VOLUME` refusé par Railway,
