@@ -13,6 +13,8 @@ Objectif réaliste : **on ne peut pas empêcher toute triche, on borne ce qu'ell
 | Course sur les prix | Transactions SQLite sérialisées ; devis lié à la version du marchand (`updated_at`) → `PRICE_MOVED`. |
 | Farm du marchandage | Issue choisie par le serveur (le client n'envoie que la carte) ; séance liée au joueur et au marchand, TTL 90 s, « Deal » à usage unique sous verrou par joueur ; remise ≤ 8 % et jamais sous le plancher de coût (aucun profit d'aller-retour, testé par tirages) ; 2 séances/marchand, 6/jour ; bouderie après échec. |
 | Requêtes concurrentes (compile, octrois) | `compile` sérialisée par joueur (verrou async en mémoire, serveur mono-processus) ; tutoriel et caps relus dans la transaction du burn, octroi réservé (`grants.status = 'reserved'`) dans cette même transaction → visible des compilations concurrentes. Clé API : verrou par joueur, limite cible = Σ octrois `done` + celui-ci (jamais « limite en cache + montant »), clé créée une seule fois ; la reprise IOU ignore les comptes supprimés. |
+| Monde « partout » détourné (génération de quartiers à distance, épuisement du plafond global) | `/api/world` ne crée une région que si `lat/lng` est à ≤ 1 km de la **position serveur** du joueur reçue par `/api/move` il y a ≤ 5 min (`WORLD_GEN.anchorMaxM/anchorFreshMs`) ; plafonds 12 régions/jour par réseau, 300/jour au global ; Overpass : URLs de config seulement (pas de SSRF), requête construite depuis l'id H3, ≤ 900 éléments. Résiduel assumé : un attaquant avec ~25 réseaux (VPN) peut encore épuiser le plafond global d'un jour — kill switch `WORLD_ANYWHERE=0`. |
+| Espionnage de présence (carte vivante) | Joueurs réels publiés à la cellule H3 r9 ± 60 m, sans nom ; `/api/walkers` ne renvoie de joueurs qu'autour de la position serveur récente du demandeur (pas d'un `lat/lng` arbitraire) et leur id opaque change toutes les 10 min (pas de suivi d'un trajet sur la journée). |
 | IP falsifiée (`X-Forwarded-For`) | `TRUST_PROXY` = nombre de proxys de confiance (défaut 1 en prod, 0 sinon) : l'IP client est l'entrée ajoutée par notre proxy, jamais celle fournie par le client. |
 | Vol de session | Prod : cookie `__Host-tg_sess` `HttpOnly; Secure; SameSite=Lax; Path=/` ; **dev/HTTP** (`http://surface:5173`, localhost, WebKit) : cookie `tg_sess` sans préfixe ni `Secure` (sinon la connexion casse) ; id 256 bits haché en base, rotation à la connexion, expiration 30 j / inactivité 7 j. |
 | CSRF | SameSite=Lax + **vérification d'`Origin`** sur toute requête non-GET (liste blanche = `PUBLIC_URL` ; en dev aussi `http://localhost:5173`, `http://surface:5173`). |
@@ -55,7 +57,8 @@ Pour chaque `POST /api/move` :
 `compile` 6/min · `credits/reveal` 5/h · `playground` 10/min · `greet` 30/min (appel LLM seulement si le joueur est à ≤ 200 m du marchand,
 sinon réplique écrite) · public (`/pulse`, `/lab/snapshot`) 60/min/IP.
 SSE simultanés : 3 `/api/stream` par joueur, 20 `/api/pulse/stream` par IP, 500 au total → 429.
-Les limites par IP reposent sur `req.ip` : voir `TRUST_PROXY` (§1).
+Les limites par IP reposent sur `req.ip` : voir `TRUST_PROXY` (§1). Clé « réseau » (`netKey`) : IPv4 telle quelle, **IPv6 réduite à son /64**
+(un abonné reçoit un /64 entier) — création d'invités, pass démo, plafond de régions, SSE public, limites par IP.
 Quotas jour : 400 captures, 200 syncs, 60 compiles (jeu), plafond $ selon §3 de l'économie.
 
 ## 5. Données personnelles (RGPD minimal)

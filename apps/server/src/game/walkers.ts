@@ -5,7 +5,7 @@ import type { Ctx } from './context.ts';
 import { cellOf } from './world.ts';
 import { liveRunners, type RunnerState } from './runners.ts';
 import { sha256hex } from './crypto.ts';
-import { parisDay } from './reserve.ts';
+import { getUser, moveStateOf } from './players.ts';
 
 const NOTE_FRESH_MS = 10 * 60_000;
 const hash = (s: string) => parseInt(sha256hex(s).slice(0, 8), 16);
@@ -27,15 +27,15 @@ export function playersNear(ctx: Ctx, exceptUserId: string | null, lat: number, 
   const rows = ctx.db.prepare(`SELECT id, seen_cell, seen_at FROM users WHERE is_agent = 0 AND deleted_at IS NULL AND seen_at > ?
     AND seen_cell IN (${cells.map(() => '?').join(',')}) ORDER BY seen_at DESC LIMIT 50`)
     .all(now - LIVING.playerSeenMs, ...cells) as { id: string; seen_cell: string; seen_at: number }[];
-  const day = parisDay(now);
+  const slot = Math.floor(now / LIVING.privacyWindowMs);
   const out: (WalkerView & { d: number })[] = [];
   for (const r of rows) {
     if (r.id === exceptUserId) continue;
     const p = anonymisedPosition(ctx.cfg.SESSION_SECRET, r.id, r.seen_cell, now);
     const d = haversineM({ lat, lng }, p);
     if (d > radiusM) continue;
-    // id opaque, change chaque jour : impossible de relier un marcheur à un compte
-    out.push({ id: `p_${sha256hex(`${ctx.cfg.SESSION_SECRET}:walker:${r.id}:${day}`).slice(0, 12)}`, kind: 'player', name: null, from: p, to: p,
+    // id opaque, change toutes les 10 min : impossible de relier un marcheur à un compte ni de suivre son trajet de la journée
+    out.push({ id: `p_${sha256hex(`${ctx.cfg.SESSION_SECRET}:walker:${r.id}:${slot}`).slice(0, 12)}`, kind: 'player', name: null, from: p, to: p,
       departAt: now, arriveAt: now, note: null, variant: 4, d });
   }
   return out.sort((a, b) => a.d - b.d).slice(0, LIVING.playersMax).map(({ d: _d, ...w }) => w);
@@ -59,7 +59,11 @@ export function runnersNear(ctx: Ctx, lat: number, lng: number, radiusM: number 
 
 /** GET /api/walkers : au plus 12 marcheurs (dont 5 joueurs réels au plus), les plus proches d'abord. */
 export function walkersNear(ctx: Ctx, userId: string | null, lat: number, lng: number): WalkersResponse {
-  const players = playersNear(ctx, userId, lat, lng);
+  // joueurs réels : seulement autour de la position serveur récente du demandeur (pas d'espionnage à distance par lat/lng)
+  const u = userId ? getUser(ctx, userId) : undefined;
+  const last = u ? moveStateOf(u).last : null;
+  const here = !!last && ctx.now() - last.at <= LIVING.playerSeenMs && haversineM(last, { lat, lng }) <= LIVING.walkersRadiusM;
+  const players = here ? playersNear(ctx, userId, last!.lat, last!.lng) : [];
   const runners = runnersNear(ctx, lat, lng).slice(0, LIVING.walkersMax - players.length);
   return { now: ctx.now(), walkers: [...runners, ...players] };
 }

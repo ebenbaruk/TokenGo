@@ -155,6 +155,8 @@ describe('play anywhere: a GPS player in Lisbon', () => {
     let capped: WorldResponse['region'] | null = null;
     for (let i = 0; i < 20 && !capped; i++) {
       const p = { lat: -33.9 + i * 0.3, lng: 18.4 };
+      clock += 15_000;
+      await c.post('/api/move', { ...p, acc: 8 }); // la génération suit la position serveur du joueur
       const r = (await world(c, p)).body.region!;
       await ctx.regions!.idle();
       if (r.status === 'capped') capped = r;
@@ -166,8 +168,52 @@ describe('play anywhere: a GPS player in Lisbon', () => {
     // un autre réseau peut encore générer
     const other = client('10.9.9.10');
     await other.post('/auth/guest', {});
+    await other.post('/api/move', { lat: 35.68, lng: 139.76, acc: 8 });
     expect((await world(other, { lat: 35.68, lng: 139.76 })).body.region?.status).toBe('scouting');
     await ctx.regions!.idle();
+  });
+
+  // Sécurité : /api/world prend lat/lng en paramètres. Sans ancrage, n'importe qui génère des quartiers n'importe où
+  // (et vide le plafond global du jour pour tout le monde) sans jamais y être.
+  it('generates only around the player’s own server position, never at an arbitrary lat/lng', async () => {
+    overpassDown = true;
+    try {
+      const berlin = { lat: 52.23, lng: 21.01 }; // Varsovie
+      const exists = () => !!ctx.db.prepare('SELECT 1 FROM regions WHERE id = ?').get(regionOf(berlin.lat, berlin.lng));
+      const c = client();
+      await c.post('/auth/guest', {});
+      await world(c, berlin); // pas de position serveur
+      await ctx.regions!.idle();
+      expect(exists()).toBe(false);
+      clock += 15_000;
+      await c.post('/api/move', { ...LOUVRE, acc: 8 }); // position serveur à Paris, carte demandée à Berlin
+      await world(c, berlin);
+      await ctx.regions!.idle();
+      expect(exists()).toBe(false);
+      clock += 15_000;
+      await c.post('/api/move', { ...berlin, acc: 8 }); // le joueur y est (pour le serveur)
+      await world(c, berlin);
+      await ctx.regions!.idle();
+      expect(exists()).toBe(true);
+    } finally { overpassDown = false; }
+  });
+
+  // Sécurité : une box IPv6 reçoit un /64 entier ; une adresse par requête ne doit pas multiplier le plafond par IP.
+  it('IPv6 addresses of one /64 share the per-network daily cap', async () => {
+    overpassDown = true;
+    try {
+      let capped = false;
+      for (let i = 0; i < 20 && !capped; i++) {
+        const c = client(`2001:db8:77:1::${(i + 1).toString(16)}`);
+        await c.post('/auth/guest', {});
+        const p = { lat: -20 + i * 0.3, lng: 57.5 };
+        clock += 15_000;
+        await c.post('/api/move', { ...p, acc: 8 });
+        capped = (await world(c, p)).body.region?.status === 'capped';
+        await ctx.regions!.idle();
+      }
+      expect(capped).toBe(true);
+    } finally { overpassDown = false; }
   });
 });
 

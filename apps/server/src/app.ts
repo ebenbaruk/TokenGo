@@ -13,7 +13,7 @@ import { GameError, type Ctx } from './game/context.ts';
 import { createBus } from './game/bus.ts';
 import { loadWorld } from './game/world.ts';
 import { simulatedCredits, type CreditsProvider } from './game/credits.ts';
-import { randomId, safeEqual, sha256hex } from './game/crypto.ts';
+import { netKey, randomId, safeEqual, sha256hex } from './game/crypto.ts';
 import { createUser, getUser, meView, moveStateOf } from './game/players.ts';
 import { catchResolve, catchStart, move, relaySync, worldView } from './game/actions.ts';
 import { deliver, executeTrade, makeQuote, rescue, viewMerchant } from './game/market.ts';
@@ -97,7 +97,7 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
     // les fichiers statiques (front buildé) ne comptent pas : sinon une page vide pour tout un Wi-Fi partagé
     allowList: (req) => !req.url.startsWith('/api') && !req.url.startsWith('/auth'),
     timeWindow: '1 minute',
-    keyGenerator: (req) => (req as FastifyRequest).userId ?? req.ip,
+    keyGenerator: (req) => (req as FastifyRequest).userId ?? netKey(req.ip),
     errorResponseBuilder: () => ({ statusCode: 429, error: { code: 'RATE_LIMITED', message: 'Slow down a little.' } }),
   });
 
@@ -145,7 +145,7 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
     return req.userId;
   };
   const rl = (max: number, timeWindow = '1 minute') => ({ config: { rateLimit: { max, timeWindow } } });
-  const rlIp = (max: number, timeWindow = '1 minute') => ({ config: { rateLimit: { max, timeWindow, keyGenerator: (r: FastifyRequest) => r.ip } } });
+  const rlIp = (max: number, timeWindow = '1 minute') => ({ config: { rateLimit: { max, timeWindow, keyGenerator: (r: FastifyRequest) => netKey(r.ip) } } });
 
   /** Ouvre une session (rotation : l'éventuelle session précédente de ce navigateur est supprimée). */
   const startSession = (req: FastifyRequest, reply: FastifyReply, userId: string) => {
@@ -158,10 +158,10 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
   };
 
   // ── auth ──
-  app.post('/auth/guest', { config: { rateLimit: { max: cfg.prod ? 3 : 1000, timeWindow: '1 hour', keyGenerator: (r: FastifyRequest) => r.ip } } }, async (req, reply) => {
+  app.post('/auth/guest', { config: { rateLimit: { max: cfg.prod ? 3 : 1000, timeWindow: '1 hour', keyGenerator: (r: FastifyRequest) => netKey(r.ip) } } }, async (req, reply) => {
     const body = z.object({ demo: z.boolean().optional(), token: z.string().max(200).optional() }).parse(req.body ?? {});
     const demoToken = !!(cfg.DEMO_TOKEN && body.token && safeEqual(body.token, cfg.DEMO_TOKEN));
-    const ipHash = sha256hex(`${cfg.SESSION_SECRET}:${req.ip}`);
+    const ipHash = sha256hex(`${cfg.SESSION_SECRET}:${netKey(req.ip)}`);
     const day = parisDay(now());
     // pass démo : un compte par IP et par jour (un lien de démo qui fuit ne fabrique pas des comptes Judge Pool à la chaîne)
     if (demoToken && db.prepare('SELECT 1 FROM demo_passes WHERE ip_hash = ? AND day = ?').get(ipHash, day)) {
@@ -235,7 +235,7 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
   app.post('/api/move', rl(40), async (req) => move(ctx, auth(req), LatLng.extend({ acc: z.number().min(0).max(10_000), heading: z.number().optional() }).parse(req.body)));
   app.get('/api/world', async (req) => {
     const q = z.object({ lat: z.coerce.number().min(-90).max(90), lng: z.coerce.number().min(-180).max(180) }).parse(req.query);
-    return worldView(ctx, auth(req), q.lat, q.lng, sha256hex(`${cfg.SESSION_SECRET}:${req.ip}`));
+    return worldView(ctx, auth(req), q.lat, q.lng, sha256hex(`${cfg.SESSION_SECRET}:${netKey(req.ip)}`));
   });
   // marcheurs autour du joueur : au plus 12, interrogé toutes les ~6 s par la carte
   app.get('/api/walkers', rl(30), async (req) => {
@@ -331,7 +331,7 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
     });
     return reply;
   };
-  app.get('/api/pulse/stream', async (req, reply) => sse(req, reply, `ip:${req.ip}`, SSE_LIMITS.perIp, ctx.bus.subscribe));
+  app.get('/api/pulse/stream', async (req, reply) => sse(req, reply, `ip:${netKey(req.ip)}`, SSE_LIMITS.perIp, ctx.bus.subscribe));
   app.get('/api/stream', async (req, reply) => {
     const userId = auth(req);
     // événements privés du joueur + événements de ville (city.*) partagés par tous

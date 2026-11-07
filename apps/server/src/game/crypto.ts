@@ -3,6 +3,21 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes, timingSafeEq
 
 export const sha256hex = (s: string) => createHash('sha256').update(s).digest('hex');
 export const randomId = (bytes = 16) => randomBytes(bytes).toString('base64url');
+
+/**
+ * Clé « réseau » d'une IP pour les plafonds par IP : IPv4 telle quelle (y compris ::ffff:a.b.c.d), IPv6 réduite à son /64
+ * (un abonné reçoit un /64 entier : une adresse par requête ne doit pas multiplier les plafonds).
+ */
+export function netKey(ip: string): string {
+  const v4 = /^(?:::ffff:)?(\d{1,3}(?:\.\d{1,3}){3})$/i.exec(ip);
+  if (v4) return v4[1]!;
+  if (!ip.includes(':')) return ip;
+  const [head = '', tail = ''] = ip.split('%')[0]!.toLowerCase().split('::');
+  const h = head ? head.split(':') : [];
+  const t = ip.includes('::') && tail ? tail.split(':') : [];
+  const full = ip.includes('::') ? [...h, ...Array(Math.max(0, 8 - h.length - t.length)).fill('0'), ...t] : h;
+  return `${full.slice(0, 4).map((x) => x.replace(/^0+(?=.)/, '')).join(':')}::/64`;
+}
 /** Comparaison de secrets à temps constant (digests sha256 de même longueur, quelle que soit l'entrée). */
 export const safeEqual = (a: string, b: string) =>
   timingSafeEqual(createHash('sha256').update(a).digest(), createHash('sha256').update(b).digest());

@@ -1,7 +1,7 @@
 // Actions de la boucle 30 s / 5 min : déplacement, monde visible, capture, sync de relais.
 import { gridDisk } from 'h3-js';
 import {
-  CATCH, FAMILY_INFO, LIVING, RELAY, XP, eventSpawnsForCell, merchantBubble, applyMove, canActAt, catchParams, catchXp, haversineM, missingFor, nextCombo, offsetM,
+  CATCH, FAMILY_INFO, LIVING, RELAY, WORLD_GEN, XP, eventSpawnsForCell, merchantBubble, applyMove, canActAt, catchParams, catchXp, haversineM, missingFor, nextCombo, offsetM,
   randInt, recipesFor, resolveCatch, rngFrom, shardToken, spawnWindow, spawnsForCell, weightedPick, familyWeights,
   type ActionTarget, type CatchResolveResponse, type CatchStartResponse, type Family, type MoveRequest, type MoveResponse,
   type NodeView, type Objective, type SpawnView, type SyncResponse, type WorldResponse,
@@ -132,8 +132,11 @@ export function worldView(ctx: Ctx, userId: string, lat: number, lng: number, ip
     return v;
   });
   // la route s'ancre sur la dernière position reçue par /api/move (pas sur les paramètres de /api/world)
-  const route = routeFor(ctx, u, moveStateOf(u).last);
-  const region = ctx.regions?.ensure(lat, lng, ipHash);
+  const last = moveStateOf(u).last;
+  const route = routeFor(ctx, u, last);
+  // nouvelles régions : seulement autour de la position serveur récente du joueur (pas d'un lat/lng choisi par le client)
+  const anchored = !!last && now - last.at <= WORLD_GEN.anchorFreshMs && haversineM(last, { lat, lng }) <= WORLD_GEN.anchorMaxM;
+  const region = ctx.regions?.ensure(lat, lng, ipHash, anchored);
   return {
     now, nodes: views, spawns: visibleSpawns(ctx, u, lat, lng), reserve: reserveView(ctx), objective: objective(ctx, u, lat, lng), route,
     event: eventView(event), ...(region ? { region } : {}),

@@ -232,4 +232,23 @@ describe('walkers', () => {
     expect(p.walkers.runners).toBe(24);
     expect(p.walkers.players).toBeGreaterThan(0);
   });
+
+  // Sécurité : sans ancrage, /api/walkers?lat&lng permet d'épier la présence d'un joueur n'importe où (son quartier, la nuit),
+  // et un id stable toute la journée permet de suivre son trajet de cellule en cellule.
+  it('real players are only shown around the requester’s own server position, and walker ids rotate', async () => {
+    const home = { lat: 48.8790, lng: 2.3050 }; // ~3 km du Louvre
+    const b = await s.player(home);
+    const spy = await s.player(); // au Louvre pour le serveur
+    const remote = (await spy.get<WalkersResponse>(`/api/walkers?lat=${home.lat}&lng=${home.lng}`)).body.walkers.filter((w) => w.kind === 'player');
+    expect(remote).toEqual([]);
+    const near = await s.player({ lat: 48.8792, lng: 2.3054 });
+    const ids1 = (await near.get<WalkersResponse>(`/api/walkers?lat=${home.lat}&lng=${home.lng}`)).body.walkers.filter((w) => w.kind === 'player').map((w) => w.id);
+    expect(ids1.length).toBeGreaterThan(0);
+    s.env.clock += LIVING.privacyWindowMs;
+    await b.post('/api/move', { lat: home.lat, lng: home.lng, acc: 8 });
+    await near.post('/api/move', { lat: 48.8792, lng: 2.3054, acc: 8 });
+    const ids2 = (await near.get<WalkersResponse>(`/api/walkers?lat=${home.lat}&lng=${home.lng}`)).body.walkers.filter((w) => w.kind === 'player').map((w) => w.id);
+    expect(ids2.length).toBeGreaterThan(0);
+    expect(ids2.some((id) => ids1.includes(id))).toBe(false);
+  });
 });
