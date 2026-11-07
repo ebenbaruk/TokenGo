@@ -1,0 +1,109 @@
+/* Décodage « Next token » (Docs/13 §3) — carte plein écran sur l'aplat de la famille, terminal + 3 jetons. */
+.wrap {
+  position: absolute; inset: 0; z-index: 6; display: flex; flex-direction: column; gap: 14px; color: var(--ink);
+  padding: calc(var(--safe-top) + 18px) 16px calc(var(--safe-bottom) + 18px);
+  animation: flipIn .32s var(--ease-pop); cursor: default; overflow: hidden;
+}
+@keyframes flipIn { from { transform: perspective(700px) rotateX(-70deg) scale(.9); opacity: 0; } }
+
+.head { display: flex; align-items: center; justify-content: center; gap: 12px; }
+.mini { display: grid; place-items: center; width: 64px; height: 64px; background: var(--panel); border: var(--border); border-radius: 14px; box-shadow: var(--shadow-hard); animation: bob 1.2s ease-in-out infinite; }
+@keyframes bob { 50% { transform: translateY(-4px) rotate(-3deg); } }
+.kicker { font-weight: 900; font-size: 13px; letter-spacing: .04em; text-transform: uppercase; background: var(--ink); color: var(--sun); padding: 2px 8px; border-radius: 6px; width: fit-content; }
+.title { font-family: var(--font-pixel); font-size: 44px; line-height: 1; letter-spacing: .06em; color: var(--white); text-shadow: 3px 3px 0 var(--ink), -1px -1px 0 var(--ink), 1px -1px 0 var(--ink), -1px 1px 0 var(--ink); }
+
+/* terminal : fond encre, texte mono, barre de fenêtre à la couleur de la famille */
+.term { margin-top: auto; background: var(--ink); color: var(--white); border: var(--border); border-radius: var(--radius-l); box-shadow: 5px 5px 0 rgba(26,28,44,.55); overflow: hidden; }
+.termBar { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: var(--fam); border-bottom: 3px solid var(--ink); font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--ink); }
+.termBar i { width: 10px; height: 10px; border: 2px solid var(--ink); border-radius: 2px; background: var(--white); }
+.termBar i:nth-child(2) { background: var(--sun); }
+.termBar i:nth-child(3) { background: var(--berry); }
+.termBar span { margin-left: auto; opacity: .85; }
+.prompt { margin: 0; padding: 18px 16px 14px; min-height: 84px; display: block; font-family: var(--font-mono); font-size: 25px; line-height: 1.35; font-weight: 700; word-break: break-word; }
+.long { font-size: 21px; }
+.blank { display: inline-block; color: var(--lime); animation: blink .7s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.fill { display: inline-block; padding: 0 6px; border-radius: 4px; animation: typeIn .3s var(--ease-pop); }
+.fillOk { background: var(--lime); color: var(--ink); }
+.fillBad { background: var(--white); color: var(--ink); outline: 2px dashed var(--lime); }
+@keyframes typeIn { from { transform: scale(1.6); opacity: 0; } }
+
+/* barre de temps qui fond : soleil → orange → baie */
+.timer { height: 12px; margin: 0 14px 14px; background: var(--night); border: 2px solid var(--white); border-radius: 4px; overflow: hidden; }
+.timeFill { height: 100%; width: 100%; transform-origin: left center; background: var(--sun); animation: shrink var(--t) linear forwards, heat var(--t) steps(1) forwards; }
+.timeStop { animation-play-state: paused; }
+@keyframes shrink { to { transform: scaleX(0); } }
+@keyframes heat { 55% { background: var(--orange); } 80% { background: var(--berry); } }
+
+/* jetons : gros boutons pixel, monospace, bande de la couleur de la famille */
+.chips { display: flex; flex-direction: column; gap: 12px; }
+.chip {
+  position: relative; display: flex; align-items: center; gap: 12px; min-height: 66px; padding: 8px 14px 8px 10px; text-align: left;
+  font: inherit; color: var(--ink); background: var(--panel); border: var(--border); border-radius: 12px; box-shadow: var(--shadow-hard);
+  cursor: pointer; touch-action: manipulation; transition: transform .06s, box-shadow .06s, opacity .2s;
+  animation: chipIn .35s var(--ease-pop) both; animation-delay: calc(80ms + var(--i) * 60ms);
+}
+@keyframes chipIn { from { transform: translateY(18px) scale(.9); opacity: 0; } }
+.chip:active, .chip[data-state="wait"] { transform: translate(3px, 3px); box-shadow: 1px 1px 0 var(--ink); }
+.chipIdx {
+  display: grid; place-items: center; flex: none; width: 36px; height: 36px; font-family: var(--font-pixel); font-size: 20px;
+  background: var(--fam); border: var(--border-thin); border-radius: 8px;
+}
+.chipText { font-family: var(--font-mono); font-size: 24px; font-weight: 800; letter-spacing: -.01em; }
+.chip[data-state="right"] { background: var(--green); color: var(--white); animation: right .45s var(--ease-pop); }
+.chip[data-state="right"] .chipIdx { background: var(--lime); color: var(--ink); }
+.chip[data-state="right"] .chipText::after { content: ' ✓'; }
+.chip[data-state="wrong"] { background: var(--berry); color: var(--white); animation: wrong .4s steps(6); }
+.chip[data-state="wrong"] .chipIdx { background: var(--ink); color: var(--white); }
+.chip[data-state="dim"] { opacity: .45; }
+@keyframes right { 40% { transform: scale(1.06) rotate(-1deg); } }
+@keyframes wrong { 20% { transform: translateX(-8px); } 40% { transform: translateX(7px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(3px); } }
+
+.foot { margin-bottom: auto; padding-top: 6px; display: flex; flex-direction: column; align-items: center; gap: 8px; min-height: 64px; }
+.hint { font-weight: 800; background: rgba(255,253,246,.92); border-radius: 8px; padding: 4px 10px; }
+.outcome { font-weight: 900; background: var(--panel); border: var(--border-thin); border-radius: 8px; padding: 4px 12px; box-shadow: var(--shadow-hard-s); animation: typeIn .3s var(--ease-pop) .15s both; }
+.stamp {
+  font-family: var(--font-pixel); font-size: 40px; color: var(--ink); background: var(--lime); border: var(--border); border-radius: 12px;
+  padding: 2px 18px; box-shadow: var(--shadow-hard); transform: rotate(-4deg); animation: stamp .45s var(--ease-pop);
+}
+@keyframes stamp { from { transform: rotate(-14deg) scale(2.4); opacity: 0; } }
+
+/* hallucination : texte dédoublé rouge / cyan qui tremble */
+.halluc {
+  position: relative; font-family: var(--font-mono); font-size: 30px; font-weight: 900; font-style: italic; color: var(--white);
+  background: var(--ink); border-radius: 10px; padding: 2px 16px 4px; box-shadow: var(--shadow-hard);
+  text-shadow: 3px 0 0 rgba(255, 0, 90, .85), -3px 0 0 rgba(0, 240, 255, .85), 0 3px 0 var(--ink);
+  animation: jitter .18s steps(2) infinite;
+}
+@keyframes jitter { 50% { transform: translate(2px, -1px) skewX(-6deg); text-shadow: -4px 0 0 rgba(255,0,90,.85), 4px 0 0 rgba(0,240,255,.85), 0 3px 0 var(--ink); } }
+
+/* écran entier : secousse + séparation chromatique + tranches décalées + lignes de balayage */
+.glitch { animation: shake .5s steps(10), chroma .9s steps(6); }
+.glitch::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none; mix-blend-mode: hard-light;
+  background:
+    repeating-linear-gradient(0deg, rgba(26,28,44,.22) 0 2px, transparent 2px 5px),
+    linear-gradient(180deg, transparent 22%, rgba(255,0,90,.35) 22% 27%, transparent 27% 58%, rgba(0,240,255,.35) 58% 62%, transparent 62%);
+  animation: slices .9s steps(5) forwards;
+}
+@keyframes shake {
+  10% { transform: translate(-10px, 3px); } 20% { transform: translate(9px, -5px); } 30% { transform: translate(-7px, -2px) skewX(4deg); }
+  40% { transform: translate(6px, 4px); } 60% { transform: translate(-4px, 1px) skewX(-3deg); } 80% { transform: translate(2px, -1px); }
+}
+@keyframes chroma {
+  0%, 100% { filter: none; }
+  20% { filter: drop-shadow(5px 0 0 rgba(255,0,90,.8)) drop-shadow(-5px 0 0 rgba(0,240,255,.8)) saturate(1.6); }
+  50% { filter: drop-shadow(-4px 0 0 rgba(255,0,90,.8)) drop-shadow(4px 0 0 rgba(0,240,255,.8)) hue-rotate(40deg); }
+  80% { filter: drop-shadow(2px 0 0 rgba(255,0,90,.6)) drop-shadow(-2px 0 0 rgba(0,240,255,.6)); }
+}
+@keyframes slices { 0% { transform: translateY(0); opacity: 1; } 50% { transform: translateY(-120px); } 100% { transform: translateY(180px); opacity: .4; } }
+
+/* « decoded! » : éclats pixel qui partent du centre */
+.burst { position: absolute; left: 50%; top: 52%; width: 0; height: 0; pointer-events: none; }
+.burst i { position: absolute; width: 10px; height: 10px; background: var(--c); border: 2px solid var(--ink); animation: fly .8s var(--ease-out) forwards; transform: rotate(var(--a)); }
+@keyframes fly { to { transform: rotate(var(--a)) translateY(calc(var(--r) * -1)) scale(.5); opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .wrap, .glitch, .glitch::after, .halluc, .stamp, .chip, .mini, .blank { animation: none; }
+  .timeFill { animation: shrink var(--t) linear forwards; }
+}

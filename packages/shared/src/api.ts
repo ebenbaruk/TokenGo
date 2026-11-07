@@ -15,7 +15,8 @@ export type ErrorCode =
   | 'ALREADY_CAUGHT' | 'EXPIRED' | 'INSUFFICIENT' | 'PRICE_MOVED' | 'RESERVE_LOW' | 'FORGE_PAUSED'
   | 'CLOSED' | 'NOT_BUYING' | 'MERCHANT_NO_FLUX' | 'OUT_OF_STOCK' | 'CONTRACT_LOCK' | 'BAD_QTY' | 'STRIKE'
   | 'NO_CONTRACT' | 'NOT_STRUGGLING' | 'BAD_AMOUNT' | 'DEMO_CANNOT_SELL' | 'TUTORIAL_INCOMPLETE'
-  | 'HANDLE_TAKEN' | 'BAD_HANDLE' | 'FORBIDDEN' | 'GRANT_PENDING' | 'HAGGLE_SOUR' | 'HAGGLE_NO_ROOM';
+  | 'HANDLE_TAKEN' | 'BAD_HANDLE' | 'FORBIDDEN' | 'GRANT_PENDING' | 'HAGGLE_SOUR' | 'HAGGLE_NO_ROOM'
+  | 'NO_DECODE';
 export interface ApiError { error: { code: ErrorCode; message: string; [k: string]: unknown } }
 
 export type Inventory = Record<Family, number>;
