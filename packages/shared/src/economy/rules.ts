@@ -466,8 +466,8 @@ export const ARENA = {
   hallucBase: 0.08,               // 8 % de base…
   hallucPower: 0.3,               // … puissance × 0,3
   affinityBonus: 0.1,             // familles du thème de la Forge : +10 % des deux côtés
-  guardianMasteryBase: 2,         // maîtrise du Gardien = 2 + (numéro de jour mod 3)
-  guardianMasteryMod: 3,
+  guardianMasteryBase: 1,         // maîtrise du Gardien = 1 + (numéro de jour mod 2) : ~40–50 % de victoires pour un joueur neuf (simulé)
+  guardianMasteryMod: 2,
   championExpiryMs: 48 * 3600_000, // Champion inactif 48 h → le Gardien reprend l'arène
   championFluxPer10Min: 4,        // +4 ƒ par tranche de 10 min tenue…
   championFluxMaxDay: 240,        // … max 240 ƒ / jour de Paris / joueur (versés à la consultation ou à la défaite)

@@ -179,9 +179,9 @@ describe('battle rules', () => {
     }
     expect(wins / N).toBeGreaterThan(0.75);
   });
-  it('guardian mastery 2..4 cycles by day; guardian team is 3 distinct families', () => {
+  it('guardian mastery 1..2 cycles by day; guardian team is 3 distinct families', () => {
     const ms = new Set(['2026-11-08', '2026-11-09', '2026-11-10', '2026-11-11'].map(guardianMastery));
-    expect([...ms].sort()).toEqual([2, 3, 4]);
+    expect([...ms].sort()).toEqual([1, 2]);
     for (let i = 0; i < 50; i++) expect(validArenaTeam(guardianTeam(mulberry32(i)))).toBe(true);
     expect(validArenaTeam(['gpt', 'gpt', 'qwen'])).toBe(false);
     expect(validArenaTeam(['gpt', 'qwen'])).toBe(false);

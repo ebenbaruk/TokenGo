@@ -98,8 +98,8 @@ describe('arena', () => {
     expect(v.body.holder.name).toBe('Sentinel of Louvre');
     expect(v.body.holder.team).toHaveLength(3);
     const m = v.body.holder.team[0]!.mastery;
-    expect(m).toBeGreaterThanOrEqual(2);
-    expect(m).toBeLessThanOrEqual(4);
+    expect(m).toBeGreaterThanOrEqual(1);
+    expect(m).toBeLessThanOrEqual(2);
     expect(v.body.affinities).toEqual(['gemini', 'claude']);
     expect(v.body.families).toHaveLength(5);
     expect(v.body.families.every((f) => f.owned >= 1 && f.mastery.level === 1)).toBe(true);

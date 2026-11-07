@@ -87,7 +87,7 @@ Les Communs (DeepSeek, Qwen) sont des **spécialistes** redoutables : une équip
 
 ### Adversaires
 - **Gardien** (PNJ, toujours là si pas de Champion) : « Sentinel of <Forge> », équipe déterministe (graine jour + forge), maîtrise
-  = 2 + (numéro de jour mod 3), politique : prend le meilleur modèle dispo pour l'épreuve, technique la plus rentable dans son budget.
+  = 1 + (numéro de jour mod 2) (réglé par simulation : ~40–50 % de victoires pour une équipe neuve jouée mécaniquement), politique : prend le meilleur modèle dispo pour l'épreuve, technique la plus rentable dans son budget.
 - **Champion** (joueur) : son équipe et sa maîtrise sont **figées** au moment où il prend l'arène ; c'est un « fantôme » qui joue avec
   la même politique que le Gardien. Battre le Champion → on devient Champion.
 - On ne peut pas défier sa propre arène. Un Champion qui n'a pas joué depuis 48 h est remplacé par le Gardien.
