@@ -5,9 +5,10 @@ import { useGame } from '../lib/store.ts';
 import { fmtCountdown } from '../lib/format.ts';
 import { mapCtl } from '../map/ctl.ts';
 import { EVENT_COLORS } from '../map/living.ts';
+import { RaidBanner } from './RaidBanner.tsx';
 import s from './EventBanner.module.css';
 
-const ICON = { flash_crash: '▼', hype: '▲', gold_rush: '★', strike: '✋' } as const;
+const ICON = { flash_crash: '▼', hype: '▲', gold_rush: '★', strike: '✋', rogue: '⚠' } as const;
 
 export function EventBanner() {
   const e = useGame((st) => st.world?.event ?? null);
@@ -21,6 +22,7 @@ export function EventBanner() {
   const d = pos ? haversineM(pos, e) : null;
   if (d !== null && d > LIVING.eventFarM) return null; // joueur dans une autre ville (monde « partout ») : l'événement reste dans le Pulse
   const where = d === null ? '' : d <= e.radiusM ? 'you’re in the zone!' : d < 1000 ? `${Math.round(d / 10) * 10} m away` : `${(d / 1000).toFixed(1)} km away`;
+  if (e.kind === 'rogue') return <RaidBanner e={e} left={left} where={where} />; // Raid (Docs/13 §6)
   const c = EVENT_COLORS[e.kind];
   return (
     <button type="button" className={s.banner} data-testid="event-banner" data-kind={e.kind} onClick={() => mapCtl.lookAt(e)}

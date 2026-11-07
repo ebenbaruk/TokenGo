@@ -16,8 +16,9 @@ export const EVENT_COLORS: Record<CityEventView['kind'], { fill: string; line: s
   hype: { fill: '#38b764', line: '#257179', text: '#257179' },
   gold_rush: { fill: '#ffcd75', line: '#ef7d57', text: '#b13e53' },
   strike: { fill: '#566c86', line: '#333c57', text: '#333c57' },
+  rogue: { fill: '#b13e53', line: '#5d275d', text: '#b13e53' }, // Raid (Docs/13 §6)
 };
-const EVENT_ICON: Record<CityEventView['kind'], string> = { flash_crash: '▼', hype: '▲', gold_rush: '★', strike: '✋' };
+const EVENT_ICON: Record<CityEventView['kind'], string> = { flash_crash: '▼', hype: '▲', gold_rush: '★', strike: '✋', rogue: '⚠' };
 
 function circle(c: LatLng, r: number): Feature {
   const pts: [number, number][] = [];
@@ -204,7 +205,7 @@ export function attachLiving(map: MLMap, onNode: (n: NodeView) => void): Living 
     z.properties = { fill: c.fill, line: c.line };
     zone.setData(fc([z]));
     // étiquette au bord nord de la zone : lisible quand on regarde la zone de loin, jamais sur l'avatar
-    label.setData(inside ? fc([]) : fc([pt({ lat: live.lat + (live.radiusM * 0.92) / 110_540, lng: live.lng }, { label: `${EVENT_ICON[live.kind]} ${live.title.split(' at ')[0]!.split(' near ')[0]!.toUpperCase()}\n${live.effect}`, color: c.text })]));
+    label.setData(inside || live.kind === 'rogue' ? fc([]) : fc([pt({ lat: live.lat + (live.radiusM * 0.92) / 110_540, lng: live.lng }, { label: `${EVENT_ICON[live.kind]} ${live.title.split(' at ')[0]!.split(' near ')[0]!.toUpperCase()}\n${live.effect}`, color: c.text })]));
   };
 
   let pulse = 0;

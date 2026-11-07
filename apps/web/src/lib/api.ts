@@ -5,6 +5,7 @@ import type {
   PulseResponse, PublicConfig, LeaderboardsResponse, LabSnapshot, CodexView, HaggleCard, HaggleView, HaggleDealResponse,
   ArenaView, ArenaStartResponse, ArenaPlayResponse, Family, Technique,
   DecodeView, DecodeAnswerResponse,
+  RaidView, RaidStartResponse, RaidPlayResponse, // Raid (Docs/13 §6)
 } from '@tokengo/shared';
 
 export class ApiFail extends Error {
@@ -52,6 +53,9 @@ const HUMAN: Partial<Record<ApiFail['code'], string>> = {
   NO_TOKENS: 'Not enough tokens left for that technique.',
   OWN_ARENA: 'You already hold this arena.',
   BAD_TEAM: 'Pick 3 different models you own.',
+  // Raid « Rogue Model » (Docs/13 §6)
+  RAID_OVER: 'The rogue model is gone.',
+  NO_ASSAULTS: 'You used your 3 assaults on this rogue model.',
 };
 
 /** Message humain (court, ton du jeu) par code d'erreur. */
@@ -145,6 +149,11 @@ export const api = {
   arenaPlay: (battleId: string, family: Family, technique: Technique) =>
     req<ArenaPlayResponse>('POST', `/api/arena/battle/${enc(battleId)}/play`, { family, technique }),
   greet: (id: string) => req<{ greeting: string; source: 'llm' | 'lines' }>('GET', `/api/merchant/${enc(id)}/greet`),
+  // ── Raid « Rogue Model » (Docs/13 §6) ──
+  raid: (eventId: number) => req<RaidView>('GET', `/api/raid/${eventId}`),
+  raidAttack: (eventId: number, team: Family[]) => req<RaidStartResponse>('POST', `/api/raid/${eventId}/attack`, { team }),
+  raidPlay: (assaultId: string, family: Family, technique: Technique) =>
+    req<RaidPlayResponse>('POST', `/api/raid/assault/${enc(assaultId)}/play`, { family, technique }),
   /** Réponse en texte brut streamé. */
   async playground(model: string, prompt: string, onChunk: (t: string) => void, signal?: AbortSignal): Promise<void> {
     let res: Response;

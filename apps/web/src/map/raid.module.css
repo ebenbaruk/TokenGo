@@ -1,0 +1,16 @@
+/* Marqueur du boss sur la carte : flotte au-dessus de la Forge, grésille, barre de PV dessous. */
+.host { pointer-events: none; z-index: 3; }
+.marker {
+  pointer-events: auto; position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 0; border: 0; background: none; cursor: pointer; font-family: var(--font-ui);
+  animation: float 2.4s ease-in-out infinite;
+}
+@keyframes float { 50% { transform: translateY(-6px); } }
+.name {
+  padding: 1px 7px; background: var(--ink); color: #ff6b7f; border: 2px solid var(--berry); border-radius: 6px;
+  font-family: var(--font-pixel); font-size: 14px; white-space: nowrap; text-shadow: 1px 0 0 var(--cyan);
+  animation: nameGlitch 1.9s steps(1) infinite;
+}
+@keyframes nameGlitch { 0%, 90%, 100% { transform: none; } 92% { transform: translateX(-2px) skewX(10deg); color: var(--cyan); } 95% { transform: translateX(2px); } }
+.bar { width: 112px; }
+@media (prefers-reduced-motion: reduce) { .marker, .name { animation: none; } }

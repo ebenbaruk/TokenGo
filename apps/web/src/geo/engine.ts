@@ -4,6 +4,8 @@ import { haversineM, scoutCharge, scoutCost, LIVING, MOVE, SCOUT, WORLD_GEN, typ
 import { api, ApiFail } from '../lib/api.ts';
 import { useGame, setMe, toast, celebrate, rebaseScout, type Pos } from '../lib/store.ts';
 import { buzz, feedback, play } from '../lib/sound.ts';
+import { onRaidEnd, onRaidHp } from '../lib/raid.ts'; // Raid (Docs/13 §6)
+import type { RaidHpEvent } from '@tokengo/shared';
 
 export const LOUVRE: LatLng = { lat: 48.8611, lng: 2.3358 };
 const SEND_EVERY_MS = 3000;
@@ -76,7 +78,7 @@ function announceEvent(world: WorldResponse): void {
   if (pos && haversineM(pos, e) > LIVING.eventFarM) return; // autre ville : pas de jingle
   announcedEvent = e.id;
   // pas de toast : la bannière du HUD (qui tombe avec un rebond) porte l'annonce ; juste un jingle et une vibration
-  play('event');
+  play(e.kind === 'rogue' ? 'rogue' : 'event'); // raid : alarme du boss
   buzz([40, 60, 40]);
 }
 
@@ -308,10 +310,17 @@ function startUserStream(): void {
   userStream = new EventSource('/api/stream');
   userStream.onmessage = (m) => {
     try {
-      const e = JSON.parse(m.data as string) as { kind: string; text: string };
+      const e = JSON.parse(m.data as string) as { kind: string; text: string; data?: Record<string, unknown> };
       if (e.kind === 'grant.done') { toast(e.text, 'good', 'xp', 4000); void refreshMe(); }
       // événement de ville (partagé) : nouveau monde tout de suite (zone, prix, éclats bonus, bannière)
       if (e.kind === 'city.event' || e.kind === 'city.event.end') void refreshWorld(true);
+      // Raid « Rogue Model » (Docs/13 §6) : PV en direct (éphémère), puis fin collective
+      if (e.kind === 'raid.hp' && e.data) onRaidHp(e.data as unknown as RaidHpEvent);
+      if (e.kind === 'city.raid.end' && e.data) {
+        onRaidEnd(e.data as { eventId: number; outcome: 'won' | 'failed'; boss: string }, e.text);
+        void refreshWorld(true);
+        void refreshMe();
+      }
     } catch { /* ping */ }
   };
 }

@@ -11,6 +11,7 @@ import { CROWN, SHIELD } from '../sprites/arena.grids.ts';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { mapCtl } from './ctl.ts';
 import { addLivingLayers, attachLiving, registerWalkerImages, type Living } from './living.ts';
+import { attachRaidMarker } from './raid.tsx';
 import s from './GameMap.module.css';
 
 setWorkerUrl(workerUrl);
@@ -101,6 +102,7 @@ export default function GameMap({ handlers }: { handlers: MapHandlers }) {
     let frame = 0;
     let animTimer = 0;
     let living: Living | null = null;
+    let stopRaid: (() => void) | null = null;
     let ready = false; // sources/couches ajoutées (isStyleLoaded() reste faux tant que les tuiles chargent)
     const setFollow = (f: boolean) => { following = f; mapCtl.onFollowChange(f); };
     mapCtl.isFollowing = () => following;
@@ -226,6 +228,7 @@ export default function GameMap({ handlers }: { handlers: MapHandlers }) {
       map.moveLayer('walkers', 'spawns');
       ready = true;
       living = attachLiving(map, (n) => h.current.onNode(n));
+      stopRaid = attachRaidMarker(map, (n) => h.current.onNode(n)); // Raid (Docs/13 §6) : boss glitché sur sa Forge
       sync();
       syncMe();
       // frames d'animation (rebond des éclats, étincelles de la forge, lumière des relais)
@@ -290,7 +293,7 @@ export default function GameMap({ handlers }: { handlers: MapHandlers }) {
     });
     const tick = window.setInterval(sync, 5000); // recharges des relais, expirations
     (window as unknown as { __tgMap?: MLMap }).__tgMap = map;
-    return () => { unsub(); clearInterval(tick); clearInterval(animTimer); clearTimeout(freeTimer); living?.stop(); map.remove(); };
+    return () => { unsub(); clearInterval(tick); clearInterval(animTimer); clearTimeout(freeTimer); living?.stop(); stopRaid?.(); map.remove(); };
   }, []);
 
   return <div ref={el} className={s.map} data-testid="map" />;

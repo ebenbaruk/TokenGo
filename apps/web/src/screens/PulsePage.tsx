@@ -11,6 +11,8 @@ import { Sprite } from '../sprites/Sprite.tsx';
 import { SHARDS, FAMILY_DARK } from '../sprites/index.ts';
 import type { CityPoint } from '../map/CityMap.tsx';
 import world from '../../../../data/world/paris.json';
+import { CATEGORY_INFO } from '@tokengo/shared';
+import { BossHpBar } from './raidUi.tsx'; // Raid (Docs/13 §6)
 import s from './PulsePage.module.css';
 
 const CityMap = lazy(() => import('../map/CityMap.tsx'));
@@ -26,7 +28,8 @@ const markets = (world as { nodes: { id: string; kind: string; name: string; lat
 const merchantIdOf = (nodeId: string) => `m-${nodeId.replace(/^osm:/, '').replace('/', '-')}`;
 
 const isAgent = (e: PulseEvent) => Boolean(e.data && (e.data.agent === true || e.data.isAgent === true || e.data.runner === 'agent'));
-const ICON: Record<string, string> = { trade: '⇄', compile: '⚒', catch: '◆', sync: '◎', rescue: '♥', closing: '⚠', closed: '✖', reopened: '★', contract: '✉', settle: '⛓', 'city.event': '⚡', 'city.event.end': '◌' };
+const ICON: Record<string, string> = { trade: '⇄', compile: '⚒', catch: '◆', sync: '◎', rescue: '♥', closing: '⚠', closed: '✖', reopened: '★', contract: '✉', settle: '⛓', 'city.event': '⚡', 'city.event.end': '◌',
+  'city.raid.end': '☠', 'raid.half': '⚠' }; // Raid (Docs/13 §6)
 
 /** Couleur d'un prix relatif (mid / médiane de la ville) : vert = pas cher, jaune = normal, rouge = cher. */
 function priceColor(r: number): string {
@@ -64,6 +67,8 @@ export default function PulsePage() {
     es.onmessage = (m) => {
       try {
         const e = JSON.parse(m.data as string) as PulseEvent;
+        // Raid (Docs/13 §6) : PV en direct (éphémère, hors ticker)
+        if (e.kind === 'raid.hp' && e.data) { const d = e.data as { eventId: number; hp: number }; setPulse((p) => (p?.cityEvent?.raid && p.cityEvent.id === d.eventId ? { ...p, cityEvent: { ...p.cityEvent, raid: { ...p.cityEvent.raid, hp: Math.min(p.cityEvent.raid.hp, d.hp) } } } : p)); return; }
         setEvents((cur) => mergeEvents(cur, [e]));
         if (e.kind.startsWith('city.')) void load(); // carte « Now in Paris » à jour tout de suite
       } catch { /* ping */ }
@@ -207,6 +212,7 @@ function LivingCard({ pulse }: { pulse: PulseResponse | null }) {
           {e ? <>
             <div className={s.evTitle}><span className={s.evBadge} data-kind={e.kind}>⚡</span>{e.title}</div>
             <div className={s.kSub}>{e.effect} · <span className="num">{fmtCountdown(e.endsAt - now)}</span> left</div>
+            {e.raid ? <div className={s.raidHp} data-testid="pulse-raid"><BossHpBar hp={e.raid.hp} max={e.raid.maxHp} size="s" testId="pulse-raid-hp" /><small>{e.raid.boss} · weak to {CATEGORY_INFO[e.raid.weakness].name} · {e.raid.participants} fighting</small></div> : null}
           </> : <div className={s.kSub}>{pulse ? 'No city event right now — flash crashes, gold rushes and strikes pop up a few times a day.' : 'loading…'}</div>}
         </div>
         <div className={s.livingWalkers} data-testid="pulse-walkers">
