@@ -2,7 +2,7 @@
 // Fin : confettis, puis choix du district (pré-sélectionné selon la position).
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
-import type { TutorialState } from '@tokengo/shared';
+import { FIRST_COMPILE, FAMILY_INFO, type Family, type Me, type TutorialState } from '@tokengo/shared';
 import { useGame, openOverlay, setMe, toast } from '../lib/store.ts';
 import { api, humanError, unwrapMe } from '../lib/api.ts';
 import { play } from '../lib/sound.ts';
@@ -15,12 +15,22 @@ import s from './Tutorial.module.css';
 const SKIP_KEY = 'tg.tutorialSkipped';
 const MARGOT = merchantSprite('grandma', 'margot');
 
+const NEEDS = Object.entries(FIRST_COMPILE.needs) as [Family, number][];
+function needsText(): string { return NEEDS.map(([f, n]) => `${n} ${FAMILY_INFO[f].name}`).join(' + '); }
+/** Étape Forge : dit exactement ce qui manque (un joueur qui a vendu son DeepSeek ne doit pas croire qu'il est prêt). */
+function firstCompileLine(me: Me, demo: boolean): string {
+  const lack = NEEDS.filter(([f, n]) => (me.shards[f] ?? 0) < n).map(([f, n]) => `${n - (me.shards[f] ?? 0)} ${FAMILY_INFO[f].name}`);
+  if (lack.length) return `Your First Compile needs ${needsText()}. Still missing ${lack.join(' + ')} — catch it or buy it from a merchant.`;
+  return demo
+    ? 'You’re ready! Tap the purple goal at the top to fly to the Forge, then hold Compile. This one’s on the city!'
+    : 'You’re ready! Walk to the Forge (purple goal at the top) and hold Compile. This one’s on the city!';
+}
 type Step = keyof TutorialState | 'done';
 const LINES: Record<Step, { text: string; cta?: string }> = {
   caught: { text: 'Hi, I’m Margot! See that glowing shard? Tap Catch, then tap again when the ring hits the dashed circle.' },
-  synced: { text: 'Lovely catch! Now find a relay — the little antenna — and swipe its disc to sync.' },
-  traded: { text: 'Merchants buy and sell shards. Open a shop, tap ⓘ “Why this price?”, then sell me one.' },
-  firstCompile: { text: 'You’re ready: walk to the Forge and hold Compile. First Compile is on the city!' },
+  synced: { text: 'Lovely catch! Now find a relay — the little antenna — and spin its disc to sync.' },
+  traded: { text: `Merchants trade shards. Open a shop, tap ⓘ “Why this price?”, then sell a spare — keep ${needsText()} for the Forge!` },
+  firstCompile: { text: '' }, // dynamique : voir firstCompileLine
   playground: { text: 'That’s real compute now. Open Credits and ask the Playground anything.', cta: 'Open Credits' },
   done: { text: 'You’re a Runner now. Paris is yours!' },
 };
@@ -31,6 +41,7 @@ const skipped = () => { try { return localStorage.getItem(SKIP_KEY) === '1'; } c
 export function Tutorial() {
   const me = useGame((st) => st.me);
   const overlay = useGame((st) => st.overlay);
+  const demo = useGame((st) => st.demo);
   const [hidden, setHidden] = useState<Step | null>(null);
   const [off, setOff] = useState(skipped());
   const [confetti, setConfetti] = useState(false);
@@ -59,7 +70,7 @@ export function Tutorial() {
           <span className={s.portrait}><Sprite def={MARGOT} scale={2} anim /></span>
           <div className={s.bubble}>
             <div className={s.who}>Margot <span className={s.count}>{allDone ? '✓' : `${ORDER.indexOf(step as keyof TutorialState) + 1}/5`}</span></div>
-            <p>{LINES[step].text}</p>
+            <p>{step === 'firstCompile' && me ? firstCompileLine(me, demo) : LINES[step].text}</p>
             <div className={s.actions}>
               {LINES[step].cta ? <button type="button" className={s.cta} onClick={() => openOverlay({ kind: 'credits' })}>{LINES[step].cta}</button> : null}
               {!allDone ? <button type="button" className={s.skip} onClick={() => { try { localStorage.setItem(SKIP_KEY, '1'); } catch { /* */ } setOff(true); }} data-testid="tutorial-skip">Skip tutorial</button> : null}

@@ -16,6 +16,8 @@ const ROUTES: Record<string, LazyExoticComponent<ComponentType>> = {
 
 const path = location.pathname.replace(/\/+$/, '') || '/';
 const Page = ROUTES[path];
+// le jeu (pas les pages) : cadre de téléphone + panneau d'explication sur grand écran (global.css)
+if (!Page) document.body.classList.add('game');
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     {Page ? <Suspense fallback={<div className="route-loading pixel">Loading…</div>}><Page /></Suspense> : <App />}

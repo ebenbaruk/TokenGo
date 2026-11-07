@@ -13,7 +13,7 @@ import { shardVariant, VARIANT_COLOR, FLAME } from '../sprites/variants.ts';
 import { Button, Counter } from '../ui/index.tsx';
 import s from './CatchScreen.module.css';
 
-const RING_FROM = 2.6;
+const RING_FROM = 1.9; // l'anneau est visible dès le début du cycle sur un écran de 390 px (2.6 le cachait un tiers du temps)
 const RING_TO = 0.35;
 const TARGET = 1;
 const DARK_BG = new Set(['qwen']);

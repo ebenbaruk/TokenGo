@@ -20,6 +20,8 @@ interface ButtonProps {
   disabled?: boolean;
   /** raison affichée sous le bouton quand il est désactivé (règle « toujours dire pourquoi ») */
   reason?: string | null;
+  /** petite ligne sous un bouton actif (ex. « 61 m · Le Café Marly » sous « Fly there ») */
+  hint?: string | null;
   loading?: boolean;
   block?: boolean;
   className?: string;
@@ -27,7 +29,7 @@ interface ButtonProps {
   testId?: string;
   ariaLabel?: string;
 }
-export function Button({ children, onClick, variant = 'secondary', size = 'm', disabled, reason, loading, block, className, style, testId, ariaLabel }: ButtonProps) {
+export function Button({ children, onClick, variant = 'secondary', size = 'm', disabled, reason, hint, loading, block, className, style, testId, ariaLabel }: ButtonProps) {
   const isDisabled = disabled || loading || Boolean(reason);
   return (
     <span className={clsx(s.btnWrap, block && s.block)}>
@@ -39,7 +41,8 @@ export function Button({ children, onClick, variant = 'secondary', size = 'm', d
         {loading ? <span className={s.spinner} aria-hidden /> : null}
         {children}
       </button>
-      {reason ? <span className={s.reason} data-testid={testId ? `${testId}-reason` : undefined}>{reason}</span> : null}
+      {reason ? <span className={s.reason} data-testid={testId ? `${testId}-reason` : undefined}>{reason}</span>
+        : hint ? <span className={s.reason} data-testid={testId ? `${testId}-hint` : undefined}>{hint}</span> : null}
     </span>
   );
 }

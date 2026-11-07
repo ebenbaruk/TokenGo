@@ -57,14 +57,19 @@ export function RelaySheet({ node, onClose }: { node: NodeView; onClose: () => v
     setRot((r) => r + d * 2.2);
     if (drag.current.acc > 140) { drag.current = null; void doSync(); }
   };
-  const up = () => { drag.current = null; };
+  // un simple tap/clic synchronise aussi (souris sur ordinateur, ou joueur pressé) : le disque fait un tour
+  const up = () => {
+    const d = drag.current;
+    drag.current = null;
+    if (d && d.acc < 12) { setRot((r) => r + 360); void doSync(); }
+  };
 
   return (
     <Sheet open onClose={onClose} title={node.name} subtitle={`Relay · ${node.category} · ${Number.isFinite(dist) ? `${Math.round(dist)} m` : ''}`}
       icon={<Sprite def={cd > 0 ? RELAY_COOLDOWN : RELAY} scale={2} anim />} testId="relay-sheet">
       <div className={s.wrap}>
         <div className={`${s.disc} ${reason ? s.off : ''} ${busy ? s.spinning : ''}`} style={{ transform: `rotate(${rot}deg)` }}
-          onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}
+          onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={() => { drag.current = null; }}
           onKeyDown={(e) => { if (e.key === 'Enter') void doSync(); }}
           role="button" tabIndex={0} aria-label="Swipe to sync" data-testid="sync-disc">
           <div className={s.inner}><Sprite def={cd > 0 ? RELAY_COOLDOWN : RELAY} scale={3} anim={!reason} /></div>
@@ -78,7 +83,7 @@ export function RelaySheet({ node, onClose }: { node: NodeView; onClose: () => v
             <span className="num">{fmtCountdown(cd)}</span>
           </div>
         ) : null}
-        <div className={s.label} data-testid="relay-status">{reason ?? (busy ? 'Syncing…' : 'Swipe the disc to sync')}</div>
+        <div className={s.label} data-testid="relay-status">{reason ?? (busy ? 'Syncing…' : 'Spin or tap the disc to sync')}</div>
         {loot ? (
           <div className={s.loot} data-testid="relay-loot">
             <span className={s.item} style={{ animationDelay: '0s' }}><Sprite def={FLUX} scale={3} /> +{loot.flux} ƒ</span>

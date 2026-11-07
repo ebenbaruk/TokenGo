@@ -5,7 +5,8 @@ import { Backpack, ScrollText, LocateFixed, Target as TargetIcon, WifiOff, Zap, 
 import { CATCH, SCOUT, scoutCharge, scoutResumeAt, type RegionStatus } from '@tokengo/shared';
 import { useGame, openOverlay, type Pos } from '../lib/store.ts';
 import { contextual, type Target } from '../lib/nearby.ts';
-import { fmtUsd } from '../lib/format.ts';
+import { fmtUsd, famName } from '../lib/format.ts';
+import { flyNear } from '../geo/engine.ts';
 import { Counter, Pill, IconButton, Button } from '../ui/index.tsx';
 import { Sprite } from '../sprites/Sprite.tsx';
 import { FLUX, SCOUT as SCOUT_SPRITE } from '../sprites/index.ts';
@@ -155,6 +156,11 @@ export function Hud({ onAction }: { onAction: (t: Target) => void }) {
   const reserve = world?.reserve;
   const bagCount = me ? Object.values(me.shards).reduce((a, b) => a + b, 0) : 0;
   const variant = ctx.target?.kind === 'forge' ? 'gold' : ctx.target?.kind === 'market' ? 'gold' : 'primary';
+  // Remote Scout : jamais de bouton mort — hors de portée, le gros bouton fait voler le pigeon jusqu'à la cible
+  const scoutGrounded = Boolean(useScoutNow()?.grounded);
+  const t = ctx.target;
+  const fly = demo && t && !ctx.inRange && !inTransit && !scoutGrounded ? t : null;
+  const flyHint = fly ? `${Math.round(fly.dist)} m · ${fly.kind === 'spawn' ? `${famName(fly.spawn.family)} shard` : fly.node.name}` : null;
 
   return (
     <div className={s.hud}>
@@ -189,7 +195,13 @@ export function Hud({ onAction }: { onAction: (t: Target) => void }) {
         <RegionCard region={world?.region} />
         <EventBanner />
         {world?.objective ? (
-          <button type="button" className={s.objective} data-testid="objective" onClick={() => mapCtl.recenter()}>
+          <button type="button" className={s.objective} data-testid="objective" onClick={() => {
+            const target = world.objective?.target;
+            // Scout : l'objectif est un raccourci (« emmène-moi ») ; à pied : on montre où c'est
+            if (target && demo && !scoutGrounded) flyNear(target);
+            else if (target) mapCtl.lookAt(target, 16);
+            else mapCtl.recenter();
+          }}>
             <TargetIcon size={18} strokeWidth={3} /> <span>{world.objective.text}</span>
           </button>
         ) : null}
@@ -212,11 +224,18 @@ export function Hud({ onAction }: { onAction: (t: Target) => void }) {
             {bagCount > 0 ? <span className={s.count}>{bagCount}</span> : null}
           </div>
           <div className={s.main}>
-            <Button variant={variant} size="l" block testId="action-btn"
-              reason={ctx.inRange ? null : ctx.reason}
-              onClick={() => { if (ctx.target) onAction(ctx.target); }}>
-              {ctx.label}
-            </Button>
+            {fly ? (
+              <Button variant="primary" size="l" block testId="action-btn" hint={flyHint}
+                onClick={() => flyNear(fly.kind === 'spawn' ? fly.spawn : fly.node, fly.kind === 'spawn' ? 5 : 12)}>
+                Fly there
+              </Button>
+            ) : (
+              <Button variant={variant} size="l" block testId="action-btn"
+                reason={ctx.inRange ? null : ctx.reason}
+                onClick={() => { if (ctx.target) onAction(ctx.target); }}>
+                {ctx.label}
+              </Button>
+            )}
           </div>
           <div className={s.side}>
             <IconButton label="Quests" showLabel onClick={() => openOverlay({ kind: 'quests' })} testId="quests-btn"><ScrollText strokeWidth={2.5} /></IconButton>

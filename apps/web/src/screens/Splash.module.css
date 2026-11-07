@@ -14,7 +14,7 @@
 }
 .logo img { display: block; width: 100%; height: auto; image-rendering: auto; filter: drop-shadow(0 3px 0 var(--ink)); }
 @keyframes drop { from { transform: translateY(-30px); } }
-.tagline { margin: 0; font-weight: 800; font-size: 17px; color: var(--ink); background: var(--panel); border: var(--border); border-radius: 10px; padding: 6px 12px; box-shadow: var(--shadow-hard); text-align: center; }
+.tagline { margin: 0; text-wrap: balance; font-weight: 800; font-size: 17px; color: var(--ink); background: var(--panel); border: var(--border); border-radius: 10px; padding: 6px 12px; box-shadow: var(--shadow-hard); text-align: center; }
 .hero { position: absolute; top: -94px; left: 50%; translate: -50% 0; animation: hop 1.2s steps(2) infinite; }
 @keyframes hop { 50% { transform: translateY(-8px); } }
 .actions {
@@ -39,3 +39,16 @@
 @keyframes hover { 50% { transform: translate(-6px, -10px); } }
 .modeNow { margin: -4px 0 0; text-align: center; font-weight: 800; font-size: 14px; color: var(--slate); }
 .small b { color: var(--plum); }
+/* « comment ça marche » en 3 temps, lisible en 3 secondes */
+.steps {
+  list-style: none; margin: 0; padding: 0; display: flex; gap: 8px; justify-content: center; width: min(100%, 380px);
+  animation: rise .4s .15s var(--ease-pop) both;
+}
+.steps li {
+  flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 4px; text-align: center;
+  background: var(--panel); border: var(--border-thin); border-radius: 10px; box-shadow: var(--shadow-hard-s);
+  font-size: 14px; font-weight: 700; line-height: 1.15;
+}
+.steps b { font-weight: 800; color: var(--plum); }
+.pass { margin: 0; text-align: center; font-weight: 800; font-size: 14px; background: var(--sun); border: var(--border-thin); border-radius: 8px; padding: 6px 8px; }
+.nb { white-space: nowrap; }

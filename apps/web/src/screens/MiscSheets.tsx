@@ -101,7 +101,7 @@ export function JumpSheet({ node, onClose, onOpen }: { node: NodeView; onClose: 
             // atterrit à ~12 m du nœud (dans le rayon d'action)
             const k = Math.max(0, (d - 12) / Math.max(d, 1));
             if (pos) walkTo({ lat: pos.lat + (node.lat - pos.lat) * k, lng: pos.lng + (node.lng - pos.lng) * k }, 3000);
-          }}>⚡ Dash here{dash ? <small style={{ opacity: 0.8 }}> · −{Math.max(1, Math.round(dash.cost))}% battery</small> : null}</Button>
+          }} hint={dash ? `3-second dash · −${Math.max(1, Math.round(dash.cost))}% battery` : null}>⚡ Dash here</Button>
         <div style={{ display: 'flex', gap: 10 }}>
           <Button block onClick={() => { onClose(); if (pos) walkTo(node); }} testId="fly-btn">Fly there</Button>
           <Button block variant="ghost" onClick={onOpen} testId="peek-btn">Peek</Button>

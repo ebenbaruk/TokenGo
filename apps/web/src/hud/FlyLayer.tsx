@@ -12,8 +12,10 @@ function One({ f }: { f: Flyer }) {
     const bag = document.querySelector('[data-testid="bag-btn"]')?.getBoundingClientRect();
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     if (!node || !bag || reduce || typeof node.animate !== 'function') { landFlyer(f.id); return; }
-    const x0 = window.innerWidth / 2;
-    const y0 = window.innerHeight * 0.42;
+    // origine relative au cadre du jeu (plein écran sur téléphone, cadre de téléphone sur ordinateur)
+    const root = document.getElementById('root')?.getBoundingClientRect() ?? { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
+    const x0 = root.left + root.width / 2;
+    const y0 = root.top + root.height * 0.42;
     const dx = bag.left + bag.width / 2 - x0;
     const dy = bag.top + bag.height / 2 - y0;
     const side = f.id % 2 ? 1 : -1;

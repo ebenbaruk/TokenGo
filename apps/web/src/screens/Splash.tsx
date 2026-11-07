@@ -8,13 +8,16 @@ import { useGame, setMe, toast } from '../lib/store.ts';
 import { probeGps, startPlay } from '../geo/engine.ts';
 import { Button } from '../ui/index.tsx';
 import { Sprite } from '../sprites/Sprite.tsx';
-import { AVATAR, SCOUT, SHARDS } from '../sprites/index.ts';
+import { AVATAR, SCOUT, SHARDS, FORGE, merchantSprite } from '../sprites/index.ts';
 import s from './Splash.module.css';
 
 const params = new URLSearchParams(location.search);
 // lien juges : /?demo=1&k=<DEMO_TOKEN> → Remote Scout niveau 7 (crédits réels du Judge Pool) ; /?demo=1 → Remote Scout
 const passToken = params.get('k') ?? undefined;
 const wantsDemo = () => params.get('demo') === '1' || !!passToken;
+// souris sans écran tactile (ordinateur) : Remote Scout en premier — le GPS d'un portable ne fait pas marcher
+const desktop = () => window.matchMedia?.('(pointer: fine)').matches && !window.matchMedia('(any-pointer: coarse)').matches;
+const MERCHANT = merchantSprite('hustler', 'splash');
 const AUTH_ERRORS: Record<string, string> = {
   state: 'Google sign-in expired — please try again.',
   exchange: 'Google sign-in failed — please try again.',
@@ -80,15 +83,15 @@ export function Splash() {
     }
   };
 
-  const scoutFirst = wantsDemo();
+  const scoutFirst = wantsDemo() || desktop();
   const gpsBtn = (primary: boolean) => (
     <Button variant={primary ? 'gold' : 'secondary'} size={primary ? 'l' : 'm'} block onClick={() => void play(primary ? 'auto' : 'gps')}
       loading={busy === 'gps'} testId={primary ? 'play-guest' : 'play-gps'}>
-      <Footprints size={primary ? 22 : 20} /> Play for real · GPS
+      <Footprints size={primary ? 22 : 20} /> Play for real
     </Button>
   );
   const scoutBtn = (primary: boolean) => (
-    <Button variant={primary ? 'gold' : 'secondary'} size={primary ? 'l' : 'm'} block onClick={() => void play(primary ? 'auto' : 'demo')}
+    <Button variant={primary ? 'gold' : 'secondary'} size={primary ? 'l' : 'm'} block onClick={() => void play('demo')}
       loading={busy === 'demo'} testId={primary ? 'play-guest' : 'play-scout'}>
       <Sprite def={SCOUT} scale={primary ? 2 : 1} anim /> Remote Scout
     </Button>
@@ -98,7 +101,14 @@ export function Splash() {
     <div className={s.splash} data-testid="splash">
       <div className={s.top}>
         <h1 className={s.logo}><img src="/art/logo.png" alt="TokenGo" width={720} height={170} /></h1>
-        <p className={s.tagline}>Walk your city. Catch AI. Spend it for real.</p>
+        <p className={s.tagline}>Walk your city. <span className={s.nb}>Catch AI.</span> <span className={s.nb}>Spend it for real.</span></p>
+        {step === 'start' ? (
+          <ol className={s.steps} aria-label="How it works" data-testid="splash-steps">
+            <li><Sprite def={SHARDS.claude} scale={2} anim /><span><b>Catch</b> AI shards</span></li>
+            <li><Sprite def={MERCHANT} scale={1} /><span><b>Trade</b> with AI shops</span></li>
+            <li><Sprite def={FORGE} scale={1} anim /><span><b>Forge</b> real AI credits</span></li>
+          </ol>
+        ) : null}
       </div>
 
       {step === 'start' ? (
@@ -120,8 +130,9 @@ export function Splash() {
             </a>
           ) : null}
           {err ? <div className={s.err} role="alert">{err}</div> : null}
+          {passToken && !existing ? <p className={s.pass} data-testid="judge-pass">🎟 Judge pass · level 7 with a full bag</p> : null}
           <p className={s.small} data-testid="mode-explainer">
-            TokenGo is meant to be played walking — <b>Remote Scout</b> lets you try it from your couch.
+            Made to be played walking, for real. <b>Remote Scout</b> lets you try it from your couch.
           </p>
         </div>
       ) : (

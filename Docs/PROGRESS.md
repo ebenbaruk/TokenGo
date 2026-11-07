@@ -2,6 +2,14 @@
 
 Mettre à jour à la fin de chaque bloc de travail. Le plus récent en haut.
 
+## 2026-11-07 (après-midi) — Playtest « juge » et polish UX
+- **Fait** : cadre de téléphone + panneau d'explication sur ordinateur (Remote Scout en premier sans écran tactile) ; « Fly there » et objectif
+  cliquable en Remote Scout (plus de bouton mort) ; tutoriel qui ne fait plus vendre l'éclat de la First Compile ; Splash (3 étapes, boutons
+  sur une ligne, badge Judge pass) ; About (« Play in 5 minutes », « Two ways to play ») ; relais au tap, anneau de capture visible, objectif
+  sur 2 lignes, réponse du Playground dans la vue, plus de « wallet » dans la boucle. Décisions dans `00-INDEX.md`.
+- **Vérif** : typecheck, `npm test` 206/206, build, `E2E_PORT=8797 npx playwright test --project=full` 28/28, `check:secrets` vert.
+- **Reste** : marcheurs/bulles à juger sur vrai téléphone ; QR code vers la démo dans le panneau ordinateur une fois l'URL publique connue.
+
 ## 2026-11-07 (soir) — Intégration des 4 fonctionnalités dans `main`
 - **Fait** : merges « Jouer partout + Remote Scout » puis « Carte vivante » par-dessus « juice/Codex/Daily Route » et « marchandage ».
   `/api/move` = batterie du Scout (vol refusé : rien d'autre) → présence anonymisée (`seen_cell`) → arrêts de Daily Route ; `/api/world` =

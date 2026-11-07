@@ -145,7 +145,7 @@ export function MerchantSheet({ node, onClose }: { node: NodeView; onClose: () =
               {thoughtOpen ? <em>{m.lastThought.text}</em> : null}
             </button>
           ) : null}
-          {m.walletUrl ? <a className={s.wallet} href={m.walletUrl} target="_blank" rel="noreferrer">Merchant wallet <ExternalLink size={11} /></a> : null}
+          {m.walletUrl ? <a className={s.wallet} href={m.walletUrl} target="_blank" rel="noreferrer">Public ledger <ExternalLink size={11} /></a> : null}
         </>
       )}
       {pick && m ? <TradePanel m={m} pick={pick} farReason={farReason} onClose={() => setPick(null)}

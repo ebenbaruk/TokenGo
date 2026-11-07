@@ -116,7 +116,11 @@ function Playground({ models }: { models: CreditsView['models'] }) {
   const [out, setOut] = useState('');
   const [busy, setBusy] = useState(false);
   const abort = useRef<AbortController | null>(null);
+  const answer = useRef<HTMLDivElement>(null);
+  const shown = Boolean(out);
   useEffect(() => () => abort.current?.abort(), []);
+  // la réponse arrive sous le pli sur téléphone : on la fait défiler dans la vue dès le premier mot
+  useEffect(() => { if (shown) answer.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }); }, [shown]);
   const ask = async () => {
     if (!prompt.trim() || busy) return;
     setBusy(true);
@@ -141,7 +145,7 @@ function Playground({ models }: { models: CreditsView['models'] }) {
       </div>
       <textarea className={s.prompt} rows={3} value={prompt} onChange={(e) => setPrompt(e.target.value)} aria-label="Prompt" data-testid="prompt" />
       <Button variant="primary" block loading={busy} onClick={() => void ask()} testId="ask-btn"><Send size={18} /> Ask</Button>
-      {out ? <div className={s.answer} data-testid="answer">{out}</div> : null}
+      {out ? <div ref={answer} className={s.answer} data-testid="answer">{out}</div> : null}
     </Card>
   );
 }

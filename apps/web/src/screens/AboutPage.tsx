@@ -23,22 +23,27 @@ export default function AboutPage() {
 
   return (
     <PageShell title="About TokenGo" wide={false} testId="about-page"
-      subtitle="A walking game in Paris where what you catch turns into real AI compute.">
+      subtitle="A walking game where what you catch turns into real AI compute.">
       <div className={s.stack}>
         <Card className={s.intro}>
           <Sprite def={merchantSprite('grandma', 'margot')} scale={2} />
           <p>Walk around, catch <b>shards</b>, trade them with AI-run merchants whose prices follow supply and demand, and compile them at monument <b>Forges</b> into credits on your own NEAR AI Cloud API key.</p>
         </Card>
 
+        <Card testId="about-howto">
+          <h2>Play in 5 minutes</h2>
+          <ol className={s.steps}>
+            <li><b>Catch</b> — tap a glowing shard, then tap when the ring hits the dashed circle. Five families: DeepSeek, Qwen, Gemini, GPT, Claude (rarer = pricier).</li>
+            <li><b>Sync</b> a relay (the little antennas) for Flux, the in-game coin.</li>
+            <li><b>Trade</b> with AI shopkeepers. Their prices follow their stock — tap ⓘ “Why this price?” — so walking to another shop is arbitrage.</li>
+            <li><b>Forge</b> a recipe of shards at a landmark: you get real inference credits on your own API key, and a Playground to spend them right away.</li>
+          </ol>
+        </Card>
+
         <Card>
-          <h2>What we store</h2>
-          <ul>
-            <li>A random runner name and a session cookie (no email for guests). If you sign in with Google: your Google account id and email.</li>
-            <li>Your last known position and movement state, only to check that actions happen where you are and to count distance walked. We don’t keep a history of your routes.</li>
-            <li>Your inventory, Flux, XP, district and the actions you take (catches, trades, compiles).</li>
-            <li>Your API key for credits you earned, encrypted at rest (AES-256-GCM); you can reveal it at any time. A hashed IP for anti-abuse.</li>
-          </ul>
-          <p className="dim">No ads, no trackers, no data sold. Maps by OpenFreeMap (© OpenMapTiles © OpenStreetMap contributors); fonts are self-hosted.</p>
+          <h2>Two ways to play</h2>
+          <p><b>👟 For real:</b> TokenGo is meant to be played walking. Anywhere in the world — outside Paris we map your neighbourhood from OpenStreetMap on the fly. Your phone’s GPS has to be really there.</p>
+          <p><b>🕊 Remote Scout:</b> no time for a walk? Fly a pigeon-drone over Paris from your couch. Tap the map or the big button to fly; the battery limits how far, so walking stays the real game.</p>
         </Card>
 
         <Card>
@@ -50,6 +55,17 @@ export default function AboutPage() {
         <Card>
           <h2>About the credits</h2>
           <p>Credits are real NEAR AI Cloud inference credits on a personal API key, paid from a small city reserve (a few dollars in total). Amounts are small, limited per day, and <b>valid until the end of 2026</b>. When the reserve runs low, payouts shrink — the game never promises more than it holds. On a server without a NEAR AI account, credits are clearly marked “simulated”.</p>
+        </Card>
+
+        <Card>
+          <h2>What we store</h2>
+          <ul>
+            <li>A random runner name and a session cookie (no email for guests). If you sign in with Google: your Google account id and email.</li>
+            <li>Your last known position and movement state, only to check that actions happen where you are and to count distance walked. We don’t keep a history of your routes.</li>
+            <li>Your inventory, Flux, XP, district and the actions you take (catches, trades, compiles).</li>
+            <li>Your API key for credits you earned, encrypted at rest (AES-256-GCM); you can reveal it at any time. A hashed IP for anti-abuse.</li>
+          </ul>
+          <p className="dim">No ads, no trackers, no data sold. Maps by OpenFreeMap (© OpenMapTiles © OpenStreetMap contributors); fonts are self-hosted.</p>
         </Card>
 
         <Card testId="delete-card">

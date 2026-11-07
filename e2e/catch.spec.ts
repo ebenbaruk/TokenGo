@@ -61,7 +61,7 @@ test('walk to a regular shard → catch → inventory +1', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-test('a shard far away: action disabled with "m away", server says TOO_FAR', async ({ page }) => {
+test('a shard far away: Scout offers "Fly there", server says TOO_FAR', async ({ page }) => {
   const errors = pageErrors(page);
   await startGuest(page);
   const start = (await tg(page)).position!;
@@ -80,9 +80,11 @@ test('a shard far away: action disabled with "m away", server says TOO_FAR', asy
   const far = s.world!.spawns.filter((x) => dist(x, spot!) > 60).sort((a, b) => dist(a, spot!) - dist(b, spot!))[0]!;
   expect(far).toBeTruthy();
 
+  // Remote Scout : hors de portée, le gros bouton propose de voler jusqu'à la cible (jamais de bouton mort)
   const btn = page.getByTestId('action-btn');
-  await expect(btn).toBeDisabled();
-  await expect(page.getByTestId('action-btn-reason')).toHaveText(/^\d+ m away — get a bit closer$/);
+  await expect(btn).toBeEnabled();
+  await expect(btn).toHaveText(/Fly there/);
+  await expect(page.getByTestId('action-btn-hint')).toHaveText(/^\d+ m · .+/);
   await shot(page, 'catch-03-too-far');
 
   // le serveur est autoritaire : la même capture forcée par l'API est refusée

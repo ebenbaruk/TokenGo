@@ -22,6 +22,20 @@ let timers: number[] = [];
 const recentFixes: Pos[] = [];
 
 // ───────── Monde ─────────
+// L'objectif épinglé vient du serveur : on le rafraîchit dès que l'inventaire ou le tutoriel change (vente, achat, forge…)
+let invSig = '';
+let invTimer = 0;
+useGame.subscribe((st) => {
+  if (!st.me) return;
+  const sig = JSON.stringify([st.me.shards, st.me.tutorial]);
+  if (sig === invSig) return;
+  const first = invSig === '';
+  invSig = sig;
+  if (first) return;
+  clearTimeout(invTimer);
+  invTimer = window.setTimeout(() => void refreshWorld(true), 400);
+});
+
 export async function refreshWorld(force = false): Promise<void> {
   const { pos } = useGame.getState();
   if (!pos || worldInflight) return;
@@ -238,6 +252,19 @@ export function walkTo(target: LatLng, durationMs?: number): void {
     else useGame.setState({ walkTarget: null });
   };
   walkRaf = requestAnimationFrame(step);
+}
+/**
+ * « Fly there » du gros bouton et de l'objectif (Remote Scout) : se pose à `stopM` de la cible. Au-delà de 80 m,
+ * Dash de 3 s si la batterie le permet (un juge n'attend pas 25 s), sinon vol normal.
+ */
+export function flyNear(target: LatLng, stopM = 12): void {
+  const pos = useGame.getState().pos;
+  if (!pos) return;
+  const d = haversineM(pos, target);
+  const k = Math.max(0, (d - stopM) / Math.max(d, 1));
+  const land = { lat: pos.lat + (target.lat - pos.lat) * k, lng: pos.lng + (target.lng - pos.lng) * k };
+  const dash = d > 80 ? dashCost(land) : null;
+  walkTo(land, dash?.ok ? 3000 : undefined);
 }
 export function stopWalk(): void { cancelAnimationFrame(walkRaf); useGame.setState({ walkTarget: null }); }
 

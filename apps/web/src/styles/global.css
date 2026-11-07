@@ -42,3 +42,30 @@ canvas.pixelated, .pixelated { image-rendering: pixelated; image-rendering: cris
 .maplibregl-ctrl-attrib { font-family: var(--font-ui); font-size: 10px; }
 .maplibregl-ctrl-attrib.maplibregl-compact { background: rgba(255,253,246,.85); }
 .route-loading { position: absolute; inset: 0; display: grid; place-items: center; font-size: 24px; background: var(--sky); color: var(--white); text-shadow: 2px 2px 0 var(--ink); }
+
+/* ───────── Ordinateur : le jeu dans un cadre de téléphone, jamais une UI mobile étirée ───────── */
+.desk-note { display: none; }
+@media (min-width: 900px) and (min-height: 620px) {
+  body.game {
+    display: flex; align-items: center; justify-content: center; gap: 56px; padding: 24px;
+    background: linear-gradient(rgba(41,54,111,.62), rgba(41,54,111,.62)), #3f8fe6 url('/art/splash.webp') center / cover no-repeat;
+  }
+  /* transform : les éléments `position: fixed` (éclats qui volent) restent dans le cadre */
+  body.game #root {
+    flex: none; width: 430px; height: min(932px, 100%);
+    border: 4px solid var(--ink); border-radius: 28px; box-shadow: 8px 8px 0 var(--ink); background: var(--bg);
+    transform: translateZ(0);
+  }
+  body.game .desk-note {
+    display: flex; flex-direction: column; gap: 16px; width: 340px; flex: none; color: var(--white);
+  }
+  .desk-note img { width: 260px; height: auto; filter: drop-shadow(3px 3px 0 var(--ink)); }
+  .desk-lead { margin: 0; font-size: 19px; font-weight: 800; line-height: 1.35; text-shadow: 2px 2px 0 var(--ink); }
+  .desk-lead b { color: var(--sun); }
+  .desk-note ul { margin: 0; padding: 14px 16px 14px 32px; display: flex; flex-direction: column; gap: 8px; color: var(--ink);
+    background: var(--panel); border: var(--border); border-radius: var(--radius-l); box-shadow: var(--shadow-hard); font-size: 15px; }
+  .desk-note nav { display: flex; gap: 10px; flex-wrap: wrap; }
+  .desk-note nav a { padding: 8px 12px; background: var(--sun); color: var(--ink); font-weight: 800; text-decoration: none;
+    border: var(--border-thin); border-radius: 10px; box-shadow: var(--shadow-hard-s); }
+  .desk-note nav a:hover { background: #ffe0a3; }
+}
