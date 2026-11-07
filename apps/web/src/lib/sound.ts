@@ -1,5 +1,5 @@
 // Sons courts synthétisés en WebAudio (aucun asset). Coupables (préférence locale).
-type SoundName = 'tap' | 'catch' | 'perfect' | 'miss' | 'fled' | 'sync' | 'trade' | 'forge' | 'error' | 'level';
+type SoundName = 'tap' | 'catch' | 'perfect' | 'miss' | 'fled' | 'sync' | 'trade' | 'forge' | 'error' | 'level' | 'event' | 'pop';
 
 let ctx: AudioContext | null = null;
 const KEY = 'tg.muted';
@@ -63,6 +63,8 @@ export function play(name: SoundName): void {
     case 'forge': noise(a, 0, 0.9, 0.12, 80, 300); tone(a, 70, 0, 0.9, 'sawtooth', 0.05, 50);
       [784, 1046, 1318, 1568].forEach((f, i) => tone(a, f, 1.0 + i * 0.07, 0.4, 'triangle', 0.07)); break;
     case 'error': tone(a, 220, 0, 0.12, 'square', 0.05); tone(a, 180, 0.1, 0.15, 'square', 0.05); break;
+    case 'event': [659, 880, 659, 988].forEach((f, i) => tone(a, f, i * 0.09, 0.12, 'square', 0.045)); break;
+    case 'pop': tone(a, 1200, 0, 0.04, 'triangle', 0.025, 1600); break;
     case 'level': [392, 523, 659, 784, 1046].forEach((f, i) => tone(a, f, i * 0.08, 0.25, 'square', 0.05)); break;
   }
 }

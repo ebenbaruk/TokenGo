@@ -2,6 +2,17 @@
 
 Mettre à jour à la fin de chaque bloc de travail. Le plus récent en haut.
 
+## 2026-11-07 (jour) — Carte vivante
+- **Fait** : marcheurs animés sur la carte (24 runners-agents au trajet réel à 5 km/h, étiquette au tap avec leur dernière action ;
+  joueurs réels anonymisés : cellule H3 ± 60 m, sans nom), `GET /api/walkers` (≤ 12, 30/min) ; bulles de BD des marchands dérivées
+  de leur état (≤ 3, sans chevauchement ni HUD) ; événements de ville bornés dans `rules.ts` (flash crash, forge hype, gold rush,
+  grève) : zone + bannière + jingle + Pulse, prix via `explainPrice`/`quote` (« Why this price? » le cite), vague bonus d'éclats,
+  planification par les jobs (≤ 6/j), `POST /api/admin/event` (+ `/end`) ; simulateur avec événements (cibles vertes, graines 42/1/2/3).
+  Migration `006_living.sql`. Correctifs au passage : caméra qui s'arrêtait avant la fin d'une Demo Walk ; devis exécuté à un autre
+  prix que celui affiché (maintenant `PRICE_MOVED`).
+- **Vérif** : `npm test` 142/142, typecheck, `E2E_PORT=8792 npx playwright test --project=full` 21/21 (dont `living.spec.ts` 3/3), `check:secrets` vert.
+- **Prochaine étape** : montrer un événement dans la vidéo (`POST /api/admin/event` avec `ADMIN_TOKEN`), tester les marcheurs avec de vrais téléphones.
+
 ## 2026-11-07 (nuit) — Fin du build : produit complet, vérifié
 - **Fait depuis le bloc précédent** : revue sécurité indépendante → 9 correctifs (courses sur les octrois, XFF, Judge Pool réservé aux passes démo,
   tombstones, plafonds SSE…) avec tests de régression ; 18 parcours e2e (capture, marché, PRICE_MOVED, forge, anti-triche, Lab, Pulse SSE,

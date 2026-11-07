@@ -10,6 +10,7 @@ import { Counter, Pill, IconButton, Button } from '../ui/index.tsx';
 import { Sprite } from '../sprites/Sprite.tsx';
 import { FLUX } from '../sprites/index.ts';
 import { mapCtl } from '../map/ctl.ts';
+import { EventBanner } from './EventBanner.tsx';
 import { isMuted, setMuted } from '../lib/sound.ts';
 import s from './Hud.module.css';
 
@@ -73,7 +74,7 @@ export function Hud({ onAction }: { onAction: (t: Target) => void }) {
 
   return (
     <div className={s.hud}>
-      <div className={s.top}>
+      <div className={s.top} data-hud="top">
         <div className={s.row}>
           {me ? <LevelRing level={me.level} into={me.xpInto} need={me.xpNeed} onClick={() => openOverlay({ kind: 'menu' })} /> : null}
           <Pill className={s.fluxPill} testId="flux"><Sprite def={FLUX} scale={2} /><Counter value={me?.flux ?? 0} /></Pill>
@@ -99,6 +100,7 @@ export function Hud({ onAction }: { onAction: (t: Target) => void }) {
         </div>
         {serverDown ? <div className={s.banner}><WifiOff size={16} /> Offline — reconnecting…</div> : null}
         {inTransit ? <div className={s.banner}>In transit — catching paused</div> : null}
+        <EventBanner />
         {world?.objective ? (
           <button type="button" className={s.objective} data-testid="objective" onClick={() => mapCtl.recenter()}>
             <TargetIcon size={18} strokeWidth={3} /> <span>{world.objective.text}</span>
@@ -106,7 +108,7 @@ export function Hud({ onAction }: { onAction: (t: Target) => void }) {
         ) : null}
       </div>
 
-      <div className={s.bottom}>
+      <div className={s.bottom} data-hud="bottom">
         {!following ? (
           <button type="button" className={s.recenter} onClick={() => mapCtl.recenter()} aria-label="Recenter" data-testid="recenter">
             <LocateFixed strokeWidth={2.5} />

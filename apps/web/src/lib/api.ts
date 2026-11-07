@@ -1,6 +1,6 @@
 // Client HTTP du contrat packages/shared/src/api.ts. Le serveur est autoritaire ; le client n'envoie que des intentions.
 import type {
-  ApiError, ErrorCode, Me, MoveRequest, MoveResponse, WorldResponse, CatchStartResponse, CatchResolveRequest, CatchResolveResponse,
+  ApiError, ErrorCode, Me, MoveRequest, MoveResponse, WorldResponse, WalkersResponse, CatchStartResponse, CatchResolveRequest, CatchResolveResponse,
   SyncResponse, MerchantView, QuoteRequest, QuoteResponse, TradeResponse, ForgeView, CompileRequest, CompileResponse, CreditsView,
   PulseResponse, PublicConfig, LeaderboardsResponse, LabSnapshot,
 } from '@tokengo/shared';
@@ -102,6 +102,7 @@ export const api = {
   meIfSession: (force = false): Promise<Me | null> => (force || hasSessionHint() ? req<Me>('GET', '/api/me').catch(() => null) : Promise.resolve(null)),
   move: (b: MoveRequest) => req<MoveResponse>('POST', '/api/move', b),
   world: (lat: number, lng: number) => req<WorldResponse>('GET', `/api/world?lat=${lat.toFixed(6)}&lng=${lng.toFixed(6)}`),
+  walkers: (lat: number, lng: number) => req<WalkersResponse>('GET', `/api/walkers?lat=${lat.toFixed(5)}&lng=${lng.toFixed(5)}`),
   catchStart: (spawnId: string) => req<CatchStartResponse>('POST', '/api/catch/start', { spawnId }),
   catchResolve: (b: CatchResolveRequest) => req<CatchResolveResponse>('POST', '/api/catch/resolve', b),
   sync: (nodeId: string) => req<SyncResponse>('POST', '/api/relay/sync', { nodeId }),

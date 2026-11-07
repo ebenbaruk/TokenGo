@@ -9,6 +9,7 @@ import { randomId } from './crypto.ts';
 import { addXp, balance, credit, debit, getUser, levelOf, markTutorial, meView, moveStateOf, tutorialOf } from './players.ts';
 import { getMerchant, getP0, merchantView, recordSeenPrices, saveMerchant } from './merchants.ts';
 import { assertCanAct } from './actions.ts';
+import { activeEvent, eventPriceOpts } from './events.ts';
 
 const QUOTE_ERRORS: Record<string, string> = {
   CLOSED: 'This shop is closed.',
@@ -17,6 +18,7 @@ const QUOTE_ERRORS: Record<string, string> = {
   OUT_OF_STOCK: "I don't have that many.",
   CONTRACT_LOCK: "I'm keeping those for my contract — find them elsewhere!",
   BAD_QTY: 'Pick a quantity between 1 and 50.',
+  STRIKE: "I'm on strike — buying only until it's over!",
 };
 
 /** Les événements Pulse des runners-agents portent data.agent = true (badge « agent » dans le ticker). */
@@ -56,7 +58,8 @@ export function makeQuote(ctx: Ctx, userId: string, merchantId: string, req: Quo
   assertCanAct(ctx, u, 'market', node);
   if (req.side === 'sell' && u.demo_token) fail('DEMO_CANNOT_SELL', 'Demo passes can buy, forge and invest — but not sell.');
   if (!FAMILIES.includes(req.family)) fail('BAD_REQUEST', 'Unknown shard.');
-  const q = priceQuote(getP0(ctx)[req.family], m, req.side, req.family, req.qty, { patron: isPatron(ctx, m.id, userId) });
+  const q = priceQuote(getP0(ctx)[req.family], m, req.side, req.family, req.qty,
+    { patron: isPatron(ctx, m.id, userId), ...eventPriceOpts(activeEvent(ctx), req.family, node, ctx.now()) });
   if ('error' in q) return fail(q.error, QUOTE_ERRORS[q.error] ?? 'Not possible.');
   if (req.side === 'sell' && balance(ctx, userId, shardToken(req.family)) < req.qty) fail('INSUFFICIENT', "You don't have that many shards.");
   if (req.side === 'buy' && balance(ctx, userId, 'flux') < q.total) fail('INSUFFICIENT', `You need ${q.total} ƒ.`, 400, { total: q.total });
@@ -78,9 +81,11 @@ export function executeTrade(ctx: Ctx, userId: string, merchantId: string, quote
   assertCanAct(ctx, u, 'market', node);
   return ctx.db.transaction((): TradeResponse => {
     const cur = load(ctx, merchantId);
-    const q = priceQuote(getP0(ctx)[s!.req.family], cur.m, s!.req.side, s!.req.family, s!.req.qty, { patron: isPatron(ctx, merchantId, userId) });
+    const q = priceQuote(getP0(ctx)[s!.req.family], cur.m, s!.req.side, s!.req.family, s!.req.qty,
+      { patron: isPatron(ctx, merchantId, userId), ...eventPriceOpts(activeEvent(ctx), s!.req.family, cur.node, now) });
     if ('error' in q) return fail(q.error, QUOTE_ERRORS[q.error] ?? 'Not possible.');
-    if (cur.version !== s!.version && q.total !== s!.total) {
+    // le prix a bougé depuis le devis (autre trade, dérive de P0, événement de ville qui démarre ou finit) : nouveau total
+    if (q.total !== s!.total) {
       quotes.delete(quoteId);
       fail('PRICE_MOVED', 'Prices just moved — here is the new total.', 409, { total: q.total });
     }

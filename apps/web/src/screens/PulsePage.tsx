@@ -4,7 +4,7 @@ import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { ExternalLink, Radio } from 'lucide-react';
 import { FAMILIES, FAMILY_INFO, midAt, type Family, type MerchantState, type PulseEvent, type PulseResponse } from '@tokengo/shared';
 import { api } from '../lib/api.ts';
-import { fmtClock, fmtUsd } from '../lib/format.ts';
+import { fmtClock, fmtCountdown, fmtUsd } from '../lib/format.ts';
 import { PageShell } from './PageShell.tsx';
 import { Card, Gauge, Sparkline } from '../ui/index.tsx';
 import { Sprite } from '../sprites/Sprite.tsx';
@@ -26,7 +26,7 @@ const markets = (world as { nodes: { id: string; kind: string; name: string; lat
 const merchantIdOf = (nodeId: string) => `m-${nodeId.replace(/^osm:/, '').replace('/', '-')}`;
 
 const isAgent = (e: PulseEvent) => Boolean(e.data && (e.data.agent === true || e.data.isAgent === true || e.data.runner === 'agent'));
-const ICON: Record<string, string> = { trade: '⇄', compile: '⚒', catch: '◆', sync: '◎', rescue: '♥', closing: '⚠', closed: '✖', reopened: '★', contract: '✉', settle: '⛓' };
+const ICON: Record<string, string> = { trade: '⇄', compile: '⚒', catch: '◆', sync: '◎', rescue: '♥', closing: '⚠', closed: '✖', reopened: '★', contract: '✉', settle: '⛓', 'city.event': '⚡', 'city.event.end': '◌' };
 
 /** Couleur d'un prix relatif (mid / médiane de la ville) : vert = pas cher, jaune = normal, rouge = cher. */
 function priceColor(r: number): string {
@@ -62,7 +62,11 @@ export default function PulsePage() {
     es.onopen = () => setLive(true);
     es.onerror = () => setLive(false);
     es.onmessage = (m) => {
-      try { const e = JSON.parse(m.data as string) as PulseEvent; setEvents((cur) => mergeEvents(cur, [e])); } catch { /* ping */ }
+      try {
+        const e = JSON.parse(m.data as string) as PulseEvent;
+        setEvents((cur) => mergeEvents(cur, [e]));
+        if (e.kind.startsWith('city.')) void load(); // carte « Now in Paris » à jour tout de suite
+      } catch { /* ping */ }
     };
     return () => { clearInterval(t1); clearInterval(t2); clearInterval(t3); es.close(); };
   }, []);
@@ -90,6 +94,7 @@ export default function PulsePage() {
       {err ? <p className={s.err}>{err}</p> : null}
       <div className={s.grid}>
         <div className={s.col}>
+          <LivingCard pulse={pulse} />
           <div className={s.kpis}>
             <Card testId="pulse-reserve">
               <div className={s.kTitle}>City Reserve {pulse?.reserve.simulated ? <span className={s.sim}>simulated</span> : null}</div>
@@ -185,6 +190,32 @@ export default function PulsePage() {
         </div>
       </div>
     </PageShell>
+  );
+}
+
+/** Événement de ville en cours + marcheurs sur la carte. */
+function LivingCard({ pulse }: { pulse: PulseResponse | null }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
+  const e = pulse?.cityEvent && pulse.cityEvent.endsAt > now ? pulse.cityEvent : null;
+  const w = pulse?.walkers;
+  return (
+    <Card testId="pulse-living">
+      <div className={s.living}>
+        <div className={s.livingEvent} data-testid="pulse-city-event" data-kind={e?.kind ?? 'none'}>
+          <div className={s.kTitle}>Now in Paris</div>
+          {e ? <>
+            <div className={s.evTitle}><span className={s.evBadge} data-kind={e.kind}>⚡</span>{e.title}</div>
+            <div className={s.kSub}>{e.effect} · <span className="num">{fmtCountdown(e.endsAt - now)}</span> left</div>
+          </> : <div className={s.kSub}>{pulse ? 'No city event right now — flash crashes, gold rushes and strikes pop up a few times a day.' : 'loading…'}</div>}
+        </div>
+        <div className={s.livingWalkers} data-testid="pulse-walkers">
+          <div className={s.kTitle}>On the map</div>
+          <div className={s.big}>{w ? w.runners + w.players : '—'}<small> walkers</small></div>
+          <div className={s.kSub}>{w ? `${w.runners} runner-agents · ${w.players} player${w.players === 1 ? '' : 's'}` : ''}</div>
+        </div>
+      </div>
+    </Card>
   );
 }
 

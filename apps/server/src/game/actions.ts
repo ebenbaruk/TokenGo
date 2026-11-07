@@ -1,7 +1,7 @@
 // Actions de la boucle 30 s / 5 min : déplacement, monde visible, capture, sync de relais.
 import { gridDisk } from 'h3-js';
 import {
-  CATCH, FAMILY_INFO, RELAY, XP, applyMove, canActAt, catchParams, catchXp, haversineM, missingFor, nextCombo, offsetM,
+  CATCH, FAMILY_INFO, LIVING, RELAY, XP, eventSpawnsForCell, merchantBubble, applyMove, canActAt, catchParams, catchXp, haversineM, missingFor, nextCombo, offsetM,
   randInt, recipesFor, resolveCatch, rngFrom, shardToken, spawnWindow, spawnsForCell, weightedPick, familyWeights,
   type ActionTarget, type CatchResolveResponse, type CatchStartResponse, type Family, type MoveRequest, type MoveResponse,
   type NodeView, type Objective, type SpawnView, type SyncResponse, type WorldResponse,
@@ -15,6 +15,7 @@ import { getPools, reserveView } from './reserve.ts';
 import { parisDay } from './reserve.ts';
 import { reserveHealth } from '@tokengo/shared';
 import { assertQuota, bumpQuota } from './quotas.ts';
+import { activeEvent, eventById, eventView } from './events.ts';
 
 const TUTORIAL_SPAWN = (userId: string) => `tut:${userId}`;
 
@@ -32,6 +33,8 @@ export function move(ctx: Ctx, userId: string, req: MoveRequest): MoveResponse {
   const tut = u.tut_lat === null && !v.ignored ? offsetM(req, 0, 20) : null;
   ctx.db.prepare(`UPDATE users SET move_state = ?, walked_m = ?, in_transit = ? ${tut ? ', tut_lat = ?, tut_lng = ?' : ''} WHERE id = ?`)
     .run(JSON.stringify(v.state), walked, v.inTransit ? 1 : 0, ...(tut ? [tut.lat, tut.lng] : []), userId);
+  // présence sur la carte des autres : seulement la cellule H3 (~175 m), jamais la position exacte
+  if (!v.ignored && !v.suspicious) ctx.db.prepare('UPDATE users SET seen_cell = ?, seen_at = ? WHERE id = ?').run(cellOf(req.lat, req.lng), now, userId);
   return { ok: true, inTransit: v.inTransit, ignored: v.ignored, suspicious: v.suspicious, walkedM: walked };
 }
 
@@ -51,10 +54,12 @@ export function visibleSpawns(ctx: Ctx, u: UserRow, lat: number, lng: number): S
   const now = ctx.now();
   const w = spawnWindow(now);
   const health = reserveHealth(getPools(ctx).main);
+  const event = activeEvent(ctx);
   const out: SpawnView[] = [];
   for (const cell of gridDisk(cellOf(lat, lng), 2)) {
-    for (const s of spawnsForCell(ctx.cfg.SPAWN_SECRET, cell, w, cellInfo(ctx.world, cell), health)) {
-      if (haversineM({ lat, lng }, s) <= 250) out.push(s);
+    // + vague bonus d'une ruée en cours (ids distincts : `cell:window:e<id>`)
+    for (const s of [...spawnsForCell(ctx.cfg.SPAWN_SECRET, cell, w, cellInfo(ctx.world, cell), health), ...eventSpawnsForCell(ctx.cfg.SPAWN_SECRET, event, cell, w)]) {
+      if (haversineM({ lat, lng }, s) <= 250 && s.expiresAt > now) out.push(s);
     }
   }
   if (!tutorialOf(u).caught && u.tut_lat !== null && u.tut_lng !== null) {
@@ -77,6 +82,7 @@ function findSpawn(ctx: Ctx, u: UserRow, spawnId: string): SpawnView | null {
   const w = Number(win);
   const cur = spawnWindow(ctx.now());
   if (w !== cur && !(w === cur - 1)) return null; // tolère la fenêtre précédente (bascule pendant le mini-jeu)
+  if (idx.startsWith('e')) return eventSpawnsForCell(ctx.cfg.SPAWN_SECRET, eventById(ctx, Number(idx.slice(1))), cell, w).find((s) => s.id === spawnId) ?? null;
   const health = reserveHealth(getPools(ctx).main);
   return spawnsForCell(ctx.cfg.SPAWN_SECRET, cell, w, cellInfo(ctx.world, cell), health).find((s) => s.id === spawnId) ?? null;
 }
@@ -87,6 +93,9 @@ export function worldView(ctx: Ctx, userId: string, lat: number, lng: number): W
   const nodes = nodesNear(ctx.world, lat, lng, 1200);
   const forgeIds = new Set(nodes.filter((n) => n.kind === 'forge').map((n) => n.id));
   for (const f of ctx.world.forges) if (!forgeIds.has(f.id) && haversineM({ lat, lng }, f) < 3000) nodes.push(f);
+  const event = activeEvent(ctx);
+  const reopened = new Map((ctx.db.prepare("SELECT at, data FROM events WHERE kind = 'merchant.reopened' AND at > ?").all(now - LIVING.reopenedBubbleMs) as { at: number; data: string | null }[])
+    .map((r) => [(JSON.parse(r.data ?? '{}') as { merchantId?: string }).merchantId, r.at]));
   const syncs = new Map((ctx.db.prepare('SELECT node_id, at FROM relay_syncs WHERE user_id = ? AND at > ?').all(userId, now - RELAY.cooldownMs) as { node_id: string; at: number }[])
     .map((r) => [r.node_id, r.at + RELAY.cooldownMs]));
   const views: NodeView[] = nodes.map((n) => {
@@ -96,13 +105,15 @@ export function worldView(ctx: Ctx, userId: string, lat: number, lng: number): W
       const m = merchantByNode(ctx, n.id);
       if (m) {
         const live = m.contract && m.contract.expiresAt > now ? m.contract : null;
-        v.merchant = { id: m.id, name: m.name, archetype: m.archetype, status: m.status, hasContract: !!live, ...(live ? { contractFamily: live.family } : {}) };
+        // bulle : seulement pour les marchands proches (le client en affiche 3 au plus)
+        const bubble = haversineM({ lat, lng }, n) <= LIVING.bubbleRadiusM ? merchantBubble(m, now, { pos: n, event, reopenedAt: reopened.get(m.id) ?? null }) : null;
+        v.merchant = { id: m.id, name: m.name, archetype: m.archetype, status: m.status, hasContract: !!live, ...(live ? { contractFamily: live.family } : {}), ...(bubble ? { bubble } : {}) };
       }
     }
     if (n.kind === 'forge') v.theme = ctx.world.forges.find((f) => f.id === n.id)?.theme ?? n.affinities;
     return v;
   });
-  return { now, nodes: views, spawns: visibleSpawns(ctx, u, lat, lng), reserve: reserveView(ctx), objective: objective(ctx, u, lat, lng) };
+  return { now, nodes: views, spawns: visibleSpawns(ctx, u, lat, lng), reserve: reserveView(ctx), objective: objective(ctx, u, lat, lng), event: eventView(event) };
 }
 
 /** Objectif épinglé : la recette la plus proche d'être complète + où trouver ce qui manque. */

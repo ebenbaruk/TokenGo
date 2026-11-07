@@ -4,6 +4,7 @@ import { kvGet, kvSet } from './db.ts';
 import type { Ctx } from './game/context.ts';
 import { HOUR, allMerchants, reflect, runHourly, type Brain } from './game/merchants.ts';
 import { parisDay } from './game/reserve.ts';
+import { eventTick } from './game/events.ts';
 
 export interface PeriodicJob { name: string; everyMs: number; run: () => Promise<void> }
 
@@ -35,7 +36,10 @@ export function startJobs(ctx: Ctx, brain?: Brain, periodic: PeriodicJob[] = [])
   };
   hourly();
   void reflections();
+  const events = () => { try { eventTick(ctx); } catch (e) { console.error('[events]', (e as Error).message); } };
+  events();
   timers.push(setInterval(hourly, 60_000));
+  timers.push(setInterval(events, 60_000));
   timers.push(setInterval(() => void reflections(), 10 * 60_000));
   for (const job of periodic) {
     let busy = false;

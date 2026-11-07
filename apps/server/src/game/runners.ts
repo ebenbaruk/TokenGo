@@ -3,8 +3,8 @@
 // (distance, cooldowns, quotas, prix, Pulse, ops on-chain) ; seul le mini-jeu est court-circuité (capture « good »).
 // Ils ne reçoivent jamais de crédits (forge.ts / reserve.ts refusent tout octroi à is_agent) et leurs trades sont plafonnés par heure.
 import {
-  FAMILIES, FAMILY_INFO, MERCHANT, TIERS, haversineM, missingFor, newMoveState, recipesFor, rngFrom, xpForLevel,
-  type Family, type MoveState, type Rng, type RunnerView, type Side, type Tier, type WorldNode,
+  FAMILIES, FAMILY_INFO, MERCHANT, TIERS, haversineM, legPosition, missingFor, newMoveState, recipesFor, rngFrom, xpForLevel,
+  type Family, type MoveState, type Rng, type Side, type SpawnView, type Tier, type WorldNode,
 } from '@tokengo/shared';
 import type { Ctx } from './context.ts';
 import { GameError } from './context.ts';
@@ -50,7 +50,7 @@ export const RUNNER_NAMES = [
   'Zoe', 'Karim', 'Lea', 'Noah', 'Sarah', 'Adam', 'Maya', 'Leo', 'Camille', 'Sami', 'Elsa', 'Omar',
 ] as const;
 
-type Intent = 'visit' | 'market' | 'compile' | 'rescue';
+type Intent = 'visit' | 'market' | 'compile' | 'rescue' | 'catch';
 interface Pt { lat: number; lng: number }
 export interface RunnerState {
   home: string;
@@ -62,22 +62,32 @@ export interface RunnerState {
   intent: Intent;
   cost: Partial<Record<Family, number>>;   // arbitrageur : prix unitaire payé
   shopAfter: number;
+  /** détour vers un éclat (intent 'catch') : capturé à l'arrivée */
+  spawnId?: string;
+  /** dernière action notable, pour l'étiquette sur la carte (« sold 3 Gemini at Café X ») */
+  note?: { text: string; at: number };
 }
 interface RunnerRow { user_id: string; profile: RunnerProfile; state: string; next_at: number }
 
 export const runnerId = (name: string) => `runner_${name.toLowerCase()}`;
 const runnerIds = (n: number) => RUNNER_NAMES.slice(0, Math.min(n, RUNNER_NAMES.length)).map(runnerId);
 
+/** Position sur le tronçon en cours (même interpolation que le client : legPosition). */
 export function positionAt(st: RunnerState, now: number): Pt {
-  if (now >= st.arriveAt || st.arriveAt <= st.departAt) return { lat: st.to.lat, lng: st.to.lng };
-  const k = Math.max(0, (now - st.departAt) / (st.arriveAt - st.departAt));
-  return { lat: st.from.lat + (st.to.lat - st.from.lat) * k, lng: st.from.lng + (st.to.lng - st.from.lng) * k };
+  const p = legPosition(st, now);
+  return { lat: p.lat, lng: p.lng };
 }
 
-const legTo = (from: Pt, node: WorldNode, now: number, intent: Intent, st: RunnerState): RunnerState => ({
-  ...st, from, to: { lat: node.lat, lng: node.lng, nodeId: node.id }, departAt: now,
-  arriveAt: now + Math.round(haversineM(from, node) / RUNNER.walkMps * 1000), intent,
-});
+/** Nouveau tronçon à 5 km/h depuis `from` (le runner marche vraiment : pas de téléportation). */
+const legTo = (from: Pt, node: Pt & { id: string }, now: number, intent: Intent, st: RunnerState): RunnerState => {
+  const { spawnId: _drop, ...rest } = st;
+  return {
+    ...rest, from, to: { lat: node.lat, lng: node.lng, nodeId: node.id }, departAt: now,
+    arriveAt: now + Math.round(haversineM(from, node) / RUNNER.walkMps * 1000), intent,
+  };
+};
+const noteOf = (t: Turn, text: string) => { t.st.note = { text, at: t.ctx.now() }; };
+const famName = (f: Family, q: number) => `${q} ${FAMILY_INFO[f].name}`;
 
 // ───────────────────────────── Création ─────────────────────────────
 
@@ -125,18 +135,14 @@ export function seedRunners(ctx: Ctx, n: number): string[] {
 
 // ───────────────────────────── Vue carte ─────────────────────────────
 
-export function runnersNear(ctx: Ctx, lat: number, lng: number, radiusM: number = RUNNER.visibleRadiusM): RunnerView[] {
-  const now = ctx.now();
-  const rows = ctx.db.prepare('SELECT r.user_id, r.state, u.handle FROM runners r JOIN users u ON u.id = r.user_id WHERE r.next_at > ?')
-    .all(now - RUNNER.aliveWithinMs) as { user_id: string; state: string; handle: string }[];
-  const out: RunnerView[] = [];
-  for (const r of rows) {
-    const p = positionAt(JSON.parse(r.state) as RunnerState, now);
-    if (haversineM({ lat, lng }, p) <= radiusM) out.push({ id: r.user_id, handle: r.handle, lat: round6(p.lat), lng: round6(p.lng) });
-  }
-  return out;
+export interface RunnerRowView { user_id: string; handle: string; st: RunnerState }
+
+/** Runners dont la boucle tourne (les autres disparaissent de la carte). */
+export function liveRunners(ctx: Ctx): RunnerRowView[] {
+  return (ctx.db.prepare('SELECT r.user_id, r.state, u.handle FROM runners r JOIN users u ON u.id = r.user_id WHERE r.next_at > ?')
+    .all(ctx.now() - RUNNER.aliveWithinMs) as { user_id: string; state: string; handle: string }[])
+    .map((r) => ({ user_id: r.user_id, handle: r.handle, st: JSON.parse(r.state) as RunnerState }));
 }
-const round6 = (x: number) => Math.round(x * 1e6) / 1e6;
 
 export const activeRunnerCount = (ctx: Ctx): number =>
   (ctx.db.prepare('SELECT COUNT(*) n FROM runners WHERE next_at > ?').get(ctx.now() - RUNNER.aliveWithinMs) as { n: number }).n;
@@ -170,7 +176,7 @@ async function attempt<T>(fn: () => T | Promise<T>): Promise<T | null> {
 interface Turn { ctx: Ctx; id: string; profile: RunnerProfile; st: RunnerState; rng: Rng; trades: number }
 const user = (t: Turn) => getUser(t.ctx, t.id)!;
 
-async function trade(t: Turn, merchantId: string, side: Side, family: Family, qty: number): Promise<number | null> {
+async function trade(t: Turn, merchantId: string, side: Side, family: Family, qty: number, where = ''): Promise<number | null> {
   if (qty <= 0 || t.trades >= RUNNER.tradesPerHour) return null;
   let q = Math.min(qty, RUNNER.maxQtyPerTrade);
   while (q > 0) {
@@ -178,6 +184,7 @@ async function trade(t: Turn, merchantId: string, side: Side, family: Family, qt
       const quote = makeQuote(t.ctx, t.id, merchantId, { side, family, qty: q });
       const r = executeTrade(t.ctx, t.id, merchantId, quote.quoteId);
       t.trades++;
+      noteOf(t, `${side === 'sell' ? 'sold' : 'bought'} ${famName(family, r.qty)} ${side === 'sell' ? 'to' : 'from'} ${where || r.merchant.name}`);
       return r.total / r.qty;
     } catch (e) {
       if (!(e instanceof GameError)) { console.error('[runners]', (e as Error).message); return null; }
@@ -198,19 +205,22 @@ const recipeOf = (t: Turn): { needs: Partial<Record<Family, number>>; fee: numbe
 /** Au marché : sauvetage, contrat, ventes du surplus, achats (recette ou arbitrage). */
 async function atMarket(t: Turn, node: WorldNode) {
   const { ctx, id } = t;
+  if (ctx.cfg.RUNNER_TRADES === false) return;
   const m = merchantByNode(ctx, node.id);
   if (!m) return;
   let inv = inventory(ctx, id);
   if (m.status !== 'open') {
     if (levelOf(user(t)) >= 6 && inv.flux >= MERCHANT.rescueMin + RUNNER.patronKeep) {
       const amount = Math.max(MERCHANT.rescueMin, Math.min(150, inv.flux - RUNNER.patronKeep));
-      await attempt(() => rescue(ctx, id, m.id, amount));
+      if (await attempt(() => rescue(ctx, id, m.id, amount))) noteOf(t, `invested ${amount} ƒ in ${m.name}`);
     }
     return;
   }
   const keep: Partial<Record<Family, number>> = t.profile === 'walker' || t.profile === 'forger' ? recipeOf(t).needs : {};
   const c = m.contract && m.contract.expiresAt > ctx.now() ? m.contract : null;
-  if (c && inv.shards[c.family] - (keep[c.family] ?? 0) >= c.qty) await attempt(() => deliver(ctx, id, m.id));
+  if (c && inv.shards[c.family] - (keep[c.family] ?? 0) >= c.qty && await attempt(() => deliver(ctx, id, m.id))) {
+    noteOf(t, `delivered ${famName(c.family, c.qty)} to ${m.name}`);
+  }
 
   if (t.profile === 'arbitrageur') {
     const view = await attempt(() => viewMerchant(ctx, id, m.id)); // enregistre aussi les prix vus (comparateur)
@@ -260,11 +270,13 @@ async function atMarket(t: Turn, node: WorldNode) {
 
 async function atForge(t: Turn) {
   const { ctx, id } = t;
+  if (ctx.cfg.RUNNER_TRADES === false) return;
   const r = recipeOf(t);
   if (levelOf(user(t)) < TIERS[r.tier].level) return;
   const res = await attempt(() => compile(ctx, id, t.st.forgeId, r.tier));
   if (res) {
     const f = ctx.world.byId.get(t.st.forgeId)!;
+    noteOf(t, `compiled ${r.tier[0]!.toUpperCase()}${r.tier.slice(1)} at ${f.name.split(' —')[0]}`);
     ctx.bus.publish('compile', `${user(t).handle} compiled ${r.tier[0]!.toUpperCase()}${r.tier.slice(1)} at ${f.name} · burn + XP only`,
       { forgeId: f.id, tier: r.tier, payout: 0, agent: true });
   }
@@ -336,31 +348,43 @@ function hop(t: Turn, pos: Pt): RunnerState {
   return legTo(pos, nb[nb.length - 1]!, now, 'visit', st);
 }
 
-/** Un tour d'un runner : arrivé → agit au nœud ; captures autour de lui ; nouvelle destination. */
+/** Éclat à ≤ 100 m qui mérite un détour (pas encore capturé par ce runner). */
+function nearbySpawn(t: Turn, pos: Pt): SpawnView | undefined {
+  if (PROFILE[t.profile].catches <= 0) return undefined;
+  return visibleSpawns(t.ctx, user(t), pos.lat, pos.lng)
+    .filter((s) => haversineM(pos, s) <= RUNNER.catchRadiusM && s.expiresAt - t.ctx.now() > 3 * 60_000)
+    .sort((a, b) => haversineM(pos, a) - haversineM(pos, b))[0];
+}
+
+/**
+ * Un tour d'un runner. En route : il continue de marcher (rien à faire). Arrivé : il agit là où il est (relais, marché,
+ * forge, ou capture de l'éclat visé), puis repart — détour vers un éclat proche (≤ 100 m, une fois sur deux) ou
+ * prochaine destination de son profil. Chaque déplacement est un vrai tronçon à 5 km/h, visible sur la carte.
+ */
 export async function stepRunner(ctx: Ctx, row: RunnerRow, tradesSoFar: number): Promise<number> {
   const now = ctx.now();
   const t: Turn = { ctx, id: row.user_id, profile: row.profile, st: JSON.parse(row.state) as RunnerState, rng: rngFrom(ctx.cfg.SPAWN_SECRET, 'runner', row.user_id, now), trades: tradesSoFar };
   if (!getUser(ctx, t.id)) return t.trades;
-  const arrived = now >= t.st.arriveAt;
-  let pos = positionAt(t.st, now);
-  if (arrived) {
-    const node = ctx.world.byId.get(t.st.to.nodeId);
+  if (now >= t.st.arriveAt) {
+    const pos = positionAt(t.st, now);
     place(ctx, user(t), pos);
-    if (node?.kind === 'relay') await attempt(() => relaySync(ctx, t.id, node.id));
-    if (node?.kind === 'market') await atMarket(t, node);
-    if (node?.kind === 'forge' && t.st.intent === 'compile') await atForge(t);
+    const node = ctx.world.byId.get(t.st.to.nodeId);
+    if (t.st.intent === 'catch' && t.st.spawnId) {
+      const spawnId = t.st.spawnId;
+      const r = await attempt(() => agentCatch(ctx, t.id, spawnId));
+      if (r && r.qty > 0) noteOf(t, `caught a ${FAMILY_INFO[r.family].name} shard`);
+    } else if (node?.kind === 'relay') {
+      if (await attempt(() => relaySync(ctx, t.id, node.id))) noteOf(t, `synced ${node.name}`);
+    } else if (node?.kind === 'market') await atMarket(t, node);
+    else if (node?.kind === 'forge' && t.st.intent === 'compile') await atForge(t);
+    const sp = t.st.intent !== 'catch' && t.rng() < 0.5 ? nearbySpawn(t, pos) : undefined;
+    if (sp) {
+      const back = t.st.to.nodeId;
+      t.st = { ...legTo(pos, { lat: sp.lat, lng: sp.lng, id: back }, now, 'catch', t.st), spawnId: sp.id };
+    } else {
+      t.st = plan(t, pos);
+    }
   }
-  // petits détours pour les éclats proches (contrôles de distance réels : on se place sur l'éclat)
-  const spawns = visibleSpawns(ctx, user(t), pos.lat, pos.lng)
-    .filter((s) => haversineM(pos, s) <= RUNNER.catchRadiusM)
-    .sort((a, b) => haversineM(pos, a) - haversineM(pos, b))
-    .slice(0, PROFILE[t.profile].catches);
-  for (const s of spawns) {
-    place(ctx, user(t), s);
-    if (await attempt(() => agentCatch(ctx, t.id, s.id))) pos = { lat: s.lat, lng: s.lng };
-  }
-  if (arrived) t.st = plan(t, pos);
-  else if (spawns.length) t.st = legTo(pos, ctx.world.byId.get(t.st.to.nodeId) ?? ctx.world.byId.get(t.st.home)!, now, t.st.intent, t.st);
   const next = now + RUNNER.tickMinMs + Math.floor(t.rng() * RUNNER.tickJitterMs);
   ctx.db.prepare('UPDATE runners SET state = ?, next_at = ? WHERE user_id = ?').run(JSON.stringify(t.st), next, t.id);
   return t.trades;

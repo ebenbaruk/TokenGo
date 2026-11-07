@@ -10,3 +10,4 @@ export * from './agent.ts';
 export * from './equiv.ts';
 export * from './movement.ts';
 export * from './affinity.ts';
+export * from './events.ts';

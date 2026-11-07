@@ -2,14 +2,14 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import {
-  haversineM, type CompileResponse, type CreditsView, type ForgeView, type LabSnapshot, type LeaderboardsResponse, type Me,
+  LIVING, haversineM, legPosition, type CompileResponse, type WalkersResponse, type CreditsView, type ForgeView, type LabSnapshot, type LeaderboardsResponse, type Me,
   type PublicConfig, type PulseResponse, type WorldResponse,
 } from '@tokengo/shared';
 import { createSim } from '@tokengo/shared/economy/sim.ts';
 import { loadConfig } from './config.ts';
 import { buildApp, type AppOptions } from './app.ts';
 import { simulatedCredits, type CreditsProvider } from './game/credits.ts';
-import { RUNNER, agentTradesLastHour, runnerId, runnerTick, seedRunners, type RunnerState } from './game/runners.ts';
+import { RUNNER, RUNNER_NAMES, agentTradesLastHour, runnerId, runnerTick, seedRunners, type RunnerState } from './game/runners.ts';
 import { grantCredits, retryPendingGrants } from './game/reserve.ts';
 import { compile } from './game/forge.ts';
 import { getUser } from './game/players.ts';
@@ -76,16 +76,19 @@ describe('runner-agents', () => {
     expect(profiles.map((p) => p.profile).sort()).toEqual(['arbitrageur', 'flooder', 'forger', 'walker']);
   });
 
-  it('shows runners near the Louvre in GET /api/world', async () => {
+  it('shows runners near the Louvre in GET /api/walkers (named, on a real leg)', async () => {
     const c = s.client();
     await c.post('/auth/guest', { demo: true });
     await s.walkTo(c, LOUVRE);
-    const w = await c.get<WorldResponse>(`/api/world?lat=${LOUVRE.lat}&lng=${LOUVRE.lng}`);
+    const w = await c.get<WalkersResponse>(`/api/walkers?lat=${LOUVRE.lat}&lng=${LOUVRE.lng}`);
     expect(w.status).toBe(200);
-    expect(w.body.runners?.length).toBeGreaterThan(0);
-    for (const r of w.body.runners!) {
-      expect(r.handle).toMatch(/^Runner·/);
-      expect(haversineM(LOUVRE, r)).toBeLessThanOrEqual(RUNNER.visibleRadiusM);
+    const runners = w.body.walkers.filter((x) => x.kind === 'runner');
+    expect(runners.length).toBeGreaterThan(0);
+    expect(w.body.walkers.length).toBeLessThanOrEqual(LIVING.walkersMax);
+    for (const r of runners) {
+      expect(RUNNER_NAMES as readonly string[]).toContain(r.name);
+      expect(haversineM(LOUVRE, legPosition(r, w.body.now))).toBeLessThanOrEqual(LIVING.walkersRadiusM);
+      expect(r.note).toBeTruthy();
     }
   });
 

@@ -5,6 +5,7 @@ import { SHARDS } from './shards.ts';
 import { AVATAR_GRIDS } from './avatar.grids.ts';
 import { MERCHANT_GRIDS } from './merchants.grids.ts';
 import { NODE_GRIDS } from './nodes.grids.ts';
+import { WALKER_GRIDS, mirrorGrid } from './walker.grids.ts';
 
 export * from './engine.ts';
 export { SHARDS };
@@ -51,6 +52,18 @@ export function merchantSprite(archetype: string, id: string): SpriteDef {
 export const AVATAR: SpriteDef = { frames: AVATAR_GRIDS, outline: true, fps: 5 };
 /** Runner-agent : même gabarit que l'avatar, casquette plum et veste verte (on les distingue du joueur). */
 export const RUNNER: SpriteDef = recolor(AVATAR, { r: SWEETIE.plum, o: SWEETIE.berry, p: SWEETIE.night, b: SWEETIE.green, s: SWEETIE.lime, n: SWEETIE.teal, c: SWEETIE.sun, t: SWEETIE.orange });
+/** Marcheurs de la carte vivante : 4 tenues de runners-agents + 1 tenue « joueur anonyme » (gris, sans couleur distinctive). */
+export const WALKER_VARIANTS: Record<string, string>[] = [
+  { A: SWEETIE.green, B: SWEETIE.teal, C: SWEETIE.plum },
+  { A: SWEETIE.berry, B: SWEETIE.plum, C: SWEETIE.sun },
+  { A: SWEETIE.blue, B: SWEETIE.navy, C: SWEETIE.orange },
+  { A: SWEETIE.orange, B: SWEETIE.berry, C: SWEETIE.teal },
+  { A: SWEETIE.mist, B: SWEETIE.slate, C: SWEETIE.white, N: SWEETIE.slate },
+];
+export const walkerSprite = (variant: number, facing: 'r' | 'l'): SpriteDef => ({
+  frames: facing === 'r' ? WALKER_GRIDS : WALKER_GRIDS.map(mirrorGrid),
+  keys: WALKER_VARIANTS[variant % WALKER_VARIANTS.length]!, outline: true, fps: 4,
+});
 export const RELAY: SpriteDef = { frames: NODE_GRIDS.relay, outline: true, fps: 2 };
 export const RELAY_COOLDOWN: SpriteDef = recolor(RELAY, { c: SWEETIE.mist, t: SWEETIE.slate, W: SWEETIE.white, '~': 'transparent' });
 export const FORGE: SpriteDef = { frames: NODE_GRIDS.forge, outline: true, fps: 4 };

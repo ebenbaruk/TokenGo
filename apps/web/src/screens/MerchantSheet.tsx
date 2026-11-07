@@ -17,8 +17,10 @@ const r2 = (n: number) => (Math.round(n * 100) / 100).toString();
 
 /** « Why this price? » rendu comme une phrase chiffrée. */
 export function explainSentence(e: PriceExplanation): string {
-  const mid = Math.round(e.p0 * e.scarcity);
-  const base = `Base ${r2(e.p0)} ƒ × scarcity ${e.scarcity.toFixed(2)} (I hold ${e.stock}, I want ${Math.round(e.target)}) ≈ ${mid} ƒ, ± my margin ${Math.round(e.spread * 100)} % — and each unit moves my stock`;
+  const mult = e.event?.mult ?? 1;
+  const mid = Math.round(e.p0 * mult * e.scarcity);
+  const ev = e.event ? ` × ${e.event.label} ${mult < 1 ? '−' : '+'}${Math.round(Math.abs(mult - 1) * 100)} %` : '';
+  const base = `Base ${r2(e.p0)} ƒ${ev} × scarcity ${e.scarcity.toFixed(2)} (I hold ${e.stock}, I want ${Math.round(e.target)}) ≈ ${mid} ƒ, ± my margin ${Math.round(e.spread * 100)} % — and each unit moves my stock`;
   const tail = [
     e.sell !== null ? `I sell at ${e.sell} ƒ` : null,
     e.buy !== null ? `I buy at ${e.buy} ƒ` : null,
@@ -28,6 +30,8 @@ export function explainSentence(e: PriceExplanation): string {
     e.closing ? 'Closing-down sale: −10 %.' : null,
     e.sellBlocked === 'contract' ? 'Not selling these: I need them for my contract.' : null,
     e.sellBlocked === 'empty' ? 'I’m out of these.' : null,
+    e.sellBlocked === 'strike' ? 'I’m on strike: buying only until it’s over.' : null,
+    e.event ? `${e.event.label} — for a few minutes only!` : null,
     e.buyBlocked === 'no-flux' ? 'My till is too empty to buy.' : null,
     e.buyBlocked === 'closing' ? 'Not buying while I’m closing.' : null,
   ].filter(Boolean).join(' ');
@@ -104,6 +108,8 @@ export function MerchantSheet({ node, onClose }: { node: NodeView; onClose: () =
                       </div>
                     </div>
                     <div className={s.prices}>
+                      {e.event ? <span className={`${s.evChip} ${e.event.mult < 1 ? s.evDown : s.evUp}`} data-testid={`event-chip-${f}`} title={e.event.label}>
+                        {e.event.mult < 1 ? '▼ ' : '▲ '}{e.event.mult < 1 ? '−' : '+'}{Math.round(Math.abs(e.event.mult - 1) * 100)}%</span> : null}
                       <button type="button" className={`${s.priceBtn} ${s.sell}`} data-testid={`sell-${f}`}
                         disabled={e.buy === null || (me?.shards[f] ?? 0) === 0}
                         onClick={() => { play('tap'); setPick({ family: f, side: 'sell' }); }}>
@@ -113,7 +119,7 @@ export function MerchantSheet({ node, onClose }: { node: NodeView; onClose: () =
                       <button type="button" className={`${s.priceBtn} ${s.buy}`} data-testid={`buy-${f}`}
                         disabled={e.sell === null}
                         onClick={() => { play('tap'); setPick({ family: f, side: 'buy' }); }}>
-                        {e.sell !== null ? <span><b className="num">{e.sell}</b> ƒ</span> : <small>{e.sellBlocked === 'contract' ? 'contract' : e.sellBlocked === 'empty' ? 'sold out' : 'closed'}</small>}
+                        {e.sell !== null ? <span><b className="num">{e.sell}</b> ƒ</span> : <small>{e.sellBlocked === 'contract' ? 'contract' : e.sellBlocked === 'empty' ? 'sold out' : e.sellBlocked === 'strike' ? 'on strike' : 'closed'}</small>}
                       </button>
                     </div>
                     {why === f ? <div className={s.whyPop} data-testid="why-popover">{explainSentence(e)}</div> : null}

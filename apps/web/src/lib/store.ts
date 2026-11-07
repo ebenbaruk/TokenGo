@@ -1,6 +1,6 @@
 // État global (Zustand). Exposé en lecture sur window.__tg pour les tests E2E (la carte WebGL n'est pas lisible).
 import { create } from 'zustand';
-import type { Me, NodeView, SpawnView, WorldResponse, Family } from '@tokengo/shared';
+import type { Me, NodeView, SpawnView, WorldResponse, Family, WalkerView } from '@tokengo/shared';
 
 export interface Pos { lat: number; lng: number; acc: number; heading?: number; t: number }
 
@@ -39,6 +39,9 @@ interface State {
   walkTarget: { lat: number; lng: number } | null;
   serverDown: boolean;
   showRunners: boolean;
+  /** marcheurs autour (runners-agents + joueurs anonymisés) ; skew = horloge serveur − horloge locale */
+  walkers: WalkerView[];
+  skewMs: number;
 }
 
 export const useGame = create<State>(() => ({
@@ -55,6 +58,8 @@ export const useGame = create<State>(() => ({
   hiddenSpawns: [],
   walkTarget: null,
   serverDown: false,
+  walkers: [],
+  skewMs: 0,
   showRunners: (() => { try { return localStorage.getItem('tg.runners') !== '0'; } catch { return true; } })(),
 }));
 
@@ -88,6 +93,6 @@ declare global {
 if (typeof window !== 'undefined') {
   window.__tg = () => {
     const s = get();
-    return { phase: s.phase, position: s.pos, me: s.me, world: s.world, lastResult: s.lastResult, overlay: s.overlay?.kind ?? null, demo: s.demo, gps: s.gps, toasts: s.toasts.map((t) => t.text) };
+    return { phase: s.phase, position: s.pos, me: s.me, world: s.world, walkers: s.walkers, lastResult: s.lastResult, overlay: s.overlay?.kind ?? null, demo: s.demo, gps: s.gps, toasts: s.toasts.map((t) => t.text) };
   };
 }

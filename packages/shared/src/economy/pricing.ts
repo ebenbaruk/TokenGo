@@ -66,8 +66,14 @@ export interface PriceExplanation {
   sell: number | null;
   /** raison quand buy/sell est null */
   buyBlocked?: 'closed' | 'closing' | 'no-flux';
-  sellBlocked?: 'closed' | 'empty' | 'contract';
+  sellBlocked?: 'closed' | 'empty' | 'contract' | 'strike';
+  /** événement de ville en cours qui multiplie le prix de base de cette famille ici (p0 ci-dessus = avant l'événement) */
+  event?: { label: string; mult: number };
 }
+
+/** Options de prix : avantage Patron, effet d'un événement de ville (multiplicateur de P0 borné), grève. */
+export interface PriceOpts { patron?: boolean; event?: { label: string; mult: number } | null; strike?: boolean }
+const p0With = (p0: number, opts: PriceOpts) => p0 * (opts.event?.mult ?? 1);
 
 /** Prix unitaire que le marchand PAIE si on lui vend 1 éclat de plus (stock s → s+1). */
 export function unitBuyPrice(p0: number, m: MerchantState, f: Family, stockBefore: number, opts: { patron?: boolean } = {}): number {
@@ -81,13 +87,15 @@ export function unitSellPrice(p0: number, m: MerchantState, f: Family, stockBefo
   return Math.max(1, Math.ceil(price));
 }
 
-export function explainPrice(p0: number, m: MerchantState, f: Family, opts: { patron?: boolean } = {}): PriceExplanation {
+export function explainPrice(p0Base: number, m: MerchantState, f: Family, opts: PriceOpts = {}): PriceExplanation {
+  const p0 = p0With(p0Base, opts);
   const stock = m.stock[f];
   const target = targetOf(m, f);
   const e: PriceExplanation = {
-    family: f, p0, stock, target, scarcity: scarcity(target, stock),
+    family: f, p0: p0Base, stock, target, scarcity: scarcity(target, stock),
     spread: effectiveSpread(m, f, opts), specialty: m.specialty.includes(f), closing: m.status === 'closing',
     buy: null, sell: null,
+    ...(opts.event ? { event: { label: opts.event.label, mult: opts.event.mult } } : {}),
   };
   if (m.status === 'closed') { e.buyBlocked = 'closed'; e.sellBlocked = 'closed'; return e; }
   const buy = unitBuyPrice(p0, m, f, stock, opts);
@@ -95,6 +103,7 @@ export function explainPrice(p0: number, m: MerchantState, f: Family, opts: { pa
   else if (m.flux < buy) e.buyBlocked = 'no-flux';
   else e.buy = buy;
   if (stock <= 0) e.sellBlocked = 'empty';
+  else if (opts.strike) e.sellBlocked = 'strike';
   else if (m.contract && m.contract.family === f) e.sellBlocked = 'contract';
   else e.sell = unitSellPrice(p0, m, f, stock, opts);
   return e;
@@ -102,7 +111,7 @@ export function explainPrice(p0: number, m: MerchantState, f: Family, opts: { pa
 
 export type Side = 'sell' | 'buy'; // du point de vue du JOUEUR : 'sell' = je vends au marchand, 'buy' = j'achète
 
-export type QuoteError = 'CLOSED' | 'NOT_BUYING' | 'MERCHANT_NO_FLUX' | 'OUT_OF_STOCK' | 'CONTRACT_LOCK' | 'BAD_QTY';
+export type QuoteError = 'CLOSED' | 'NOT_BUYING' | 'MERCHANT_NO_FLUX' | 'OUT_OF_STOCK' | 'CONTRACT_LOCK' | 'BAD_QTY' | 'STRIKE';
 export interface Quote {
   side: Side;
   family: Family;
@@ -112,7 +121,8 @@ export interface Quote {
 }
 
 /** Devis exact d'un échange de `qty` unités (le prix glisse après chaque unité). */
-export function quote(p0: number, m: MerchantState, side: Side, f: Family, qty: number, opts: { patron?: boolean } = {}): Quote | { error: QuoteError } {
+export function quote(p0Base: number, m: MerchantState, side: Side, f: Family, qty: number, opts: PriceOpts = {}): Quote | { error: QuoteError } {
+  const p0 = p0With(p0Base, opts);
   if (!Number.isInteger(qty) || qty < 1 || qty > 50) return { error: 'BAD_QTY' };
   if (m.status === 'closed') return { error: 'CLOSED' };
   const unitPrices: number[] = [];
@@ -128,6 +138,7 @@ export function quote(p0: number, m: MerchantState, side: Side, f: Family, qty: 
     }
     if (total > m.flux) return { error: 'MERCHANT_NO_FLUX' };
   } else {
+    if (opts.strike) return { error: 'STRIKE' };
     if (m.contract && m.contract.family === f) return { error: 'CONTRACT_LOCK' };
     if (stock < qty) return { error: 'OUT_OF_STOCK' };
     for (let i = 0; i < qty; i++) {

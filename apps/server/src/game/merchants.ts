@@ -10,6 +10,7 @@ import { merchantLedger } from './players.ts';
 import { accountPrefix, merchantNearId } from '../chain/accounts.ts';
 import { DEMO_START } from './world.ts';
 import { greetingFor } from './lines.ts';
+import { activeEvent, eventPriceOpts } from './events.ts';
 
 export const HOUR = 3600_000;
 
@@ -145,6 +146,7 @@ export async function reflect(ctx: Ctx, merchantId: string, day: string, brain?:
 export function merchantView(ctx: Ctx, m: MerchantState, node: WorldNode, userId: string, opts: { patron: boolean; pos?: { lat: number; lng: number } }): MerchantView {
   const p0 = getP0(ctx);
   const now = ctx.now();
+  const event = activeEvent(ctx);
   const ticks = ctx.db.prepare('SELECT mids FROM price_ticks WHERE merchant_id = ? AND at > ? ORDER BY at').all(m.id, now - 24 * HOUR) as { mids: string }[];
   const trend24h: MerchantView['trend24h'] = {};
   for (const f of FAMILIES) trend24h[f] = ticks.map((t) => (JSON.parse(t.mids) as Record<Family, number>)[f]);
@@ -161,7 +163,7 @@ export function merchantView(ctx: Ctx, m: MerchantState, node: WorldNode, userId
     id: m.id, nodeId: node.id, name: m.name, archetype: m.archetype, specialty: m.specialty, status: m.status, flux: m.flux,
     lat: node.lat, lng: node.lng, place: node.name, mood: m.mood,
     greeting: greetingFor(m, userId, now),
-    prices: FAMILIES.map((f) => explainPrice(p0[f], m, f, { patron: opts.patron })),
+    prices: FAMILIES.map((f) => explainPrice(p0[f], m, f, { patron: opts.patron, ...eventPriceOpts(event, f, node, now) })),
     trend24h,
     contract: m.contract && m.contract.expiresAt > now ? m.contract : null,
     rescue: rescueView,

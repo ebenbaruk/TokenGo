@@ -13,6 +13,7 @@ import { forgePayout, missingFor, recipesFor, recipeSize, type Recipe } from './
 import { initialPools, poolAvail, reserveHealth, type Pools } from './reserve.ts';
 import { familyWeights, spawnLambda } from './spawns.ts';
 import { resolveCatch } from './catch.ts';
+import { drawCityEvent, eventGapMs, eventPriceEffect, eventStrikes, eventTitle, inEventZone, isEventActive, makeCityEvent, type CityEvent } from './events.ts';
 
 // ───────────────────────────── Paramètres ─────────────────────────────
 export const STEP_MS = 10 * 60_000;
@@ -75,11 +76,13 @@ export interface RulesOverride {
   INITIAL_STOCK_RATIO?: readonly [number, number];
   ARCHETYPE_BIAS?: Partial<Record<keyof typeof R.ARCHETYPE_BIAS, { spread: number; targetMult: number }>>;
   AGENT_BOUNDS?: Loose<typeof R.AGENT_BOUNDS>;
+  CITY_EVENTS?: Partial<Record<R.CityEventKind, R.CityEventRule>>;
+  CITY_EVENT?: Loose<typeof R.CITY_EVENT>;
 }
 const OVERRIDABLE = {
   PRICING: R.PRICING, MERCHANT: R.MERCHANT, FORGE: R.FORGE, RELAY: R.RELAY, P0_DRIFT: R.P0_DRIFT, CONTRACT: R.CONTRACT,
   BASE_TARGET: R.BASE_TARGET, TIERS: R.TIERS, INITIAL_TREASURY: R.INITIAL_TREASURY, INITIAL_STOCK_RATIO: R.INITIAL_STOCK_RATIO,
-  ARCHETYPE_BIAS: R.ARCHETYPE_BIAS, AGENT_BOUNDS: R.AGENT_BOUNDS,
+  ARCHETYPE_BIAS: R.ARCHETYPE_BIAS, AGENT_BOUNDS: R.AGENT_BOUNDS, CITY_EVENTS: R.CITY_EVENTS, CITY_EVENT: R.CITY_EVENT,
 } as unknown as Record<string, Record<string, unknown>>;
 
 /** Exécute fn avec les constantes surchargées, puis restaure (même en cas d'erreur). */
@@ -119,6 +122,8 @@ export interface SimOptions {
   /** Prix de référence et poches de départ (Lab : état réel de Paris). */
   initialP0?: Record<Family, number>;
   initialPools?: Pools;
+  /** Événements de ville (Docs/03 §9) tirés comme sur le serveur (défaut : oui). */
+  cityEvents?: boolean;
   onProgress?: (fraction: number, snap: SimSnapshot) => void;
 }
 
@@ -141,7 +146,7 @@ export interface SimEvent {
   hour: number;              // heures depuis le début
   day: number;               // 1..days
   hourOfDay: number;
-  kind: 'closing' | 'closed' | 'reopened' | 'rescued' | 'reserve-refill' | 'flood-start' | 'flood-end';
+  kind: 'closing' | 'closed' | 'reopened' | 'rescued' | 'reserve-refill' | 'flood-start' | 'flood-end' | 'city-event';
   merchantId?: string;
   merchantName?: string;
   detail?: string;
@@ -348,6 +353,29 @@ function buildSim(opts: SimOptions): Sim {
   };
 
   const nowOf = (s: number) => BASE_MS + s * STEP_MS;
+
+  // ── Événements de ville : même tirage et mêmes bornes que le serveur (jobs → eventTick) ──
+  const cityEventsOn = opts.cityEvents !== false;
+  let cityEvent: CityEvent | null = null;
+  let eventSeq = 0;
+  let eventsToday = 0;
+  let nextEventAt = BASE_MS + 9 * 3600_000;
+  const eventOpts = (mi: number, f: Family, now: number) => {
+    const pos = nodes[marketNodes[mi]!]!;
+    const event = eventPriceEffect(cityEvent, f, pos, now);
+    return { ...(event ? { event } : {}), ...(eventStrikes(cityEvent, pos, now) ? { strike: true } : {}) };
+  };
+  function cityEventStep(now: number) {
+    if (!cityEventsOn) return;
+    if (cityEvent && !isEventActive(cityEvent, now)) cityEvent = null;
+    const hod = Math.floor((stepIdx % STEPS_PER_DAY) / STEPS_PER_HOUR);
+    if (cityEvent || now < nextEventAt || hod < R.CITY_EVENT.firstHour || hod >= R.CITY_EVENT.lastHour || eventsToday >= R.CITY_EVENT.maxPerDay) return;
+    eventSeq++;
+    eventsToday++;
+    cityEvent = makeCityEvent(eventSeq, drawCityEvent(secret, eventSeq, now));
+    nextEventAt = cityEvent.endsAt + eventGapMs(secret, eventSeq);
+    pushEvent('city-event', undefined, eventTitle(cityEvent));
+  }
   const pushEvent = (kind: SimEvent['kind'], mi?: number, detail?: string) => {
     const hour = Math.floor(stepIdx / STEPS_PER_HOUR);
     const m = mi === undefined ? undefined : merchants[mi];
@@ -379,6 +407,7 @@ function buildSim(opts: SimOptions): Sim {
     if (scenario === 'flood-deepseek' && day === bp.floodStartDay) pushEvent('flood-start', undefined, `${FAMILY_INFO[bp.floodFamily].name} flood`);
     if (scenario === 'flood-deepseek' && day === bp.floodEndDay) pushEvent('flood-end', undefined, `${FAMILY_INFO[bp.floodFamily].name} flood ends`);
     fluxPlayersDaily.push(bots.reduce((s, b) => s + b.flux, 0));
+    eventsToday = 0;
     globalDayUsed = 0;
     globalDayBase = poolAvail(pools.main);
     const ds = dayString(day);
@@ -498,7 +527,7 @@ function buildSim(opts: SimOptions): Sim {
     for (const f of FAMILIES) {
       let q = Math.min(50, b.inv[f] - (keep[f] ?? 0));
       while (q > 0) {
-        const res = quote(p0[f], m, 'sell', f, q, opt);
+        const res = quote(p0[f], m, 'sell', f, q, { ...opt, ...eventOpts(mi, f, now) });
         if ('error' in res) {
           if (res.error === 'MERCHANT_NO_FLUX') { q = Math.floor(q / 2); continue; }
           q = 0;
@@ -520,7 +549,7 @@ function buildSim(opts: SimOptions): Sim {
     let m = merchants[mi]!;
     let q = Math.min(qty, m.stock[f], 50);
     while (q > 0) {
-      const res = quote(p0[f], m, 'buy', f, q, patronOpt(b, mi, now));
+      const res = quote(p0[f], m, 'buy', f, q, { ...patronOpt(b, mi, now), ...eventOpts(mi, f, now) });
       if ('error' in res) return 0;
       if (res.total > maxSpend || res.total > b.flux) { q--; continue; }
       m = applyTrade(m, res as Quote, now);
@@ -555,6 +584,12 @@ function buildSim(opts: SimOptions): Sim {
     let n = 0;
     while (lambda > 4) { n += poisson(rng, 4); lambda -= 4; }
     n += poisson(rng, lambda);
+    // ruée en cours : vague bonus de la famille dans la zone (une chance par passage, comme une cellule bonus)
+    if (cityEvent && cityEvent.family && cityEvent.extraSpawnChance !== null && isEventActive(cityEvent, now) && inEventZone(cityEvent, node)
+      && rng() < cityEvent.extraSpawnChance * bp.catchFraction) {
+      b.inv[cityEvent.family]++;
+      totals.catches++;
+    }
     const w = weightsFor(cell.affinities);
     for (let k = 0; k < n; k++) {
       const f = flooding ? bp.floodFamily : weightedPick(rng, w);
@@ -820,6 +855,7 @@ function buildSim(opts: SimOptions): Sim {
       const sod = stepIdx % STEPS_PER_DAY;
       if (sod === 0) dayStart(stepIdx / STEPS_PER_DAY);
       const now = nowOf(stepIdx);
+      cityEventStep(now);
       for (const i of order) {
         const b = bots[i]!;
         if (b.active[sod]) botStep(b, now);

@@ -1,8 +1,9 @@
 // Boucle de position : GPS (watchPosition filtré + lissé) ou Demo Walk (tap-to-walk à 30 km/h, jump 3 s),
 // envoi throttlé à POST /api/move, rafraîchissement du monde.
-import { haversineM, MOVE, type LatLng } from '@tokengo/shared';
+import { haversineM, MOVE, type LatLng, type WorldResponse } from '@tokengo/shared';
 import { api, ApiFail } from '../lib/api.ts';
 import { useGame, setMe, toast, type Pos } from '../lib/store.ts';
+import { buzz, play } from '../lib/sound.ts';
 
 export const LOUVRE: LatLng = { lat: 48.8611, lng: 2.3358 };
 const SEND_EVERY_MS = 3000;
@@ -29,10 +30,36 @@ export async function refreshWorld(force = false): Promise<void> {
     lastWorld = { p: { lat: pos.lat, lng: pos.lng }, at: Date.now() };
     const visible = new Set(world.spawns.map((s) => s.id));
     useGame.setState({ world, serverDown: false, hiddenSpawns: useGame.getState().hiddenSpawns.filter((id) => visible.has(id)) });
+    announceEvent(world);
   } catch (e) {
     if (e instanceof ApiFail && e.code === 'NETWORK') useGame.setState({ serverDown: true });
   } finally {
     worldInflight = false;
+  }
+}
+
+/** Annonce sonore une seule fois par événement de ville. */
+let announcedEvent = 0;
+function announceEvent(world: WorldResponse): void {
+  const e = world.event;
+  if (!e || e.id === announcedEvent) return;
+  announcedEvent = e.id;
+  // pas de toast : la bannière du HUD (qui tombe avec un rebond) porte l'annonce ; juste un jingle et une vibration
+  play('event');
+  buzz([40, 60, 40]);
+}
+
+// ───────── Marcheurs (carte vivante) ─────────
+let walkersInflight = false;
+export async function refreshWalkers(): Promise<void> {
+  const { pos, phase } = useGame.getState();
+  if (!pos || phase !== 'play' || walkersInflight || document.visibilityState === 'hidden') return;
+  walkersInflight = true;
+  try {
+    const r = await api.walkers(pos.lat, pos.lng);
+    useGame.setState({ walkers: r.walkers, skewMs: r.now - Date.now() });
+  } catch { /* la carte garde les marcheurs précédents */ } finally {
+    walkersInflight = false;
   }
 }
 
@@ -161,6 +188,8 @@ export function startPlay(opts: { demo: boolean; start?: LatLng | null }): void 
     startGps();
   }
   timers.push(window.setInterval(() => void refreshWorld(), 4000));
+  timers.push(window.setInterval(() => void refreshWalkers(), 6000));
+  window.setTimeout(() => void refreshWalkers(), 800);
   timers.push(window.setInterval(() => {
     // re-sync idle : le serveur veut une position récente (< 30 s)
     const p = useGame.getState().pos;
@@ -182,6 +211,8 @@ function startUserStream(): void {
     try {
       const e = JSON.parse(m.data as string) as { kind: string; text: string };
       if (e.kind === 'grant.done') { toast(e.text, 'good', 'xp', 4000); void refreshMe(); }
+      // événement de ville (partagé) : nouveau monde tout de suite (zone, prix, éclats bonus, bannière)
+      if (e.kind === 'city.event' || e.kind === 'city.event.end') void refreshWorld(true);
     } catch { /* ping */ }
   };
 }
