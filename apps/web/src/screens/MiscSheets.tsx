@@ -10,6 +10,7 @@ import { Sheet, Button, Card } from '../ui/index.tsx';
 import { Sprite } from '../sprites/Sprite.tsx';
 import { SHARDS, FLUX, XP_STAR, FORGE, RELAY, marketSprite, merchantSprite, BADGE } from '../sprites/index.ts';
 import { isMuted, setMuted, hapticsOn, setHaptics, canVibrate, buzz, HAPTIC } from '../lib/sound.ts';
+import { MasteryBar } from './arenaUi.tsx';
 import s from './MiscSheets.module.css';
 
 export function BagSheet({ onClose }: { onClose: () => void }) {
@@ -24,6 +25,7 @@ export function BagSheet({ onClose }: { onClose: () => void }) {
             <div className={s.slotName}>{famName(f)}</div>
             <div className={s.slotRar}>{RARITY_LABEL[FAMILY_INFO[f].rarity]}</div>
             <div className={`${s.qty} num`}>×{me.shards[f]}</div>
+            {me.mastery ? <div className={s.mastery}><MasteryBar m={me.mastery[f]} testId={`bag-mastery-${f}`} /></div> : null}
           </div>
         ))}
         <div className={s.slot}>

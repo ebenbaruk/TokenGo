@@ -1,6 +1,8 @@
 .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .slot { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 4px 8px; background: var(--panel-alt); border: var(--border-thin); border-radius: 12px; box-shadow: var(--shadow-hard-s); }
 .slot.empty { opacity: .5; }
+.mastery { width: 100%; padding: 2px 2px 0; display: flex; }
+.mastery > span { width: 100%; }
 .slotName { font-family: var(--font-pixel); font-size: 18px; }
 .slotRar { font-size: 11px; font-weight: 800; color: var(--slate); text-transform: uppercase; }
 .qty { position: absolute; top: 6px; right: 8px; font-size: 16px; }

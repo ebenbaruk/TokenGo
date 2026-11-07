@@ -1,8 +1,9 @@
 // Cartes partageables (1200×675, format X) dessinées en canvas, style Pixel Pop : aplat + damier pixel, cadre encre à
 // ombre dure, sprites en grilles, logo TokenGo. Partage via Web Share API (fichier), sinon téléchargement du PNG.
-import { FAMILIES, VARIANTS, equivalences, type CodexView, type CompileResponse, type Family, type RouteCheckin } from '@tokengo/shared';
+import { FAMILIES, VARIANTS, equivalences, type ArenaBattleView, type CodexView, type CompileResponse, type Family, type RouteCheckin } from '@tokengo/shared';
 import { SWEETIE, gridsOf, drawGrid, type SpriteDef } from '../sprites/engine.ts';
-import { FORGE, FAMILY_HEX, XP_STAR } from '../sprites/index.ts';
+import { FORGE, FAMILY_HEX, XP_STAR, SHARDS } from '../sprites/index.ts';
+import { CROWN } from '../sprites/arena.grids.ts';
 import { shardSilhouette, shardVariant } from '../sprites/variants.ts';
 import { useGame, toast, type LastShare } from './store.ts';
 import { fmtUsd, famName, fmtDist } from './format.ts';
@@ -236,6 +237,38 @@ export async function routeCard(c: RouteCheckin, stops: { name: string }[], leng
     bx += badge(ctx, `+1 ${famName(c.reward.shard)}`, bx, 410, SWEETIE.sky) + 18;
   }
   if (c.streak > 1) badge(ctx, `${c.streak}-day streak`, x, 480, SWEETIE.orange, SWEETIE.ink, 28);
+  return toBlob(cv);
+}
+
+/** Arène (Docs/13 §4) : couronne, « Champion of <Forge> », score, équipe. */
+export async function arenaCard(b: ArenaBattleView, handle: string): Promise<Blob> {
+  const { cv, ctx } = await frame(SWEETIE.navy);
+  ctx.fillStyle = SWEETIE.sun;
+  ctx.beginPath();
+  ctx.arc(250, 290, 160, 0, Math.PI * 2);
+  ctx.fill();
+  sprite(ctx, CROWN, 250 - 19 * 7, 290 - 11 * 7 - 40, 14, 0);
+  b.me.team.forEach((m, i) => sprite(ctx, SHARDS[m.family], 250 + (i - 1) * 100 - 32, 330, 4));
+  const x = 480;
+  const won = b.result?.outcome === 'won';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = SWEETIE.berry;
+  ctx.font = `36px ${PIXEL}`;
+  ctx.fillText(won ? (b.result?.becameChampion ? 'New Champion!' : 'Arena victory!') : 'Arena battle', x, 180);
+  ctx.fillStyle = SWEETIE.ink;
+  ctx.font = `800 64px ${UI}`;
+  ctx.fillText(fit(ctx, b.result?.becameChampion ? `Champion of ${b.forgeName.split(' —')[0]}` : b.forgeName.split(' —')[0]!, 640), x, 260);
+  ctx.font = `800 120px ${UI}`;
+  ctx.fillText(`${b.me.wins}–${b.opp.wins}`, x, 380);
+  ctx.font = `800 28px ${UI}`;
+  ctx.fillStyle = SWEETIE.slate;
+  ctx.fillText(fit(ctx, `${handle} vs ${b.opponent.name} · ${b.me.team.map((m) => famName(m.family)).join(', ')}`, 640), x, 428);
+  let bx = x;
+  if (b.result) {
+    bx += badge(ctx, `+${b.result.xp} XP`, bx, 466, SWEETIE.lime) + 18;
+    bx += badge(ctx, `+${b.result.flux} ƒ`, bx, 466, SWEETIE.sun) + 18;
+  }
+  badge(ctx, 'Model Arena', bx, 466, SWEETIE.sky);
   return toBlob(cv);
 }
 

@@ -1,0 +1,59 @@
+/* Onglet Arena de la Forge — sur l'aplat plum de la Forge (Pixel Pop). */
+.wrap { display: flex; flex-direction: column; gap: 10px; padding: 4px 16px 0; flex: 1; }
+.loading { font-family: var(--font-pixel); font-size: 20px; padding: 24px 16px; color: var(--sun); }
+.err { margin: 0 16px; font-weight: 800; color: var(--sun); }
+
+.holder {
+  display: flex; gap: 12px; align-items: center; padding: 10px 12px; color: var(--ink);
+  background: linear-gradient(180deg, #e8f4ff, #bfe3ff); border: var(--border); border-radius: var(--radius-l); box-shadow: var(--shadow-hard);
+  animation: drop .35s var(--ease-pop) both;
+}
+.champ { background: linear-gradient(180deg, #fff3cf, var(--sun)); }
+@keyframes drop { from { transform: translateY(-14px); opacity: 0; } }
+.holderArt {
+  flex: none; width: 76px; height: 76px; display: grid; place-items: center; border: var(--border-thin); border-radius: 12px;
+  background: var(--navy) radial-gradient(closest-side, rgba(115,239,247,.55), transparent); box-shadow: inset 0 -6px 0 rgba(0,0,0,.2);
+}
+.champ .holderArt { background: var(--berry) radial-gradient(closest-side, rgba(255,205,117,.8), transparent); animation: glow 1.6s steps(4) infinite; }
+@keyframes glow { 50% { box-shadow: inset 0 -6px 0 rgba(0,0,0,.2), 0 0 0 4px rgba(255,205,117,.6); } }
+.holderMain { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.holderKind { font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; color: var(--plum); }
+.holderName { font-family: var(--font-pixel); font-size: 22px; line-height: 1.05; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.holderSub { display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 800; color: var(--night); }
+.holderTeam { display: flex; gap: 6px; margin-top: 4px; }
+.mini { display: inline-flex; align-items: center; gap: 2px; padding: 1px 5px 1px 2px; background: var(--panel); border: 2px solid var(--ink); border-radius: 8px; }
+.mini b { font-size: 11px; font-weight: 900; }
+
+.bonus { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; color: var(--white); }
+.bonus b { color: var(--lime); }
+.bonus span { display: inline-flex; align-items: center; gap: 3px; padding: 0 6px; background: rgba(255,255,255,.14); border-radius: 6px; }
+.income { display: flex; align-items: center; gap: 6px; padding: 6px 10px; background: var(--sun); color: var(--ink); border: var(--border-thin); border-radius: 10px; font-weight: 800; font-size: 13px; }
+
+.pickHead { display: flex; align-items: baseline; gap: 8px; color: var(--white); margin-top: 2px; }
+.pickHead h3 { font-size: 22px; text-shadow: 2px 2px 0 var(--ink); }
+.count { font-family: var(--font-pixel); font-size: 20px; color: var(--sun); }
+.pickHead small { margin-left: auto; font-size: 11px; font-weight: 800; color: var(--mist); }
+
+.list { display: flex; flex-direction: column; gap: 8px; }
+.fam {
+  display: grid; grid-template-columns: 46px 1fr auto; gap: 8px; align-items: center; padding: 8px 10px 8px 8px; text-align: left; color: var(--ink);
+  background: var(--panel); border: var(--border-thin); border-radius: 12px; box-shadow: var(--shadow-hard-s); cursor: pointer;
+  transition: transform 80ms var(--ease-out), background-color .15s;
+}
+.fam:active:not(:disabled) { transform: translate(1px, 1px); box-shadow: none; }
+.fam:disabled { opacity: .55; cursor: not-allowed; filter: grayscale(.6); }
+.on { background: #fff6dc; outline: 4px solid var(--sun); outline-offset: -1px; animation: pick .25s var(--ease-pop); }
+@keyframes pick { 50% { transform: scale(1.03); } }
+.famArt { position: relative; width: 46px; height: 46px; display: grid; place-items: center; background: var(--panel-alt); border: 2px solid var(--ink); border-radius: 10px; }
+.order { position: absolute; top: -8px; left: -8px; width: 22px; height: 22px; display: grid; place-items: center; background: var(--berry); color: var(--white); border: 2px solid var(--ink); border-radius: 50%; font-weight: 900; font-size: 13px; }
+.famMain { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.famTop { display: flex; align-items: baseline; gap: 6px; }
+.famName { font-family: var(--font-pixel); font-size: 19px; font-weight: 600; line-height: 1; }
+.famTop small { font-size: 11px; font-weight: 800; color: var(--slate); white-space: nowrap; }
+.style { font-size: 11px; font-weight: 800; color: var(--slate); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.famStats { width: 118px; }
+
+.action { position: sticky; bottom: 0; margin: 4px -16px 0; padding: 10px 16px 4px; background: linear-gradient(180deg, transparent, var(--plum) 22%); }
+.action :global(span) { color: var(--white); }
+.action button span { color: inherit; }
+.left { margin-top: 6px; text-align: center; font-size: 12px; font-weight: 800; color: var(--mist); }

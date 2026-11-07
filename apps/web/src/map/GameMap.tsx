@@ -7,6 +7,7 @@ import { FAMILIES, ACTION_RADIUS_M, haversineM, type NodeView, type SpawnView, t
 import { useGame } from '../lib/store.ts';
 import { SHARDS, AVATAR, SCOUT, RELAY, RELAY_COOLDOWN, FORGE, BADGE, ACCENTS, hashStr, marketSprite, spriteImageData, gridsOf, type SpriteDef } from '../sprites/index.ts';
 import { NODE_GRIDS } from '../sprites/nodes.grids.ts';
+import { CROWN, SHIELD } from '../sprites/arena.grids.ts';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { mapCtl } from './ctl.ts';
 import { addLivingLayers, attachLiving, registerWalkerImages, type Living } from './living.ts';
@@ -50,6 +51,8 @@ function registerImages(map: MLMap): Anim[] {
   add('badge', BADGE, 2);
   ACCENTS.forEach((_, i) => add(`market-${i}`, { frames: NODE_GRIDS.market, keys: { A: ACCENTS[i]!.a, B: ACCENTS[i]!.b }, outline: true, fps: 1 }, 2));
   add('market-closed', marketSprite('x', true), 2);
+  add('arena-crown', CROWN, 2);   // Arène (Docs/13 §4) : forge tenue par un Champion…
+  add('arena-shield', SHIELD, 2); // … ou par le Gardien
   return anims;
 }
 
@@ -133,6 +136,8 @@ export default function GameMap({ handlers }: { handlers: MapHandlers }) {
         icon: n.kind === 'relay' ? ((n.cooldownUntil ?? 0) > now ? 'relay-cd' : 'relay') : n.kind === 'forge' ? 'forge' : marketIcon(n),
         badge: n.kind === 'market' && n.merchant?.hasContract && n.merchant.status !== 'closed' ? 1 : 0,
         sort: n.kind === 'forge' ? 3 : n.kind === 'market' ? 2 : 1,
+        arena: n.kind === 'forge' ? (n.arena?.holder === 'champion' ? 'arena-crown' : 'arena-shield') : '',
+        label: n.kind === 'forge' && n.arena?.champion ? `${n.name}\n${n.arena.mine ? 'Your arena' : `Champion ${n.arena.champion}`}` : n.name,
       }))));
       syncSpawns();
       living?.syncEvent();
@@ -201,8 +206,12 @@ export default function GameMap({ handlers }: { handlers: MapHandlers }) {
       map.addLayer({ id: 'node-badges', type: 'symbol', source: 'nodes', filter: ['==', ['get', 'badge'], 1], minzoom: 15, layout: {
         'icon-image': 'badge', 'icon-anchor': 'bottom', 'icon-offset': [16, -40], 'icon-allow-overlap': true, 'icon-ignore-placement': true,
       } });
+      map.addLayer({ id: 'node-arena', type: 'symbol', source: 'nodes', filter: ['!=', ['get', 'arena'], ''], minzoom: 13.5, layout: {
+        'icon-image': ['get', 'arena'], 'icon-anchor': 'bottom', 'icon-offset': [26, -46], 'icon-allow-overlap': true, 'icon-ignore-placement': true,
+        'icon-pitch-alignment': 'viewport', 'icon-size': ['interpolate', ['linear'], ['zoom'], 14, 0.6, 16, 1],
+      } });
       map.addLayer({ id: 'node-labels', type: 'symbol', source: 'nodes', filter: ['==', ['get', 'kind'], 'forge'], layout: {
-        'text-field': ['get', 'name'], 'text-font': ['Noto Sans Bold'], 'text-size': 13, 'text-anchor': 'top', 'text-offset': [0, 0.3],
+        'text-field': ['get', 'label'], 'text-font': ['Noto Sans Bold'], 'text-size': 13, 'text-anchor': 'top', 'text-offset': [0, 0.3],
         'text-max-width': 10, 'text-allow-overlap': false,
       }, paint: { 'text-color': '#5d275d', 'text-halo-color': '#ffcd75', 'text-halo-width': 2 } });
       map.addLayer({ id: 'spawns', type: 'symbol', source: 'spawns', layout: {

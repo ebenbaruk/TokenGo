@@ -43,3 +43,6 @@
 .records div { display: flex; flex-direction: column; align-items: center; padding: 8px 4px; background: var(--panel); border: var(--border-thin); border-radius: 10px; }
 .records b { font-size: 20px; }
 .records span { font-size: 11px; font-weight: 800; color: var(--slate); text-align: center; }
+/* Maîtrise de la famille (Docs/13 §2) */
+.mastery { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: 11px; font-weight: 900; text-transform: uppercase; color: var(--slate); }
+.mastery > span:last-child { flex: 1; }

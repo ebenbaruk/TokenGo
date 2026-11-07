@@ -13,6 +13,7 @@ import { Sheet, Button } from '../ui/index.tsx';
 import { Sprite } from '../sprites/Sprite.tsx';
 import { FAMILY_HEX, FAMILY_DARK } from '../sprites/index.ts';
 import { shardVariant, shardSilhouette, VARIANT_LABEL, VARIANT_COLOR } from '../sprites/variants.ts';
+import { MasteryBar } from './arenaUi.tsx';
 import s from './CodexSheet.module.css';
 
 function Cell({ e, onPick, picked }: { e: CodexEntryView; onPick: () => void; picked: boolean }) {
@@ -75,6 +76,7 @@ export function CodexSheet({ onClose }: { onClose: () => void }) {
                 <span className={`${s.famCount} num`}>{v.byFamily[f]}/{VARIANTS.length}</span>
                 {v.byFamily[f] === VARIANTS.length ? <span className={s.complete}>complete!</span> : null}
               </header>
+              {me?.mastery ? <div className={s.mastery}><span>Mastery</span><MasteryBar m={me.mastery[f]} testId={`codex-mastery-${f}`} /></div> : null}
               <div className={s.row}>
                 {VARIANTS.map((variant) => {
                   const e = v.entries.find((x) => x.family === f && x.variant === variant)!;

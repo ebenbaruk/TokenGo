@@ -2,7 +2,8 @@
 // Deux préférences locales indépendantes : son coupé (tg.muted) et vibrations coupées (tg.haptics = '0').
 export type SoundName =
   | 'tap' | 'catch' | 'perfect' | 'miss' | 'fled' | 'sync' | 'trade' | 'forge' | 'error' | 'level'
-  | 'discover' | 'shiny' | 'stop' | 'route' | 'reveal' | 'coin' | 'whoosh' | 'share' | 'event' | 'pop';
+  | 'discover' | 'shiny' | 'stop' | 'route' | 'reveal' | 'coin' | 'whoosh' | 'share' | 'event' | 'pop'
+  | 'clash' | 'glitch' | 'crown';
 
 let ctx: AudioContext | null = null;
 const KEY = 'tg.muted';
@@ -101,6 +102,14 @@ export function play(name: SoundName, pitch = 0): void {
     // événement de ville : jingle ; bulle de marchand : petit « pop »
     case 'event': arp(a, [659, 880, 659, 988], 0.09, 0.12, 'square', 0.045); break;
     case 'pop': tone(a, 1200, 0, 0.04, 'triangle', 0.025, 1600); break;
+    // Arène : choc des deux réponses, hallucination (glitch), couronne du Champion (fanfare royale)
+    case 'clash': noise(a, 0, 0.18, 0.09, 300, 2500); tone(a, 196, 0, 0.18, 'square', 0.05, 98); tone(a, 1568, 0.05, 0.12, 'triangle', 0.05); break;
+    case 'glitch': for (let i = 0; i < 6; i++) tone(a, 200 + ((i * 397) % 900), i * 0.035, 0.03, 'square', 0.04); break;
+    case 'crown':
+      arp(a, [392, 523, 659, 784], 0.1, 0.18, 'square', 0.05);
+      arp(a, [1046, 1318, 1568, 2093], 0.09, 0.35, 'triangle', 0.06, 0.45);
+      noise(a, 0.45, 0.6, 0.03, 3000, 9000);
+      break;
   }
 }
 
@@ -116,6 +125,8 @@ export const HAPTIC = {
   trade: 20,
   forge: [40, 80, 40, 80, 160],
   reveal: 25,
+  clash: [30, 20, 60],
+  crown: [50, 50, 50, 50, 50, 50, 250],
 } as const satisfies Record<string, number | readonly number[]>;
 
 export function buzz(pattern: number | readonly number[]): void {

@@ -1,5 +1,7 @@
 // État global (Zustand). Exposé en lecture sur window.__tg pour les tests E2E (la carte WebGL n'est pas lisible).
 import { create } from 'zustand';
+import { FAMILY_INFO, FAMILIES } from '@tokengo/shared';
+import { play } from './sound.ts';
 import type { Me, NodeView, SpawnView, WorldResponse, Family, Variant, RouteCheckin, CompileResponse, ScoutView, WalkerView } from '@tokengo/shared';
 
 export interface Pos { lat: number; lng: number; acc: number; heading?: number; t: number }
@@ -25,7 +27,7 @@ export interface Flyer { id: number; family: Family; variant: Variant; delay: nu
 /** Grand moment plein écran : route du jour terminée. */
 export type Celebration = { kind: 'route'; checkin: RouteCheckin };
 /** Dernière carte partageable générée (lecture E2E). */
-export interface LastShare { kind: 'ticket' | 'codex' | 'route'; bytes: number; type: string; via: 'share' | 'download' }
+export interface LastShare { kind: 'ticket' | 'codex' | 'route' | 'arena'; bytes: number; type: string; via: 'share' | 'download' }
 export type { CompileResponse };
 
 export interface Toast { id: number; text: string; tone: 'good' | 'bad' | 'info'; icon?: Family | 'flux' | 'xp' | 'level' }
@@ -102,8 +104,12 @@ export function rebaseScout(v: ScoutView): ScoutView {
 }
 
 export function setMe(me: Me, levelUp?: number | null): void {
+  const prev = get().me;
   set(me.scout ? { me, scout: rebaseScout(me.scout) } : { me });
   if (levelUp) toast(`Level ${levelUp}! New things unlocked.`, 'good', 'level', 3500);
+  // Maîtrise (Docs/13 §2) : une montée de niveau = toast + son, d'où qu'elle vienne (capture, arène)
+  const up = prev?.mastery && me.mastery ? FAMILIES.find((f) => me.mastery[f].level > prev.mastery[f].level) : undefined;
+  if (up) { toast(`${FAMILY_INFO[up].name} Mastery ${me.mastery[up].level}!`, 'good', up, 3200); play('level'); }
 }
 
 export function setShowRunners(v: boolean): void {

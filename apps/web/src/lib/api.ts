@@ -3,6 +3,7 @@ import type {
   ApiError, ErrorCode, Me, MoveRequest, MoveResponse, WorldResponse, WalkersResponse, CatchStartResponse, CatchResolveRequest, CatchResolveResponse,
   SyncResponse, MerchantView, QuoteRequest, QuoteResponse, TradeResponse, ForgeView, CompileRequest, CompileResponse, CreditsView,
   PulseResponse, PublicConfig, LeaderboardsResponse, LabSnapshot, CodexView, HaggleCard, HaggleView, HaggleDealResponse,
+  ArenaView, ArenaStartResponse, ArenaPlayResponse, Family, Technique,
 } from '@tokengo/shared';
 
 export class ApiFail extends Error {
@@ -45,6 +46,11 @@ const HUMAN: Partial<Record<ApiFail['code'], string>> = {
   DEMO_CANNOT_SELL: 'Demo accounts can’t do that.',
   TUTORIAL_INCOMPLETE: 'Finish the tutorial steps first.',
   HAGGLE_NO_ROOM: 'Already my rock-bottom price — no haggling.',
+  // Arène (Docs/13 §4)
+  MODEL_RATE_LIMITED: 'That model is rate-limited this round — rotate your team.',
+  NO_TOKENS: 'Not enough tokens left for that technique.',
+  OWN_ARENA: 'You already hold this arena.',
+  BAD_TEAM: 'Pick 3 different models you own.',
 };
 
 /** Message humain (court, ton du jeu) par code d'erreur. */
@@ -129,6 +135,11 @@ export const api = {
   setHandle: (handle: string) => req<{ me?: Me } & Partial<Me>>('POST', '/api/me/handle', { handle }),
   setDistrict: (district: number) => req<{ me?: Me } & Partial<Me>>('POST', '/api/me/district', { district }),
   deleteMe: () => req<{ ok: boolean }>('DELETE', '/api/me'),
+  // ── Arène des modèles (Docs/13 §4) ──
+  arena: (forgeId: string) => req<ArenaView>('GET', `/api/arena/${enc(forgeId)}`),
+  arenaStart: (forgeId: string, team: Family[]) => req<ArenaStartResponse>('POST', `/api/arena/${enc(forgeId)}/start`, { team }),
+  arenaPlay: (battleId: string, family: Family, technique: Technique) =>
+    req<ArenaPlayResponse>('POST', `/api/arena/battle/${enc(battleId)}/play`, { family, technique }),
   greet: (id: string) => req<{ greeting: string; source: 'llm' | 'lines' }>('GET', `/api/merchant/${enc(id)}/greet`),
   /** Réponse en texte brut streamé. */
   async playground(model: string, prompt: string, onChunk: (t: string) => void, signal?: AbortSignal): Promise<void> {

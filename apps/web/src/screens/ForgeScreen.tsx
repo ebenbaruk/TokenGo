@@ -8,7 +8,8 @@ import { radiusFor } from '../lib/nearby.ts';
 import { famName, fmtDist, fmtUsd, txUrl } from '../lib/format.ts';
 import { play, buzz, feedback, HAPTIC } from '../lib/sound.ts';
 import { creditCard, shareImage } from '../lib/share.ts';
-import { HoldButton, Button } from '../ui/index.tsx';
+import { HoldButton, Button, Tabs } from '../ui/index.tsx';
+import { ArenaTab } from './ArenaTab.tsx';
 import { Sprite } from '../sprites/Sprite.tsx';
 import { FORGE, SHARDS, FLUX, XP_STAR } from '../sprites/index.ts';
 import s from './ForgeScreen.module.css';
@@ -34,6 +35,7 @@ export function ForgeScreen({ node, onClose }: { node: NodeView; onClose: () => 
   const [res, setRes] = useState<CompileResponse | null>(null);
   const [flying, setFlying] = useState<Family[]>([]);
   const [sharing, setSharing] = useState(false);
+  const [tab, setTab] = useState<'forge' | 'arena'>('forge'); // Forge | Arena (Docs/13 §4)
   const share = async () => {
     if (!res) return;
     setSharing(true);
@@ -95,6 +97,13 @@ export function ForgeScreen({ node, onClose }: { node: NodeView; onClose: () => 
         </div>
         <button type="button" className={s.close} onClick={onClose} aria-label="Close" data-testid="forge-close"><X strokeWidth={3} /></button>
       </header>
+      <div className={s.tabs}>
+        <Tabs value={tab} onChange={setTab} items={[
+          { id: 'forge', label: 'Forge' },
+          { id: 'arena', label: node.arena?.holder === 'champion' ? `Arena · ${node.arena.mine ? 'yours' : 'held'}` : 'Arena' },
+        ]} />
+      </div>
+      {tab === 'arena' ? <ArenaTab node={node} /> : <>
 
       <div className={`${s.anvil} ${phase === 'fusing' ? s.fusing : ''}`}>
         <div className={s.glow} />
@@ -170,6 +179,7 @@ export function ForgeScreen({ node, onClose }: { node: NodeView; onClose: () => 
           </div>
         </div>
       ) : null}
+      </>}
     </div>
   );
 }
