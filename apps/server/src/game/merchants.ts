@@ -10,6 +10,7 @@ import { merchantLedger } from './players.ts';
 import { accountPrefix, merchantNearId } from '../chain/accounts.ts';
 import { DEMO_START } from './world.ts';
 import { greetingFor } from './lines.ts';
+import { relationView } from './relations.ts';
 
 export const HOUR = 3600_000;
 
@@ -169,6 +170,7 @@ export function merchantView(ctx: Ctx, m: MerchantState, node: WorldNode, userId
     bestKnown: bestKnown(ctx, userId, m.id, opts.pos ?? node),
     isPatron: opts.patron,
     walletUrl: ctx.cfg.NEAR_CONTRACT_ID ? `https://testnet.nearblocks.io/address/${merchantNearAccount(ctx, m.id)}` : null,
+    relation: relationView(ctx, userId, m),
   };
 }
 

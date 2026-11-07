@@ -1,7 +1,7 @@
 // Échanges avec les marchands : vue, devis (20 s, liés à la version du marchand), trade, contrats, sauvetage.
 import {
-  MERCHANT, UNLOCKS, XP, applyTrade, deliverContract, quote as priceQuote, rescue as rescueRule, shardToken,
-  type Family, type MerchantState, type MerchantView, type QuoteRequest, type QuoteResponse, type TradeResponse, FAMILIES,
+  MERCHANT, UNLOCKS, XP, applyTrade, deliverContract, quote as priceQuote, rescue as rescueRule, shardToken, souredQuote,
+  type Family, type MerchantState, type MerchantView, type Quote, type QuoteError, type QuoteRequest, type QuoteResponse, type TradeResponse, FAMILIES,
 } from '@tokengo/shared';
 import type { Ctx } from './context.ts';
 import { fail } from './context.ts';
@@ -9,8 +9,9 @@ import { randomId } from './crypto.ts';
 import { addXp, balance, credit, debit, getUser, levelOf, markTutorial, meView, moveStateOf, tutorialOf } from './players.ts';
 import { getMerchant, getP0, merchantView, recordSeenPrices, saveMerchant } from './merchants.ts';
 import { assertCanAct } from './actions.ts';
+import { isSoured, noteRegular } from './relations.ts';
 
-const QUOTE_ERRORS: Record<string, string> = {
+export const QUOTE_ERRORS: Record<string, string> = {
   CLOSED: 'This shop is closed.',
   NOT_BUYING: "I'm liquidating — not buying right now.",
   MERCHANT_NO_FLUX: "I'm short on Flux — come back later or invest in me.",
@@ -22,11 +23,11 @@ const QUOTE_ERRORS: Record<string, string> = {
 /** Les événements Pulse des runners-agents portent data.agent = true (badge « agent » dans le ticker). */
 export const agentTag = (u: { is_agent: number }): { agent?: true } => (u.is_agent ? { agent: true } : {});
 
-function isPatron(ctx: Ctx, merchantId: string, userId: string): boolean {
+export function isPatron(ctx: Ctx, merchantId: string, userId: string): boolean {
   return !!ctx.db.prepare('SELECT 1 FROM rescues WHERE merchant_id = ? AND user_id = ? AND at > ?').get(merchantId, userId, ctx.now() - MERCHANT.patronPerkMs);
 }
 
-function load(ctx: Ctx, merchantId: string) {
+export function load(ctx: Ctx, merchantId: string) {
   const cur = getMerchant(ctx, merchantId);
   if (!cur) fail('NOT_FOUND', 'Unknown merchant.', 404);
   return cur!;
@@ -44,10 +45,18 @@ export function viewMerchant(ctx: Ctx, userId: string, merchantId: string): Merc
 interface StoredQuote { id: string; userId: string; merchantId: string; version: number; req: QuoteRequest; total: number; unitPrices: number[]; expiresAt: number }
 const quotes = new Map<string, StoredQuote>();
 
-function canTrade(ctx: Ctx, userId: string) {
+export function canTrade(ctx: Ctx, userId: string) {
   const u = getUser(ctx, userId)!;
   if (levelOf(u) < UNLOCKS.trade && tutorialOf(u).traded) fail('LEVEL_LOCKED', `Markets unlock at level ${UNLOCKS.trade}.`);
   return u;
+}
+
+/** Devis normal pour ce joueur : prix des règles (patron compris), 3 % moins bon si le marchand boude après un marchandage raté. */
+export function playerQuote(ctx: Ctx, userId: string, m: MerchantState, req: QuoteRequest): Quote | { error: QuoteError } {
+  const q = priceQuote(getP0(ctx)[req.family], m, req.side, req.family, req.qty, { patron: isPatron(ctx, m.id, userId) });
+  if ('error' in q || !isSoured(ctx, userId, m.id)) return q;
+  const s = souredQuote(q);
+  return q.side === 'sell' && s.total > m.flux ? { error: 'MERCHANT_NO_FLUX' } : s;
 }
 
 export function makeQuote(ctx: Ctx, userId: string, merchantId: string, req: QuoteRequest): QuoteResponse {
@@ -56,7 +65,7 @@ export function makeQuote(ctx: Ctx, userId: string, merchantId: string, req: Quo
   assertCanAct(ctx, u, 'market', node);
   if (req.side === 'sell' && u.demo_token) fail('DEMO_CANNOT_SELL', 'Demo passes can buy, forge and invest — but not sell.');
   if (!FAMILIES.includes(req.family)) fail('BAD_REQUEST', 'Unknown shard.');
-  const q = priceQuote(getP0(ctx)[req.family], m, req.side, req.family, req.qty, { patron: isPatron(ctx, m.id, userId) });
+  const q = playerQuote(ctx, userId, m, req);
   if ('error' in q) return fail(q.error, QUOTE_ERRORS[q.error] ?? 'Not possible.');
   if (req.side === 'sell' && balance(ctx, userId, shardToken(req.family)) < req.qty) fail('INSUFFICIENT', "You don't have that many shards.");
   if (req.side === 'buy' && balance(ctx, userId, 'flux') < q.total) fail('INSUFFICIENT', `You need ${q.total} ƒ.`, 400, { total: q.total });
@@ -78,34 +87,45 @@ export function executeTrade(ctx: Ctx, userId: string, merchantId: string, quote
   assertCanAct(ctx, u, 'market', node);
   return ctx.db.transaction((): TradeResponse => {
     const cur = load(ctx, merchantId);
-    const q = priceQuote(getP0(ctx)[s!.req.family], cur.m, s!.req.side, s!.req.family, s!.req.qty, { patron: isPatron(ctx, merchantId, userId) });
+    const q = playerQuote(ctx, userId, cur.m, s!.req);
     if ('error' in q) return fail(q.error, QUOTE_ERRORS[q.error] ?? 'Not possible.');
     if (cur.version !== s!.version && q.total !== s!.total) {
       quotes.delete(quoteId);
       fail('PRICE_MOVED', 'Prices just moved — here is the new total.', 409, { total: q.total });
     }
     quotes.delete(quoteId);
-    const token = shardToken(q.family);
-    const tradeId = randomId(10);
-    const memo = `trade:${tradeId}`;
-    if (q.side === 'sell') {
-      debit(ctx, userId, token, q.qty, memo, merchantId);
-      credit(ctx, userId, 'flux', q.total, memo, merchantId);
-    } else {
-      debit(ctx, userId, 'flux', q.total, memo, merchantId);
-      credit(ctx, userId, token, q.qty, memo, merchantId);
-    }
-    const next: MerchantState = applyTrade(cur.m, q, now);
-    saveMerchant(ctx, next);
-    ctx.db.prepare('INSERT INTO trades (id, at, user_id, merchant_id, side, token_id, qty, flux_total, unit_prices) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-      .run(tradeId, now, userId, merchantId, q.side, token, q.qty, q.total, JSON.stringify(q.unitPrices));
-    const xp = XP.tradePerShard * q.qty;
-    const levelUp = addXp(ctx, userId, xp);
-    markTutorial(ctx, userId, 'traded');
-    ctx.bus.publish('trade', `${u.handle} ${q.side === 'sell' ? 'sold' : 'bought'} ${q.qty} ${q.family} ${q.side === 'sell' ? 'to' : 'from'} ${next.name} · ${q.total} ƒ`,
-      { merchantId, family: q.family, qty: q.qty, total: q.total, side: q.side, ...agentTag(u) });
-    return { ok: true, side: q.side, family: q.family, qty: q.qty, total: q.total, xp, levelUp, me: meView(ctx, userId), merchant: viewMerchant(ctx, userId, merchantId) };
+    return settleTrade(ctx, u, merchantId, cur.m, q);
   })();
+}
+
+/**
+ * Règlement d'un devis déjà validé (appelé DANS une transaction) : inventaires, marchand, journal, XP, Pulse.
+ * Partagé par le trade normal et le marchandage (devis borné par haggle.ts).
+ */
+export function settleTrade(ctx: Ctx, u: { id: string; handle: string; is_agent: number }, merchantId: string, m: MerchantState, q: Quote, note = ''): TradeResponse {
+  const userId = u.id;
+  const now = ctx.now();
+  const token = shardToken(q.family);
+  const tradeId = randomId(10);
+  const memo = `trade:${tradeId}`;
+  if (q.side === 'sell') {
+    debit(ctx, userId, token, q.qty, memo, merchantId);
+    credit(ctx, userId, 'flux', q.total, memo, merchantId);
+  } else {
+    debit(ctx, userId, 'flux', q.total, memo, merchantId);
+    credit(ctx, userId, token, q.qty, memo, merchantId);
+  }
+  const next: MerchantState = applyTrade(m, q, now);
+  saveMerchant(ctx, next);
+  ctx.db.prepare('INSERT INTO trades (id, at, user_id, merchant_id, side, token_id, qty, flux_total, unit_prices) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .run(tradeId, now, userId, merchantId, q.side, token, q.qty, q.total, JSON.stringify(q.unitPrices));
+  noteRegular(ctx, userId, merchantId);
+  const xp = XP.tradePerShard * q.qty;
+  const levelUp = addXp(ctx, userId, xp);
+  markTutorial(ctx, userId, 'traded');
+  ctx.bus.publish('trade', `${u.handle} ${q.side === 'sell' ? 'sold' : 'bought'} ${q.qty} ${q.family} ${q.side === 'sell' ? 'to' : 'from'} ${next.name} · ${q.total} ƒ${note}`,
+    { merchantId, family: q.family, qty: q.qty, total: q.total, side: q.side, ...agentTag(u) });
+  return { ok: true, side: q.side, family: q.family, qty: q.qty, total: q.total, xp, levelUp, me: meView(ctx, userId), merchant: viewMerchant(ctx, userId, merchantId) };
 }
 
 export function deliver(ctx: Ctx, userId: string, merchantId: string) {

@@ -12,3 +12,4 @@ export * from './movement.ts';
 export * from './affinity.ts';
 export * from './codex.ts';
 export * from './route.ts';
+export * from './haggle.ts';

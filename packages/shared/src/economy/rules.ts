@@ -149,6 +149,35 @@ export const ARCHETYPE_BIAS = {
   nightowl: { spread: 0.06, targetMult: 1.0 },
 } as const;
 
+// ───────────────────────────── Marchandage (mini-jeu de cartes, Docs/03 §5 bis) ─────────────────────────────
+/**
+ * Le marchandage ne déplace qu'une fraction bornée de la marge du marchand : jamais plus de 8 %, jamais au-delà de
+ * son prix milieu ± 1 % (plancher de coût : acheter puis revendre perd toujours, voir haggle.ts), limité par jour.
+ * Les points de base (bp) : 100 bp = 1 %.
+ */
+export const HAGGLE = {
+  minQty: 3,                     // on ne marchande pas pour 1 ou 2 éclats
+  maxPct: 0.08,                  // plafond absolu : −8 % à l'achat, +8 % à la vente
+  basePct: 0.05,                 // plafond de départ d'un inconnu…
+  pctPerRep: 0.003,              // … + 0,3 point par point de réputation (8 % à réputation 10)
+  keepMargin: 0.01,              // le marchand garde toujours ≥ 1 % autour de son prix milieu (plancher de coût)
+  rounds: 3,                     // 3 manches, 3 cartes par main
+  handSize: 3,
+  patienceBase: 3,               // patience de départ (+1 friendly, −1 proud, + réputation / 3)
+  patienceMax: 5,
+  sessionTtlMs: 90_000,          // une séance de marchandage expire après 90 s
+  perMerchantDay: 2,             // séances par joueur, par marchand et par jour de Paris
+  perPlayerDay: 6,               // séances par joueur et par jour de Paris (tous marchands)
+  sourMs: 20 * 60_000,           // patience à zéro : le marchand boude 20 min…
+  sourPct: 0.03,                 // … et ses devis pour ce joueur sont 3 % moins bons
+  repMin: -5,
+  repMax: 10,
+  repPerRegularDay: 1,           // +1 la première fois qu'on commerce chez lui dans la journée (« habitué »)
+  repPerDeal: 1,                 // +1 par marchandage conclu
+  repPerSour: -2,                // −2 quand il perd patience
+  llmLinesPerDay: 30,            // au plus 30 répliques LLM de marchandage par jour (dans le plafond NPC de 150)
+} as const;
+
 // ───────────────────────────── Prix de référence (Paris Shard Index) ─────────────────────────────
 /** P0 ← keep × P0 + follow × P0_initial × rareté médiane (ancré : pas d'emballement), borné à [min, max] × P0_initial. */
 export const P0_DRIFT = { keep: 0.95, follow: 0.05, minMult: 0.6, maxMult: 1.4 } as const;

@@ -45,9 +45,11 @@ async function moveThePrice(req: APIRequestContext, node: WorldNode, family: Fam
     await apiMove(req, node);
     const qty = Math.max(1, Math.floor(g.flux / Math.ceil(now * 1.3)));
     await apiTrade(req, mId, 'buy', family, qty);
+    // le devis d'une unité donne le nouveau prix ; si l'acheteur n'a plus assez, l'erreur INSUFFICIENT le porte aussi
     const q = await apiQuote(req, mId, 'buy', family, 1);
-    expect(q.ok(), await q.text()).toBe(true);
-    now = ((await q.json()) as { total: number }).total;
+    const body = (await q.json()) as { total?: number; error?: { code: string; total?: number } };
+    expect(q.ok() || body.error?.code === 'INSUFFICIENT', JSON.stringify(body)).toBe(true);
+    now = (q.ok() ? body.total : body.error!.total)!;
   }
   return now;
 }

@@ -3,7 +3,7 @@
 import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
 const PICK = [
   '01-splash', '02-map', 'catch-01-lock-on', '03-catch-result', '04-relay', '05-merchant-why', 'market-02-quote',
-  'market-04-closing', 'forge-02-ready', '07-credit-ticket', '08-playground', 'lab-01-flood', 'pulse-02-ticker',
+  'market-04-closing', 'haggle-02-rival', 'haggle-03-deal', 'forge-02-ready', '07-credit-ticket', '08-playground', 'lab-01-flood', 'pulse-02-ticker',
 ];
 mkdirSync('docs-assets/shots', { recursive: true });
 let n = 0;
