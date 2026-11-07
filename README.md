@@ -12,12 +12,12 @@ Built for the NEAR HACKATHON — tracks **games** and **agents**.
 | | | | |
 |---|---|---|---|
 | ![](docs-assets/shots/02-map.png) | ![](docs-assets/shots/catch-01-lock-on.png) | ![](docs-assets/shots/05-merchant-why.png) | ![](docs-assets/shots/07-credit-ticket.png) |
-| Map (Demo Walk) | Lock-on catch | "Why this price?" | Real credit ticket |
+| Map (Remote Scout) | Lock-on catch | "Why this price?" | Real credit ticket |
 
 ---
 
 ## Live demo
-- **Play:** _(URL added at deploy time)_ → "Play as guest" (works without GPS: *Demo Walk* lets you tap the map to walk).
+- **Play:** _(URL added at deploy time)_ → "Play for real · GPS" (works anywhere: outside Paris the server maps your neighbourhood from OpenStreetMap on the fly) or "Remote Scout" (no GPS needed: fly a battery-limited courier pigeon over Paris from your couch).
 - **Judges' pass:** `/?demo=1&k=<DEMO_TOKEN>` (link given in the submission) → a level-7 demo account with a full bag, to see
   Prism/Aura compiles and merchant rescues in one minute, paid in **real** credits from the Judge pool ($0.20 max per account).
 - **City Pulse** (`/pulse`, no account): live ticker, Paris Shard Index, reserve, merchants going bankrupt, on-chain settlements.

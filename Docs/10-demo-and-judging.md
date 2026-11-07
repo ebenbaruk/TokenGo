@@ -30,7 +30,7 @@ Plan imposé :
 11. **License** MIT.
 
 ## 3. Comptes de démo
-- `?demo=1` : force Demo Walk, propose « Play as guest ». Départ : Louvre (Cour Napoléon) — Forge du Louvre à ~150 m, 2 marchands à < 500 m,
+- `?demo=1` : Remote Scout (pigeon-drone à batterie, ex-Demo Walk), bouton principal « Remote Scout ». Départ : Louvre (Cour Napoléon) — Forge du Louvre à ~150 m, 2 marchands à < 500 m,
   éclats garantis autour (le tutoriel les place).
 - **Guest** : peut tout faire ; crédits réels via la First Compile ($0.03, Welcome Pool, après capture + sync + trade) puis le **Judge Pool** du 16 au 18 nov → les juges
   voient une **vraie** clé fonctionner même si le Welcome Pool a été consommé.

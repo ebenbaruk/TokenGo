@@ -65,13 +65,45 @@ L'affinité d'une cellule = familles des Nodes de la cellule et des voisins imm�
 - Plan B tuiles (si OpenFreeMap tombe) : Protomaps PMTiles d'Île-de-France (`pmtiles extract … --bbox=1.44,48.12,3.56,49.24`), servi
   en statique — documenté, non implémenté sauf besoin.
 
-## 6. « Partout » (après Paris, mais l'architecture le permet dès J1)
-- Le serveur a une interface `WorldProvider` : `nodesInCells(cells)`, `districtOf(lat,lng)`, `forgesNear(...)`.
-  - `ParisWorld` : données précalculées (fichier).
-  - `OsmWorld` (stretch, derrière un flag `WORLD_ANYWHERE=1`) : à l'entrée d'un joueur dans une cellule res-7 inconnue,
-    une requête Overpass serveur (file d'attente, 1 à la fois, User-Agent, backoff) → même pipeline de sélection → cache SQLite permanent
-    (rafraîchi > 30 j). Forges = top 3 `tourism=attraction` avec `wikidata` par cellule res-7. District = OSM `admin_level` 9/10 sinon cellule res-6.
-- Hors Paris sans `WORLD_ANYWHERE` : écran « TokenGo is live in Paris — play in Demo Walk or get notified » + bouton Demo.
+## 6. « Partout » : régions générées (implémenté, `WORLD_ANYWHERE=1` par défaut)
+Code : `apps/server/src/game/worldgen.ts` (pur, partagé avec `build-world.ts`), `game/regions.ts` (file, caps, persistance),
+`game/world.ts` (`addRegion`). Constantes : `WORLD_GEN` dans `packages/shared/src/economy/rules.ts`.
+- **Région = cellule H3 r7** (~5 km², ~1,2 km de rayon). Paris = les r7 qui contiennent un nœud de `paris.json` : jamais générées.
+- **Déclenchement** : `GET /api/world` → `regions.ensure(lat, lng, ipHash)` sur la région du joueur + les r7 touchées par un disque de 600 m.
+  La requête ne bloque jamais : réponse immédiate avec `region: { status: 'scouting' | 'ready' | 'capped', source, ids }` ; le client
+  affiche « Scouting your neighbourhood… », réinterroge toutes les 1,5 s, puis annonce « Your neighbourhood is live · N relays · M merchants ».
+- **Overpass** (serveur, une génération à la fois, User-Agent `TokenGo/1.0 (game; github.com/ebenbaruk/TokenGo)`) : miroirs `OVERPASS_URLS`
+  (défaut overpass-api.de puis maps.mail.ru) dans un **budget total de 35 s** ; requête = cafés/marchés/librairies/boulangeries/tech,
+  bibliothèques, universités, théâtres, fontaines, lieux de culte, mairies, musées, attractions, points de vue, œuvres, monuments, parcs,
+  gares, coworkings, tous **nommés**, `out center tags 900`. Mesuré le 2026-11-07 autour de la Baixa (Lisbonne) : 823 éléments en 44 s →
+  2 forges, 8 marchands, 63 relais (`node apps/server/scripts/region-spike.ts [lat] [lng]`).
+- **Sélection** (même pipeline que Paris, déterministe pour une même réponse) : POI dont la cellule r9 appartient à la région ;
+  Forges = repères (attraction/musée > culte/mairie > monument > point de vue, wikidata d'abord) espacés de 1 km, max 2, thème = affinités
+  complétées à 2 familles ; Markets glouton 600 m (max 8) ; Relays glouton 170 m (max 80), dégagés des marchés (60 m) et forges (80 m).
+  Pas de repère → le meilleur relais devient la Forge. Cellules (richesse/affinités) recalculées sur les r9 touchées.
+- **Repli procédural** (Overpass injoignable/trop lent, ou < 8 relais / < 2 marchés) : déterministe depuis l'id de région — forge au centre,
+  5 marchands espacés de 500 m, 36 relais sur les centres r9 mélangés (décalés ≤ 50 m), noms générés (« Corner Tea Room », « Willow Gardens »),
+  catégories/affinités via des tags factices (parc → Gemini, librairie → Claude, gare → GPT…).
+- **Persistance** : table `regions` (migration `005_regions.sql` : id, source, created_at, ip_hash, osm_elements, nodes JSON) ; rechargée au
+  démarrage ; marchands créés avec la même graine que Paris (`createMerchant(SPAWN_SECRET, nodeId, affinités)`), sous-comptes NEAR paresseux
+  comme à Paris. `district = 0` hors Paris (classements d'arrondissements inchangés). Runners-agents et Lab : Paris seulement.
+- **Garde-fous** : 300 régions/jour au global, 12/jour par IP (hachée), plafonds de nœuds par région ; au-delà → `capped`
+  (« No new neighbourhoods today » + lien Remote Scout).
+- **Économie / Réserve** : une seule Réserve pour le monde entier (« ville » globale) — les poches, le cap Forge de 5,5 %/jour de la poche et
+  l'invariant de solvabilité sont globaux, donc inchangés quel que soit le nombre de régions. Les règles de paiement ne dépendent pas du lieu.
+- **Carte** : tuiles vectorielles OpenFreeMap `planet` → le style cartoon s'affiche partout sans changement (CSP inchangée).
+
+## 6 bis. Remote Scout (jouer depuis chez soi)
+Remplace « Demo Walk ». Le jeu se joue en marchant ; le **Remote Scout** est un pigeon-coursier à hélice (sprite `sprites/scout.grids.ts`)
+piloté au doigt : tap sur la carte = vol à 30 km/h, nœud lointain = « Dash » animé de 3 s. Compte `mode = 'demo'` (inchangé côté données) :
+`?demo=1` et le lien juges `?k=` y mènent. Règles serveur (`packages/shared/src/economy/scout.ts`, constantes `SCOUT`) à chaque `/api/move` :
+- batterie 0–100 %, **30 %/km** volé, recharge continue **8 %/min** (pleine en 12,5 min) ;
+- au-delà de **40 km/h** c'est un Dash : **× 1,5** et jamais plus de **1,5 km** d'un coup (`HOP_TOO_LONG`) ;
+- batterie insuffisante → vol refusé (`refused: 'BATTERY_EMPTY'`, la position serveur ne bouge pas) ; sous 10 % le Scout est **au sol**
+  jusqu'à 10 % (~75 s) ; sans position depuis 15 min : relance libre (nouvelle session). Ordre de grandeur : ~14 min de vol continu,
+  la boucle démo du Louvre (2–3 km) tient sur une batterie.
+- Récompenses **identiques à l'ancien mode démo** : pas de poche Main, Judge Pool via pass `DEMO_TOKEN` seulement, First Compile (Welcome).
+- HUD : badge « Scout » + batterie (ou « Walking » en GPS), bandeau « Scout recharging · flies again in 0:36 ».
 
 ## 7. Géolocalisation (front)
 - `watchPosition({enableHighAccuracy: true, maximumAge: 2000, timeout: 15000})`. Exige un **contexte sécurisé** (HTTPS ; localhost OK).

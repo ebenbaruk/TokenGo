@@ -53,11 +53,15 @@ function ComboBar() {
   );
 }
 
-/** Badge de mode : Remote Scout (pigeon-drone) ou marche réelle (GPS). */
+/** Badge de mode : marche réelle (GPS) ou Remote Scout (pigeon-drone, avec sa batterie). */
 function ModeBadge({ demo }: { demo: boolean }) {
-  return demo
-    ? <Pill className={s.scoutBadge} testId="mode-badge"><Sprite def={SCOUT_SPRITE} scale={1} anim /> Scout</Pill>
-    : <Pill className={s.walkBadge} testId="mode-badge"><Footprints size={15} strokeWidth={2.8} /> Walking</Pill>;
+  if (!demo) return <Pill className={s.walkBadge} testId="mode-badge"><Footprints size={15} strokeWidth={2.8} /> Walking</Pill>;
+  return (
+    <span className={s.scoutGroup}>
+      <Pill className={s.scoutBadge} testId="mode-badge"><Sprite def={SCOUT_SPRITE} scale={1} anim /> Scout</Pill>
+      <BatteryPill />
+    </span>
+  );
 }
 
 /** Batterie du Scout (prédiction locale à 1 Hz ; le serveur reste autoritaire) + bandeau « au sol ». */
@@ -153,11 +157,11 @@ export function Hud({ onAction }: { onAction: (t: Target) => void }) {
             </Pill>
           ) : null}
           <ModeBadge demo={demo} />
-          {demo ? <BatteryPill /> : null}
           {gps === 'weak' ? <Pill className={s.warn}>Weak GPS</Pill> : null}
-          <button type="button" className={s.mute} aria-label={muted ? 'Unmute' : 'Mute'} onClick={() => { setMuted(!muted); setMutedState(!muted); }}>
+          {/* en Scout, la place va à la batterie (le son reste dans le menu) */}
+          {demo ? null : <button type="button" className={s.mute} aria-label={muted ? 'Unmute' : 'Mute'} onClick={() => { setMuted(!muted); setMutedState(!muted); }}>
             {muted ? <VolumeX size={18} strokeWidth={2.5} /> : <Volume2 size={18} strokeWidth={2.5} />}
-          </button>
+          </button>}
         </div>
         {serverDown ? <div className={s.banner}><WifiOff size={16} /> Offline — reconnecting…</div> : null}
         {inTransit ? <div className={s.banner}>In transit — catching paused</div> : null}

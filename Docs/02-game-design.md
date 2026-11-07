@@ -156,7 +156,7 @@ En mode Démo, le joueur démarre avec un kit (niveau 3, 60 ƒ, 4 éclats) pour 
 
 ## 8. Modes de déplacement
 - **GPS (Explorer)** : `watchPosition` haute précision, avatar orienté (boussole si dispo), traînée lumineuse.
-- **Demo Walk** : *tap-to-walk* — on touche un point de la carte, l'avatar s'y rend à **30 km/h** en suivant une ligne droite. **Jump** : en mode démo, toucher un nœud à < 2 km propose « Jump here » (trajet animé de 3 s)
+- **Remote Scout** (ex-Demo Walk, voir Docs/04 §6 bis : batterie et plafond de vitesse vérifiés par le serveur) : *tap-to-walk* — on touche un point de la carte, l'avatar s'y rend à **30 km/h** en suivant une ligne droite. **Jump** : en mode démo, toucher un nœud à < 2 km propose « Jump here » (trajet animé de 3 s)
   (interpolation côté client, positions envoyées au serveur comme du GPS). Bouton « 🎯 Demo » visible si `?demo=1`, compte
   invité, ou GPS refusé. Les comptes démo sont marqués `mode='demo'` côté serveur : gains réels
   limités au Welcome/Judge Pool. En mode démo, le serveur ne vérifie pas la vitesse (les jumps sont autorisés) mais vérifie toujours les distances d'action.

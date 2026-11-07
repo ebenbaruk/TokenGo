@@ -13,18 +13,21 @@
 .fluxPill { font-size: 18px; min-height: 40px; padding: 4px 12px 4px 6px; }
 .creditPill { margin-left: auto; font-size: 18px; min-height: 40px; background: var(--orange); border-color: var(--ink); box-shadow: 0 0 0 2px var(--sun) inset, var(--shadow-hard-s); color: var(--ink); }
 
-.reserve { font-size: 13px; gap: 6px; }
+.reserve { font-size: 13px; gap: 5px; }
 .resLabel { font-family: var(--font-pixel); font-size: 14px; }
 .resBar { display: inline-flex; gap: 2px; }
 .resBar i, .comboTrack i { width: 7px; height: 12px; background: var(--white); border: 2px solid var(--ink); }
 .resBar i.on { background: var(--green); }
 .sim { font-size: 10px; background: var(--mist); border-radius: 4px; padding: 0 4px; }
-.scoutBadge { background: var(--sun); font-size: 13px; gap: 4px; padding-left: 4px; }
+.scoutGroup { display: inline-flex; align-items: center; }
+.scoutGroup > :first-child { position: relative; z-index: 1; padding: 3px 8px 3px 3px; gap: 3px; }
+.scoutGroup > :last-child { margin-left: -8px; padding-left: 12px; border-radius: 0 999px 999px 0; }
+.scoutBadge { background: var(--sun); font-size: 13px; }
 .walkBadge { background: var(--lime); font-size: 13px; gap: 4px; }
-.battery { font-size: 13px; gap: 5px; padding: 3px 8px; }
+.battery { font-size: 13px; gap: 6px; padding: 3px 9px; }
 .batBody { position: relative; display: inline-flex; gap: 1px; padding: 2px; border: 2px solid var(--ink); border-radius: 3px; background: var(--white); }
 .batBody::after { content: ''; position: absolute; right: -5px; top: 3px; width: 3px; height: 6px; background: var(--ink); border-radius: 0 2px 2px 0; }
-.batBody i { width: 4px; height: 8px; background: transparent; }
+.batBody i { width: 3px; height: 8px; background: transparent; }
 .batHigh i.on { background: var(--green); }
 .batMid i.on { background: var(--sun); }
 .batLow i.on { background: var(--berry); }

@@ -84,13 +84,13 @@ export function Splash() {
   const gpsBtn = (primary: boolean) => (
     <Button variant={primary ? 'gold' : 'secondary'} size={primary ? 'l' : 'm'} block onClick={() => void play(primary ? 'auto' : 'gps')}
       loading={busy === 'gps'} testId={primary ? 'play-guest' : 'play-gps'}>
-      <Footprints size={primary ? 22 : 20} /> Play for real <small className={s.btnSub}>GPS</small>
+      <Footprints size={primary ? 22 : 20} /> Play for real · GPS
     </Button>
   );
   const scoutBtn = (primary: boolean) => (
     <Button variant={primary ? 'gold' : 'secondary'} size={primary ? 'l' : 'm'} block onClick={() => void play(primary ? 'auto' : 'demo')}
       loading={busy === 'demo'} testId={primary ? 'play-guest' : 'play-scout'}>
-      <Sprite def={SCOUT} scale={1} anim /> Remote Scout <small className={s.btnSub}>play from anywhere</small>
+      <Sprite def={SCOUT} scale={primary ? 2 : 1} anim /> Remote Scout
     </Button>
   );
 
