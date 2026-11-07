@@ -61,6 +61,7 @@ describe('economy simulator', () => {
   it('baseline (seed 42, 7 days): every health check of Docs/03 §8 passes', () => {
     const failed = week.health.filter((h) => !h.pass).map((h) => `${h.name}: ${h.display} (target ${h.target})`);
     expect(failed).toEqual([]);
+    expect(week.totals.haggles).toBeGreaterThan(0); // des bots marchandent (bornés par haggledQuote) et l'économie reste saine
   });
 
   it('flood-deepseek: DeepSeek prices fall and merchants struggle', () => {

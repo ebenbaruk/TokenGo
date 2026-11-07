@@ -13,6 +13,7 @@ import { forgePayout, missingFor, recipesFor, recipeSize, type Recipe } from './
 import { initialPools, poolAvail, reserveHealth, type Pools } from './reserve.ts';
 import { familyWeights, spawnLambda } from './spawns.ts';
 import { resolveCatch } from './catch.ts';
+import { haggledQuote, maxBp } from './haggle.ts';
 
 // ───────────────────────────── Paramètres ─────────────────────────────
 export const STEP_MS = 10 * 60_000;
@@ -54,6 +55,7 @@ export const SIM_BOT = {
   floodCatchMult: 15,
   floodSellAt: 10,
   floodShare: 0.3,
+  haggleShare: 0.1,          // 10 % des trades d'au moins HAGGLE.minQty éclats sont marchandés (offre tirée dans [0, plafond])
 };
 export type SimBotParams = typeof SIM_BOT;
 
@@ -156,6 +158,7 @@ export interface SimTotals {
   compiles: number; compilesPaid: number; feesBurned: number; shardsBurned: number; payouts: number;
   imports: number; importFlux: number; exports: number; exportFlux: number; rent: number;
   rescues: number; rescueFlux: number;
+  haggles: number; haggleFlux: number;   // trades marchandés et Flux « gagnés » par les bots au marchandage
 }
 
 export interface SimResult {
@@ -337,7 +340,18 @@ function buildSim(opts: SimOptions): Sim {
   const totals: SimTotals = {
     catches: 0, syncs: 0, relayFlux: 0, shardsSold: 0, fluxPaidByMerchants: 0, shardsBought: 0, fluxPaidToMerchants: 0,
     contractsDelivered: 0, contractRewards: 0, compiles: 0, compilesPaid: 0, feesBurned: 0, shardsBurned: 0, payouts: 0,
-    imports: 0, importFlux: 0, exports: 0, exportFlux: 0, rent: 0, rescues: 0, rescueFlux: 0,
+    imports: 0, importFlux: 0, exports: 0, exportFlux: 0, rent: 0, rescues: 0, rescueFlux: 0, haggles: 0, haggleFlux: 0,
+  };
+  // rng séparé : le marchandage ne décale pas le tirage du reste de la simulation
+  const haggleRng: Rng = mulberry32((opts.seed ^ 0x6a09e667) >>> 0);
+  /** Marchandage occasionnel d'un bot, borné par les mêmes règles que le serveur (réputation 0 → plafond 5 %). */
+  const maybeHaggle = (pf: number, m: MerchantState, q: Quote): Quote => {
+    if (q.qty < R.HAGGLE.minQty || haggleRng() >= bp.haggleShare) return q;
+    const h = haggledQuote(pf, m, q, Math.floor(haggleRng() * (maxBp(0) + 1)));
+    if (h.side === 'sell' && h.total > m.flux) return q;
+    totals.haggles++;
+    totals.haggleFlux += Math.abs(h.total - q.total);
+    return h;
   };
   const weightCache = new Map<string, Record<Family, number>>();
   const weightsFor = (aff: Family[]) => {
@@ -498,12 +512,13 @@ function buildSim(opts: SimOptions): Sim {
     for (const f of FAMILIES) {
       let q = Math.min(50, b.inv[f] - (keep[f] ?? 0));
       while (q > 0) {
-        const res = quote(p0[f], m, 'sell', f, q, opt);
-        if ('error' in res) {
-          if (res.error === 'MERCHANT_NO_FLUX') { q = Math.floor(q / 2); continue; }
+        const res0 = quote(p0[f], m, 'sell', f, q, opt);
+        if ('error' in res0) {
+          if (res0.error === 'MERCHANT_NO_FLUX') { q = Math.floor(q / 2); continue; }
           q = 0;
           break;
         }
+        const res = maybeHaggle(p0[f], m, res0);
         m = applyTrade(m, res, now);
         b.inv[f] -= q;
         b.flux += res.total;
@@ -520,10 +535,11 @@ function buildSim(opts: SimOptions): Sim {
     let m = merchants[mi]!;
     let q = Math.min(qty, m.stock[f], 50);
     while (q > 0) {
-      const res = quote(p0[f], m, 'buy', f, q, patronOpt(b, mi, now));
-      if ('error' in res) return 0;
-      if (res.total > maxSpend || res.total > b.flux) { q--; continue; }
-      m = applyTrade(m, res as Quote, now);
+      const res0 = quote(p0[f], m, 'buy', f, q, patronOpt(b, mi, now));
+      if ('error' in res0) return 0;
+      if (res0.total > maxSpend || res0.total > b.flux) { q--; continue; }
+      const res = maybeHaggle(p0[f], m, res0);
+      m = applyTrade(m, res, now);
       merchants[mi] = m;
       b.inv[f] += q;
       b.flux -= res.total;

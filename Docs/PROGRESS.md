@@ -2,6 +2,18 @@
 
 Mettre à jour à la fin de chaque bloc de travail. Le plus récent en haut.
 
+## 2026-11-07 — Marchandage avec les marchands (mini-jeu de cartes)
+- **Fait** : `economy/haggle.ts` (fonctions pures : traits greedy/friendly/proud par archétype, besoin réel du marchand, cartes, patience,
+  `haggledQuote` borné ≤ 8 % et jamais sous le plancher de coût Σ mid × (1 ± 1 %), `souredQuote`), constantes `HAGGLE` dans `rules.ts` ;
+  serveur `game/haggle.ts` (séance id + TTL 90 s, le client n'envoie que la carte, Deal sous verrou par joueur, règlement partagé avec le trade
+  normal via `settleTrade`), `game/relations.ts` + migration `008_haggle.sql` (réputation, bouderie, journal des séances) ; réplique LLM unique
+  par séance (plafond 30/jour dans le plafond NPC) ; écran `HaggleGame` (portrait qui réagit, patience, prix qui défile, tampon DEAL!) ;
+  simulateur avec 10 % de trades marchandés (santé verte) ; `E2E_PORT` pour les suites parallèles.
+- **Tests** : 11 unitaires de bornes (tirages : aucun aller-retour ni boucle fermée rentable, total borné, bouderie jamais favorable),
+  7 tests API (rival vrai → Deal appliqué, double Deal concurrent, TTL / mauvaise séance, limites, bouderie, LLM unique et plafonné),
+  e2e `haggle.spec.ts` (3 parcours) + captures `haggle-0x`.
+- **Prochaine étape** : brancher la réplique LLM sur de vrais crédits quand ils existent (aucun code à changer).
+
 ## 2026-11-07 (nuit) — Fin du build : produit complet, vérifié
 - **Fait depuis le bloc précédent** : revue sécurité indépendante → 9 correctifs (courses sur les octrois, XFF, Judge Pool réservé aux passes démo,
   tombstones, plafonds SSE…) avec tests de régression ; 18 parcours e2e (capture, marché, PRICE_MOVED, forge, anti-triche, Lab, Pulse SSE,

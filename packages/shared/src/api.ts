@@ -4,6 +4,7 @@ import type { Family, NodeKind } from './types.ts';
 import type { PriceExplanation, MerchantState, MerchantStatus, Side } from './economy/pricing.ts';
 import type { Tier } from './economy/rules.ts';
 import type { Pools } from './economy/reserve.ts';
+import type { HaggleCard, HaggleEvent, HaggleFace, HagglePhase, HaggleTrait } from './economy/haggle.ts';
 
 export type ErrorCode =
   | 'UNAUTHENTICATED' | 'BAD_REQUEST' | 'NOT_FOUND' | 'FORBIDDEN_ORIGIN' | 'RATE_LIMITED'
@@ -11,7 +12,7 @@ export type ErrorCode =
   | 'ALREADY_CAUGHT' | 'EXPIRED' | 'INSUFFICIENT' | 'PRICE_MOVED' | 'RESERVE_LOW' | 'FORGE_PAUSED'
   | 'CLOSED' | 'NOT_BUYING' | 'MERCHANT_NO_FLUX' | 'OUT_OF_STOCK' | 'CONTRACT_LOCK' | 'BAD_QTY'
   | 'NO_CONTRACT' | 'NOT_STRUGGLING' | 'BAD_AMOUNT' | 'DEMO_CANNOT_SELL' | 'TUTORIAL_INCOMPLETE'
-  | 'HANDLE_TAKEN' | 'BAD_HANDLE' | 'FORBIDDEN' | 'GRANT_PENDING';
+  | 'HANDLE_TAKEN' | 'BAD_HANDLE' | 'FORBIDDEN' | 'GRANT_PENDING' | 'HAGGLE_SOUR' | 'HAGGLE_NO_ROOM';
 export interface ApiError { error: { code: ErrorCode; message: string; [k: string]: unknown } }
 
 export type Inventory = Record<Family, number>;
@@ -135,11 +136,45 @@ export interface MerchantView {
   bestKnown: Partial<Record<Family, { buy?: { price: number; merchant: string; distanceM: number }; sell?: { price: number; merchant: string; distanceM: number } }>>;
   isPatron: boolean;
   walletUrl: string | null;
+  /** Relation du joueur avec ce marchand (marchandage). */
+  relation: { rep: number; trait: HaggleTrait; sourUntil: number | null; hagglesLeft: number };
 }
 
 export interface QuoteRequest { side: Side; family: Family; qty: number }
 export interface QuoteResponse { quoteId: string; side: Side; family: Family; qty: number; unitPrices: number[]; total: number; expiresAt: number }
 export interface TradeResponse { ok: true; side: Side; family: Family; qty: number; total: number; xp: number; levelUp: number | null; me: Me; merchant: MerchantView }
+
+/** Séance de marchandage (le serveur décide de tout ; le client n'envoie que la carte choisie). */
+export interface HaggleView {
+  haggleId: string;
+  merchantId: string;
+  side: Side;
+  family: Family;
+  qty: number;
+  baseTotal: number;          // devis normal
+  total: number;              // devis marchandé actuel (borné)
+  bestTotal: number;          // meilleur total possible (plafond de réputation + plancher de coût)
+  offerBp: number;            // offre en points de base (100 = 1 %)
+  maxBp: number;
+  patience: number;
+  patienceMax: number;
+  round: number;
+  rounds: number;
+  phase: HagglePhase | 'done';
+  hand: { card: HaggleCard; rival?: { merchant: string; place: string; price: number } }[];
+  line: string;
+  lineSource: 'lines' | 'llm';
+  face: HaggleFace;
+  event: HaggleEvent;
+  /** dernière carte jouée et son effet réel (bp) */
+  last: { card: HaggleCard; gainedBp: number; deltaPatience: number } | null;
+  trait: HaggleTrait;
+  rep: number;
+  /** indices lisibles sur l'état du marchand (sur-stock, caisse basse…) */
+  hints: string[];
+  expiresAt: number;
+}
+export interface HaggleDealResponse extends TradeResponse { haggle: HaggleView; saved: number }
 
 export interface RecipeView {
   tier: Tier | 'first';

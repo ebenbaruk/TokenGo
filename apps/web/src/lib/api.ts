@@ -2,7 +2,7 @@
 import type {
   ApiError, ErrorCode, Me, MoveRequest, MoveResponse, WorldResponse, CatchStartResponse, CatchResolveRequest, CatchResolveResponse,
   SyncResponse, MerchantView, QuoteRequest, QuoteResponse, TradeResponse, ForgeView, CompileRequest, CompileResponse, CreditsView,
-  PulseResponse, PublicConfig, LeaderboardsResponse, LabSnapshot,
+  PulseResponse, PublicConfig, LeaderboardsResponse, LabSnapshot, HaggleCard, HaggleView, HaggleDealResponse,
 } from '@tokengo/shared';
 
 export class ApiFail extends Error {
@@ -44,6 +44,7 @@ const HUMAN: Partial<Record<ApiFail['code'], string>> = {
   BAD_AMOUNT: 'Pick a valid amount.',
   DEMO_CANNOT_SELL: 'Demo accounts can’t do that.',
   TUTORIAL_INCOMPLETE: 'Finish the tutorial steps first.',
+  HAGGLE_NO_ROOM: 'Already my rock-bottom price — no haggling.',
 };
 
 /** Message humain (court, ton du jeu) par code d'erreur. */
@@ -108,6 +109,9 @@ export const api = {
   merchant: (id: string) => req<MerchantView>('GET', `/api/merchant/${enc(id)}`),
   quote: (id: string, b: QuoteRequest) => req<QuoteResponse>('POST', `/api/merchant/${enc(id)}/quote`, b),
   trade: (id: string, quoteId: string) => req<TradeResponse>('POST', `/api/merchant/${enc(id)}/trade`, { quoteId }),
+  haggleStart: (id: string, b: QuoteRequest) => req<HaggleView>('POST', `/api/merchant/${enc(id)}/haggle`, b),
+  hagglePlay: (id: string, haggleId: string, card: HaggleCard) => req<HaggleView>('POST', `/api/merchant/${enc(id)}/haggle/play`, { haggleId, card }),
+  haggleDeal: (id: string, haggleId: string) => req<HaggleDealResponse>('POST', `/api/merchant/${enc(id)}/haggle/deal`, { haggleId }),
   deliver: (id: string) => req<TradeResponse>('POST', `/api/merchant/${enc(id)}/contract/deliver`, {}),
   rescue: (id: string, flux: number) =>
     req<{ me: Me; merchant: MerchantView; xp?: number; levelUp?: number | null }>('POST', `/api/merchant/${enc(id)}/rescue`, { flux }),

@@ -1,7 +1,8 @@
 // Marchand (Docs/09 §4) : onglets Trade / Contract / Rescue, « Why this price? », devis exact, slide to confirm.
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FAMILIES, MERCHANT, UNLOCKS, haversineM, type Family, type MerchantView, type NodeView, type PriceExplanation, type QuoteResponse, type Side } from '@tokengo/shared';
-import { Info, ChevronDown, ExternalLink } from 'lucide-react';
+import { FAMILIES, HAGGLE, MERCHANT, UNLOCKS, haversineM, type Family, type MerchantView, type NodeView, type PriceExplanation, type QuoteResponse, type Side } from '@tokengo/shared';
+import { Info, ChevronDown, ExternalLink, Handshake } from 'lucide-react';
+import { HaggleGame } from './HaggleGame.tsx';
 import { api, ApiFail, humanError } from '../lib/api.ts';
 import { useGame, setMe, toast } from '../lib/store.ts';
 import { radiusFor } from '../lib/nearby.ts';
@@ -48,6 +49,7 @@ export function MerchantSheet({ node, onClose }: { node: NodeView; onClose: () =
   const [face, setFace] = useState(1);
   const [thoughtOpen, setThoughtOpen] = useState(false);
   const [greet, setGreet] = useState<string | null>(null);
+  const [haggle, setHaggle] = useState<{ family: Family; side: Side; qty: number } | null>(null);
   useEffect(() => { api.greet(mId).then((g) => setGreet(g.greeting)).catch(() => {}); }, [mId]);
 
   const load = useCallback(() => api.merchant(mId).then((v) => { setM(v); setErr(null); }).catch((e) => setErr(humanError(e))), [mId]);
@@ -61,6 +63,7 @@ export function MerchantSheet({ node, onClose }: { node: NodeView; onClose: () =
   const accent = accentOf(mId);
 
   return (
+    <>
     <Sheet open onClose={onClose} full title={m?.name ?? node.merchant?.name ?? node.name}
       subtitle={<>{m?.place ?? node.name} · {Number.isFinite(dist) ? fmtDist(dist) : ''}</>}
       icon={<span className={s.portrait} style={{ background: accent.a }}><Sprite def={merchantSprite(archetype, mId)} scale={2} frame={face} /></span>}
@@ -140,13 +143,21 @@ export function MerchantSheet({ node, onClose }: { node: NodeView; onClose: () =
         </>
       )}
       {pick && m ? <TradePanel m={m} pick={pick} farReason={farReason} onClose={() => setPick(null)}
-        onTraded={(v) => { setM(v); setPick(null); cheer(); }} onStale={() => void load()} /> : null}
+        onTraded={(v) => { setM(v); setPick(null); cheer(); }} onStale={() => void load()}
+        onHaggle={(qty) => setHaggle({ ...pick, qty })} /> : null}
     </Sheet>
+    {haggle && m ? <HaggleGame m={m} pick={haggle} onClose={() => { setHaggle(null); void load(); }}
+      onDeal={(r) => {
+        toast(`Deal! ${r.side === 'sell' ? 'Sold' : 'Bought'} ${r.qty} ${famName(r.family)} · ${r.side === 'sell' ? '+' : '−'}${r.total} ƒ${r.saved ? ` (${r.side === 'sell' ? '+' : 'saved '}${r.saved} ƒ)` : ''}`, 'good', r.family);
+        setM(r.merchant); setHaggle(null); setPick(null); cheer();
+      }} /> : null}
+    </>
   );
 }
 
-function TradePanel({ m, pick, farReason, onClose, onTraded, onStale }: {
+function TradePanel({ m, pick, farReason, onClose, onTraded, onStale, onHaggle }: {
   m: MerchantView; pick: { family: Family; side: Side }; farReason: string | null; onClose: () => void; onTraded: (m: MerchantView) => void; onStale: () => void;
+  onHaggle: (qty: number) => void;
 }) {
   const me = useGame((st) => st.me);
   const e = m.prices.find((p) => p.family === pick.family)!;
@@ -193,6 +204,11 @@ function TradePanel({ m, pick, farReason, onClose, onTraded, onStale }: {
   const afford = pick.side === 'buy' && q && me ? me.flux >= q.total : true;
   const reason = farReason ?? (qErr ? qErr : !afford ? `You have ${fmtInt(me?.flux ?? 0)} ƒ — not enough` : null);
   const verb = pick.side === 'sell' ? 'sell' : 'buy';
+  const rel = m.relation;
+  const sulking = rel.sourUntil !== null && rel.sourUntil > Date.now();
+  const haggleWhy = farReason ?? (sulking ? `Sulking until ${fmtClock(rel.sourUntil!)} — quotes 3 % worse`
+    : rel.hagglesLeft <= 0 ? 'No more haggling here today'
+      : qty < HAGGLE.minQty ? `Haggle from ${HAGGLE.minQty} shards` : qErr ?? null);
   return (
     <div className={s.panel} data-testid="trade-panel">
       <div className={s.panelHead}>
@@ -213,6 +229,13 @@ function TradePanel({ m, pick, farReason, onClose, onTraded, onStale }: {
         <div className="dim" style={{ fontSize: 12, marginBottom: 8 }}>The price slides with each unit: my stock changes as we trade.</div>
       ) : null}
       {reason ? <div className={s.reason}>{reason}</div> : null}
+      <div className={s.haggleRow}>
+        <button type="button" className={s.haggleBtn} data-testid="haggle-btn" disabled={Boolean(haggleWhy) || q?.qty !== qty}
+          onClick={() => { play('tap'); onHaggle(qty); }}>
+          <Handshake size={18} strokeWidth={2.8} /> Haggle
+        </button>
+        <small data-testid="haggle-why">{haggleWhy ?? (rel.rep > 0 ? `Regular ★${rel.rep} · ${rel.hagglesLeft} left today` : `${rel.hagglesLeft} haggles left today`)}</small>
+      </div>
       <SlideToConfirm key={`${q?.quoteId}`} testId="slide-confirm" disabled={!q || busy || Boolean(reason)}
         label={q ? `Slide to ${verb} · ${q.total} ƒ` : 'Getting a quote…'} onConfirm={() => void confirm()} />
     </div>

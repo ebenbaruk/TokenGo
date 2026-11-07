@@ -117,6 +117,8 @@ export interface NpcBrain {
   brain: Brain;
   /** Salutation contextuelle (1 phrase) ou null → l'appelant utilise greetingFor(). */
   greet(m: MerchantState, userId: string): Promise<string | null>;
+  /** Réplique de poignée de main après un marchandage (1 par séance au plus, plafond HAGGLE.llmLinesPerDay côté appelant). */
+  haggleLine?(m: MerchantState, info: { side: 'buy' | 'sell'; family: string; qty: number; trait: string }): Promise<string | null>;
 }
 export interface NpcBrainOpts {
   key: () => Promise<string | null>;
@@ -204,7 +206,21 @@ export function createNpcBrain(ctx: Ctx, o: NpcBrainOpts): NpcBrain {
     return line;
   };
 
-  return { brain, greet };
+  const haggleLine = async (m: MerchantState, info: { side: 'buy' | 'sell'; family: string; qty: number; trait: string }): Promise<string | null> => {
+    const context = { place: placeOf(ctx, m), runner: info.side === 'buy' ? `buys ${info.qty} ${info.family} shards from you` : `sells you ${info.qty} ${info.family} shards`, yourHagglingStyle: info.trait };
+    const text = await complete(async () => ({
+      messages: [
+        { role: 'system', content: `${systemPrompt(m, context.place)} Now you only speak.` },
+        { role: 'user', content: `You just finished haggling with a runner. Context (JSON): ${JSON.stringify(context)}\nSeal the deal in ONE short in-character sentence (max 90 characters). No quotes, no emoji, no numbers, no prices, no promises.` },
+      ],
+      max_tokens: 50,
+      temperature: 0.9,
+    }));
+    const line = sanitizeLine(text?.split('\n').find((l) => l.trim()) ?? '', 100);
+    return line && !/\d/.test(line) ? line : null;
+  };
+
+  return { brain, greet, haggleLine };
 }
 
 /**

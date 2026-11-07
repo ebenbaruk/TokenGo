@@ -1,6 +1,6 @@
 // Forge : recette incomplète → emplacements manquants + bouton désactivé avec la raison ;
 // pass démo (DEMO_TOKEN) → Spark complète → compile → ticket de crédit.
-import { expect, test, DEMO_TOKEN, apiGuest, hold, open, pageErrors, shot, startGuest, tg, walk, type Family } from './helpers.ts';
+import { expect, test, DEMO_TOKEN, ORIGIN, apiGuest, hold, open, pageErrors, shot, startGuest, tg, walk, type Family } from './helpers.ts';
 
 interface Recipe { tier: string; label: string; needs: Partial<Record<Family, number>>; missing: Partial<Record<Family, number>>; locked: string | null; fee: number; payoutNusd: number }
 const NAME: Record<Family, string> = { deepseek: 'DeepSeek', qwen: 'Qwen', gemini: 'Gemini', gpt: 'GPT', claude: 'Claude' };
@@ -54,7 +54,7 @@ test('an incomplete recipe shows its missing slots and cannot be compiled', asyn
   await expect(page.getByTestId('forge-screen').getByText(prism.locked!, { exact: true })).toBeVisible();
 
   // le serveur refuse aussi une compilation forcée
-  const r = await page.request.post(`/api/forge/${encodeURIComponent(FORGE)}/compile`, { data: { tier: 'spark' }, headers: { Origin: 'http://localhost:8788' } });
+  const r = await page.request.post(`/api/forge/${encodeURIComponent(FORGE)}/compile`, { data: { tier: 'spark' }, headers: { Origin: ORIGIN } });
   expect(r.ok()).toBe(false);
   expect(errors).toEqual([]);
 });

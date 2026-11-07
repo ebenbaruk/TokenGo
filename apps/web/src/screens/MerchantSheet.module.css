@@ -57,3 +57,11 @@
 .whyHint { background: var(--sun); animation: hint 1.2s steps(2) infinite; }
 @keyframes hint { 50% { box-shadow: 0 0 0 4px var(--orange); } }
 .mood { display: block; margin-top: 4px; font-style: normal; font-size: 12px; font-weight: 800; color: var(--slate); }
+.haggleRow { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.haggleRow small { flex: 1; font-size: 12px; font-weight: 800; color: var(--night); line-height: 1.2; }
+.haggleBtn {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; border: var(--border-thin); border-radius: 10px;
+  background: var(--lime); box-shadow: var(--shadow-hard-s); font-weight: 900; font-size: 16px; cursor: pointer;
+}
+.haggleBtn:active:not(:disabled) { transform: translate(1px, 1px); box-shadow: none; }
+.haggleBtn:disabled { background: var(--panel); opacity: .55; box-shadow: none; cursor: not-allowed; }

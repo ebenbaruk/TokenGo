@@ -34,6 +34,9 @@ import { labSnapshot } from './game/pulse.ts';
 import { activeRunnerCount, runnersNear } from './game/runners.ts';
 import { invariantStatus, parisDay } from './game/reserve.ts';
 import { judgeOpen } from './game/forge.ts';
+import { dealHaggle, playHaggleCard, startHaggleSession } from './game/haggle.ts';
+import { withLock } from './game/lock.ts';
+import { HAGGLE_CARDS } from '@tokengo/shared';
 
 const SESSION_TTL = 30 * 24 * 3600_000;
 /** Connexions SSE simultanées max : par joueur (/api/stream), par IP (/api/pulse/stream), au total. */
@@ -251,6 +254,24 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
   });
   app.post('/api/merchant/:id/trade', rl(30), async (req) =>
     executeTrade(ctx, auth(req), Id.parse(req.params).id, z.object({ quoteId: z.string().max(40) }).parse(req.body).quoteId));
+  // Marchandage : séance côté serveur ; le client n'envoie que la carte choisie. Verrou par joueur (pas de double « Deal »).
+  const TradeReq = z.object({ side: z.enum(['sell', 'buy']), family: z.enum(FAMILIES), qty: z.number().int() });
+  const HaggleId = z.object({ haggleId: z.string().max(40) });
+  app.post('/api/merchant/:id/haggle', rl(20), async (req) => {
+    const userId = auth(req);
+    const b = TradeReq.parse(req.body);
+    return withLock(`haggle:${userId}`, async () => startHaggleSession(ctx, userId, Id.parse(req.params).id, b));
+  });
+  app.post('/api/merchant/:id/haggle/play', rl(30), async (req) => {
+    const userId = auth(req);
+    const b = HaggleId.extend({ card: z.enum(HAGGLE_CARDS) }).parse(req.body);
+    return withLock(`haggle:${userId}`, async () => playHaggleCard(ctx, userId, Id.parse(req.params).id, b.haggleId, b.card, npc));
+  });
+  app.post('/api/merchant/:id/haggle/deal', rl(20), async (req) => {
+    const userId = auth(req);
+    const b = HaggleId.parse(req.body);
+    return withLock(`haggle:${userId}`, async () => dealHaggle(ctx, userId, Id.parse(req.params).id, b.haggleId));
+  });
   app.post('/api/merchant/:id/contract/deliver', rl(20), async (req) => deliver(ctx, auth(req), Id.parse(req.params).id));
   app.post('/api/merchant/:id/rescue', rl(20), async (req) =>
     rescue(ctx, auth(req), Id.parse(req.params).id, z.object({ flux: z.number().int() }).parse(req.body).flux));

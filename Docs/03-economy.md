@@ -135,6 +135,30 @@ mais les chiffres viennent toujours des règles.
 - Contribuer est un **puits** de Flux pour les joueurs, et c'est un vrai choix : garder ses Flux, ou rouvrir le marchand qui sert son quartier.
 - P2 (si temps) : parts et dividendes, avec NAV calculée au prix P0, moyenne 24 h, high-water mark et versement depuis le Flux réalisé uniquement.
 
+### Marchandage (mini-jeu de cartes, borné) — `economy/haggle.ts`, constantes `HAGGLE` dans `rules.ts`
+Sur un achat ou une vente d'**au moins 3 éclats**, le joueur peut marchander au lieu de glisser pour payer.
+- **Déroulé** : 3 manches, une carte par manche parmi 3 (manche 1 : « rival » si le joueur a vu un concurrent ≤ 2 h, sinon « bluff » ;
+  ensuite « walk away » est toujours proposée). Cartes : *Bulk deal*, *I'll come back daily*, *Your rival X sells/pays N ƒ*,
+  *Cheaper down the street* (bluff), *Compliment the shop*, *Lowball*, *Walk away*. « Deal » est possible à tout moment.
+- **Ce qui décide** (table `cardEffect`, lisible) : le **trait** du marchand, déterministe par archétype (greedy : gambler, hoarder, hustler,
+  trendchaser · friendly : grandma, nightowl · proud : purist, scholar), son **état réel** (besoin = sur-stock quand on achète, manque quand on vend ;
+  « desperate » = closing ou caisse < 300 ƒ), la **réputation** du joueur chez lui et, pour la carte rival, la **vérité** : le prix réel actuel
+  du concurrent doit battre le prix de ce marchand (savoir d'arbitrage récompensé : +2 à +4 % ; note fausse ou périmée : patience −2).
+- **Patience** : 3 au départ (+1 friendly, −1 proud, + réputation/3, max 5). À zéro, le marchand **boude** 20 min : plus de marchandage chez lui
+  et ses devis normaux sont **3 % moins bons** pour ce joueur (`souredQuote`), réputation −2.
+- **Bornes de l'issue** (pure, `haggledQuote`, testée par tirages) : offre ∈ [0, plafond] avec plafond = 5 % + 0,3 point par point de
+  réputation, **≤ 8 %** ; le total marchandé n'est jamais pire que le devis normal et ne dépasse jamais le **plancher de coût** =
+  Σ prix milieu au stock après chaque unité × (1 ± 1 %). Même raisonnement que la règle anti-aller-retour : acheter puis revendre
+  (ou toute boucle fermée chez un même marchand) **perd toujours**, marchandage ou pas (potentiel Φ(s) = Σ mid).
+- **Anti-farm** : 2 séances par marchand et 6 au total par joueur et par jour de Paris ; séance de 90 s (TTL glissant), une à la fois, liée au
+  joueur et au marchand ; « Deal » sérialisé par joueur (verrou) et à usage unique ; devis relu dans la transaction (`PRICE_MOVED`).
+- **Réputation** (`merchant_relations`, bornée [−5, 10]) : +1 par jour où l'on commerce chez lui (on devient un habitué jour après jour),
+  +1 par marchandage conclu, −2 s'il perd patience. Un habitué a plus de patience, un plafond plus haut, et « I'll come back daily » le convainc.
+- **Répliques** : écrites à la main par trait et par événement (choix déterministe). Avec de vrais crédits, **une** réplique LLM par séance au plus
+  (la poignée de main, sans chiffres), demandée en arrière-plan, plafonnée à 30/jour **dans** le plafond NPC de 150 appels/jour.
+- **Simulateur** : 10 % des trades de bots d'au moins 3 éclats sont marchandés (offre tirée dans [0, 5 %]) ; toutes les cibles de santé restent
+  vertes (graines 42/1/2/3, 7 et 14 j).
+
 ### Contrats
 Un contrat actif par marchand ouvert. Généré à chaque « réflexion » de l'agent (§6) :
 - **famille** : celle où `stock/target` est le plus bas ;
