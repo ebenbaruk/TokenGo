@@ -45,6 +45,9 @@ npm run e2e            # playwright
 npm run sim -- --days 7 --players 200   # simulateur d'économie (CLI)
 npm run verify         # ce que lancera le juge IA : tests + build + e2e smoke (sans secrets)
 npm run shots          # captures d'écran clés → docs-assets/
+npm run video          # vidéo de démo (Playwright + ffmpeg) → docs-assets/video/
+E2E_PORT=8790 npx playwright test --project=full   # e2e sur un autre port (suites en parallèle)
+node scripts/submit.ts # valide la soumission (var/submission.json) ; --send = envoi (HUMAIN uniquement)
 npm run reconcile      # compare chaîne et SQLite
 npm run check:secrets  # aucun secret dans le repo ni l'historique
 npm run build-world    # régénère data/world/paris.json depuis data/raw (OSM)

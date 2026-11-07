@@ -2,6 +2,8 @@
 
 ![TokenGo](docs-assets/cover.jpg)
 
+▶️ **Demo video (83 s):** [`docs-assets/video/tokengo-demo.mp4`](docs-assets/video/tokengo-demo.mp4) · portrait: [`tokengo-demo-portrait.mp4`](docs-assets/video/tokengo-demo-portrait.mp4)
+
 **TokenGo is a location-based browser game where the loot is real AI compute.** Shards of Claude, GPT, DeepSeek, Gemini and Qwen
 spawn around real landmarks. AI shopkeepers buy and sell them at prices driven by local supply and demand, so the same shard is cheap
 at one café and expensive near the Louvre. Walk the spread, haggle, fill a Forge recipe, and compile it into **real NEAR AI Cloud
@@ -57,7 +59,7 @@ npm run dev            # web http://localhost:5173 + API :8787 (credits simulate
 10. `npm run verify` → tests + typecheck + build + headless e2e of the whole loop; `npm run e2e` runs all **28 flows** on a mobile viewport.
 
 Other commands: `npm run sim -- --days 7 --players 200 --scenario flood-deepseek --seed 42` (economy simulator CLI, health checks),
-`npm run shots` (screenshots), `npm run reconcile` (chain vs DB), `npm run check:secrets`.
+`npm run shots` (screenshots), `npm run video` (re-records the demo video with Playwright + ffmpeg), `npm run reconcile` (chain vs DB), `npm run check:secrets`.
 
 ## The game loop
 - **Walk (or scout).** Real GPS anywhere: outside Paris the server builds a region from OpenStreetMap around you (relays on real POIs,

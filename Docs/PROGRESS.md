@@ -41,6 +41,19 @@ Mettre à jour à la fin de chaque bloc de travail. Le plus récent en haut.
   en fond tant que le quartier est frais ; une r7 en bordure de Paris compte comme « Paris » même si sa partie hors Paris est vide.
 - **Prochaine étape** : déploiement HTTPS (GPS réel), tester un vrai quartier hors Paris au téléphone.
 
+## 2026-11-07 (soir) — « Banger pass » : jouer partout, carte vivante, marchandage, juice, vidéo, soumission prête
+- **Contexte** : le propriétaire a testé (« pas mal »), veut un jeu « banger », **track games uniquement**, et n'avoir plus qu'à soumettre.
+- **Fait** (4 chantiers en parallèle + intégration + revue sécurité + playtest « juge ») :
+  jouer partout en vrai GPS (régions OSM/Overpass générées autour du joueur, repli procédural en 8 s puis remplacement par les vrais
+  lieux si la région est encore vierge) ; **Remote Scout** (pigeon, batterie serveur) qui remplace Demo Walk et explique la marche réelle ;
+  carte vivante (marcheurs, bulles des marchands, événements de ville bornés) ; **marchandage** (cartes, ±8 % max, plancher de coût) ;
+  juice (combo, haptique, sons), **Codex** 25 variantes, **Daily Route**, cartes PNG à partager ; ordinateur : cadre de téléphone +
+  QR « joue sur ton téléphone » ; 3 failles corrigées (ancrage des régions, /64 IPv6, confidentialité des marcheurs) ;
+  **vidéo de démo** 83 s (paysage + portrait, `npm run video`) ; README track games + disclosure ; `scripts/submit.ts` ; image Docker testée en prod.
+- **Vérif** : 211 tests unitaires, e2e 28/28 (deux passes), `npm run verify` vert, `check:secrets` vert, conteneur prod OK (pass juge niveau 7).
+- **Reste (humain, ~45 min, `Docs/SUBMISSION.md`)** : Railway (+ volume `/data`, variables), crédits NEAR AI réels (facultatif mais
+  recommandé ; si fait, `npm run video` re-filme avec de vrais crédits), repo public + tag, post X avec la vidéo, `node scripts/submit.ts --send`.
+
 ## 2026-11-07 — Game feel + raisons de revenir (Codex, Daily Route, cartes partageables)
 - **Fait** : passe « juice » sur la capture (combo ressenti : son qui monte, aura/flamme, secousse + confettis PERFECT,
   révélation de variante, XP qui roule, éclat → sac), vibrations par événement + réglage ; Codex de 25 variantes cosmétiques
