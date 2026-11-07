@@ -2,6 +2,15 @@
 
 Mettre à jour à la fin de chaque bloc de travail. Le plus récent en haut.
 
+## 2026-11-08 — Raid « Rogue Model » (Docs/13 §6)
+- **Fait** : règles pures `packages/shared/src/economy/raid.ts` (+ section RAID de `rules.ts`, kind `rogue`) ; migration `011_raid.sql` ;
+  serveur `game/raid.ts` (création avec l'événement, assauts 3 manches via le moteur de l'Arène, dégâts en direct `raid.hp`, victoire/échec
+  résolus une fois, récompenses, titre Codex « Rogue Slayer », coups des runners, raids auto ≤ 2/jour, `raidDamageToday` pour les missions) ;
+  routes `/api/raid/:eventId`, `/attack`, `/api/raid/assault/:id/play`, admin `{ kind: 'rogue', forge }`, test `/api/test/raid/:id/hp` ;
+  web : bannière glitchée, boss animé sur la carte, onglet Raid de la Forge, écran d'assaut, fin collective, PV sur `/pulse`.
+- **Vérif** : 11 tests purs + 10 tests API (`raid.test.ts`), `e2e/raid.spec.ts` (assaut 3 manches, PV qui baissent ; victoire + titre).
+- **Reste** : équilibrage sur vrai trafic (`RAID.damageScale`, cadence des runners) ; pas de carte partageable du raid.
+
 ## 2026-11-08 — Arène des modèles + Maîtrise (Docs/13 §1, §2, §4)
 - **Fait** : moteur pur `packages/shared/src/economy/arena.ts` + banque `arena-bank.ts` ; migration `009_arena.sql` ; serveur `game/arena.ts`,
   `game/mastery.ts` (routes `/api/arena/...`, Gardien du jour, Champion fantôme figé, 48 h, revenu +4 ƒ/10 min ≤ 240/jour, frais 10 ƒ, 12/jour,

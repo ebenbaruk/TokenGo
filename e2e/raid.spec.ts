@@ -50,6 +50,7 @@ async function playRound(page: Page): Promise<number> {
 const hpOf = async (page: Page, testId: string) => Number(await page.getByTestId(testId).getAttribute('data-hp'));
 
 test('admin unleashes a rogue model at the Louvre; a player assaults it for 3 rounds and the HP bar drops', async ({ page }) => {
+  test.setTimeout(120_000); // parcours long : carte, onglet, 3 manches, carte, /pulse
   const errors = pageErrors(page);
   await startGuest(page);
   const eventId = await startRogue(page);
