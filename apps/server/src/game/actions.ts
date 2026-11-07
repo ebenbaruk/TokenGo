@@ -19,6 +19,8 @@ import { reserveHealth, scoutHop } from '@tokengo/shared';
 import { assertQuota, bumpQuota } from './quotas.ts';
 import { recordCatchVariant, routeCheckin, routeFor } from './codex.ts';
 import { activeEvent, eventById, eventView } from './events.ts';
+import { arenaOnCatch } from './mastery.ts'; // Arène (Docs/13 §2) : maîtrise à la capture
+import { arenaBadge } from './arena.ts';      // Arène (Docs/13 §4) : couronne / bouclier des forges
 
 const TUTORIAL_SPAWN = (userId: string) => `tut:${userId}`;
 
@@ -128,7 +130,10 @@ export function worldView(ctx: Ctx, userId: string, lat: number, lng: number, ip
         v.merchant = { id: m.id, name: m.name, archetype: m.archetype, status: m.status, hasContract: !!live, ...(live ? { contractFamily: live.family } : {}), ...(bubble ? { bubble } : {}) };
       }
     }
-    if (n.kind === 'forge') v.theme = ctx.world.forges.find((f) => f.id === n.id)?.theme ?? n.affinities;
+    if (n.kind === 'forge') {
+      v.theme = ctx.world.forges.find((f) => f.id === n.id)?.theme ?? n.affinities;
+      v.arena = arenaBadge(ctx, n.id, userId);
+    }
     return v;
   });
   // la route s'ancre sur la dernière position reçue par /api/move (pas sur les paramètres de /api/world)
@@ -229,6 +234,7 @@ function grantCatch(ctx: Ctx, userId: string, spawn: SpawnView, res: CatchOutcom
     }
     const qty = 'bonus' in res && res.bonus ? 2 : 1;
     credit(ctx, userId, shardToken(spawn.family), qty, `catch:${spawn.id}`);
+    arenaOnCatch(ctx, userId, spawn.family);
     const combo = nextCombo(u.combo, u.last_catch_at, now);
     ctx.db.prepare('UPDATE users SET combo = ?, last_catch_at = ?, best_combo = MAX(best_combo, ?) WHERE id = ?').run(combo, now, combo, userId);
     // variante cosmétique (Codex) : ne change rien à l'inventaire ; XP de découverte une fois par case

@@ -15,3 +15,4 @@ export * from './route.ts';
 export * from './haggle.ts';
 export * from './scout.ts';
 export * from './events.ts';
+export * from './arena.ts';

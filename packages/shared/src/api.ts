@@ -8,6 +8,8 @@ import type { Pools } from './economy/reserve.ts';
 import type { HaggleCard, HaggleEvent, HaggleFace, HagglePhase, HaggleTrait } from './economy/haggle.ts';
 import type { CityEvent } from './economy/events.ts';
 import type { Bubble } from './living.ts';
+import type { ArenaBattleStatus, ArenaRoundWinner, MasteryProgress } from './economy/arena.ts';
+import type { Category, Technique } from './economy/rules.ts';
 
 export type ErrorCode =
   | 'UNAUTHENTICATED' | 'BAD_REQUEST' | 'NOT_FOUND' | 'FORBIDDEN_ORIGIN' | 'RATE_LIMITED'
@@ -15,7 +17,9 @@ export type ErrorCode =
   | 'ALREADY_CAUGHT' | 'EXPIRED' | 'INSUFFICIENT' | 'PRICE_MOVED' | 'RESERVE_LOW' | 'FORGE_PAUSED'
   | 'CLOSED' | 'NOT_BUYING' | 'MERCHANT_NO_FLUX' | 'OUT_OF_STOCK' | 'CONTRACT_LOCK' | 'BAD_QTY' | 'STRIKE'
   | 'NO_CONTRACT' | 'NOT_STRUGGLING' | 'BAD_AMOUNT' | 'DEMO_CANNOT_SELL' | 'TUTORIAL_INCOMPLETE'
-  | 'HANDLE_TAKEN' | 'BAD_HANDLE' | 'FORBIDDEN' | 'GRANT_PENDING' | 'HAGGLE_SOUR' | 'HAGGLE_NO_ROOM';
+  | 'HANDLE_TAKEN' | 'BAD_HANDLE' | 'FORBIDDEN' | 'GRANT_PENDING' | 'HAGGLE_SOUR' | 'HAGGLE_NO_ROOM'
+  // Arène (Docs/13 §4)
+  | 'MODEL_RATE_LIMITED' | 'NO_TOKENS' | 'OWN_ARENA' | 'BAD_TEAM';
 export interface ApiError { error: { code: ErrorCode; message: string; [k: string]: unknown } }
 
 export type Inventory = Record<Family, number>;
@@ -41,6 +45,8 @@ export interface Me {
   tutorial: TutorialState;
   /** Remote Scout (mode 'demo') : batterie et dernière position acceptée ; null en GPS. */
   scout: ScoutView | null;
+  /** Maîtrise par famille (Docs/13 §2). */
+  mastery: Record<Family, MasteryProgress>;
 }
 
 /** Batterie du Scout à l'instant `at` (le client la fait progresser avec scoutCharge). */
@@ -78,7 +84,10 @@ export interface NodeView {
   merchant?: { id: string; name: string; archetype: string; status: MerchantStatus; hasContract: boolean; contractFamily?: Family; bubble?: Bubble };
   /** forge : thème */
   theme?: Family[];
+  /** forge : qui tient l'arène (couronne du Champion ou bouclier du Gardien sur la carte) */
+  arena?: ArenaBadge;
 }
+export interface ArenaBadge { holder: 'guardian' | 'champion'; champion: string | null; mine: boolean }
 
 export interface SpawnView { id: string; family: Family; lat: number; lng: number; expiresAt: number }
 
@@ -406,3 +415,78 @@ export interface LabSnapshot {
   merchants: { open: number; closing: number; closed: number };
   runners: number;             // runners-agents actifs
 }
+
+// ───────────── Arène des modèles (Docs/13 §4) ─────────────
+// GET /api/arena/:forgeId → ArenaView ; POST /api/arena/:forgeId/start { team: Family[3] } → ArenaBattleView (1re épreuve seulement) ;
+// POST /api/arena/battle/:battleId/play { family, technique } → ArenaPlayResponse. Le serveur décide de tout.
+
+export interface ArenaMember { family: Family; mastery: number }
+export interface ArenaHolderView {
+  kind: 'guardian' | 'champion';
+  name: string;                // « Sentinel of Louvre » ou le pseudo du Champion
+  team: ArenaMember[];
+  since: number | null;        // Champion : depuis quand il tient l'arène
+  expiresAt: number | null;    // Champion : remplacé par le Gardien à cette date s'il ne joue plus
+  mine: boolean;
+}
+export interface ArenaView {
+  forgeId: string;
+  forgeName: string;
+  affinities: Family[];        // +10 % pour ces familles, des deux côtés
+  holder: ArenaHolderView;
+  /** familles du joueur (≥ 1 éclat = alignable), maîtrise comprise */
+  families: { family: Family; owned: number; mastery: MasteryProgress }[];
+  fee: number;
+  battlesLeft: number;
+  battlesPerDay: number;
+  /** raison si le joueur ne peut pas combattre ici (niveau, sa propre arène…) ; la distance et les Flux se vérifient au départ */
+  locked: string | null;
+  /** Champion de cette arène : revenu versé à cette consultation, et ce qui est déjà versé aujourd'hui */
+  income: { paid: number; paidToday: number; maxDay: number } | null;
+  /** combat en cours du joueur dans cette arène (reprise après fermeture de l'écran) */
+  openBattle: ArenaBattleView | null;
+  me: Me;
+}
+export interface ArenaChallengeView { index: number; category: Category; prompt: string }
+export interface ArenaSideView { team: ArenaMember[]; tokens: number; rateLimited: Family | null; wins: number }
+export interface ArenaPlayView { family: Family; technique: Technique; power: number; hallucinated: boolean }
+export interface ArenaRoundView {
+  index: number;
+  category: Category;
+  prompt: string;
+  me: ArenaPlayView;
+  opp: ArenaPlayView;
+  winner: ArenaRoundWinner;
+  line: string;
+}
+export interface ArenaResultView {
+  outcome: 'won' | 'lost';
+  xp: number;
+  flux: number;
+  fee: number;
+  becameChampion: boolean;
+  line: string;
+  /** XP de maîtrise gagnée par famille, et les montées de niveau */
+  masteryGains: Partial<Record<Family, number>>;
+  masteryUps: { family: Family; level: number }[];
+  levelUp: number | null;
+  note: string | null;
+}
+export interface ArenaBattleView {
+  battleId: string;
+  forgeId: string;
+  forgeName: string;
+  opponent: { kind: 'guardian' | 'champion'; name: string };
+  affinities: Family[];
+  rounds: number;
+  /** épreuve en cours (null une fois le combat fini) ; les suivantes restent secrètes */
+  challenge: ArenaChallengeView | null;
+  me: ArenaSideView;
+  opp: ArenaSideView;
+  history: ArenaRoundView[];
+  status: ArenaBattleStatus | 'expired';
+  expiresAt: number;
+  result: ArenaResultView | null;
+}
+export interface ArenaStartResponse { battle: ArenaBattleView; me: Me }
+export interface ArenaPlayResponse { round: ArenaRoundView; battle: ArenaBattleView; me: Me }

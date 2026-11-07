@@ -1,9 +1,10 @@
 // Quotas journaliers (Docs/08 §4) : 400 captures, 200 syncs, 60 compiles par jour de Paris → RATE_LIMITED.
+import { ARENA } from '@tokengo/shared';
 import type { Ctx } from './context.ts';
 import { fail } from './context.ts';
 import { parisDay, parisDayStart } from './reserve.ts';
 
-export const DAILY_QUOTA = { catch: 400, sync: 200, compile: 60 } as const;
+export const DAILY_QUOTA = { catch: 400, sync: 200, compile: 60, battle: ARENA.battlesPerDay } as const;
 export type QuotaKind = keyof typeof DAILY_QUOTA;
 
 /** Utilisation du jour. Captures et compilations se comptent dans leurs tables ; les syncs ont un compteur dédié. */
@@ -11,6 +12,9 @@ export function quotaUsed(ctx: Ctx, userId: string, kind: QuotaKind): number {
   const now = ctx.now();
   if (kind === 'catch') {
     return (ctx.db.prepare('SELECT COUNT(*) n FROM catches WHERE user_id = ? AND at >= ?').get(userId, parisDayStart(now)) as { n: number }).n;
+  }
+  if (kind === 'battle') { // combats d'arène (Docs/13 §4) : comptés dans leur table
+    return (ctx.db.prepare('SELECT COUNT(*) n FROM battles WHERE user_id = ? AND created_at >= ?').get(userId, parisDayStart(now)) as { n: number }).n;
   }
   if (kind === 'compile') {
     return (ctx.db.prepare('SELECT COUNT(*) n FROM compiles WHERE user_id = ? AND at >= ?').get(userId, parisDayStart(now)) as { n: number }).n;

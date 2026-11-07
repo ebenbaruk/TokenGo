@@ -402,3 +402,93 @@ export const LIVING = {
   reopenedBubbleMs: 3 * 3600_000, // « Back in business » pendant 3 h après une réouverture
   eventFarM: 25_000,           // joueur à > 25 km de la zone (autre ville, monde « partout ») : ni bannière ni jingle
 } as const;
+
+// ═════════════════════════════ Arène des modèles & Maîtrise (Docs/13 §1, §2, §4) ═════════════════════════════
+/**
+ * Les éclats sont aussi des modèles d'IA avec un profil de combat. Les combats (3 contre 3, 5 épreuves) se jouent aux
+ * Forges ; tout est serveur-autoritaire, déterministe (graine HMAC) et borné : les récompenses sont en Flux/XP seulement,
+ * rien ne touche la Réserve ni les crédits réels. Formules : arena.ts (pures, testées).
+ */
+export const CATEGORIES = ['math', 'code', 'writing', 'vision', 'speed', 'lang'] as const;
+export type Category = (typeof CATEGORIES)[number];
+export const CATEGORY_INFO: Record<Category, { name: string; icon: string }> = {
+  math: { name: 'Math', icon: '🧮' },
+  code: { name: 'Code', icon: '💻' },
+  writing: { name: 'Writing', icon: '✍️' },
+  vision: { name: 'Vision', icon: '👁' },
+  speed: { name: 'Speed', icon: '⚡' },
+  lang: { name: 'Languages', icon: '🌐' },
+};
+
+/** Profils ludiques (1–10), inspirés de la réputation publique des familles — PAS des benchmarks (« game stats » dans l'UI). */
+export const MODEL_STATS: Record<Family, Record<Category, number>> = {
+  claude: { math: 7, code: 9, writing: 10, vision: 7, speed: 5, lang: 8 },
+  gpt: { math: 8, code: 8, writing: 8, vision: 9, speed: 6, lang: 8 },
+  gemini: { math: 7, code: 7, writing: 7, vision: 10, speed: 7, lang: 9 },
+  deepseek: { math: 9, code: 8, writing: 6, vision: 4, speed: 8, lang: 6 },
+  qwen: { math: 7, code: 7, writing: 6, vision: 6, speed: 9, lang: 10 },
+};
+/** Style d'une famille (une ligne, affichée sur la carte de combat). */
+export const MODEL_STYLE: Record<Family, string> = {
+  claude: 'The writer-coder: slow, brilliant',
+  gpt: 'The all-rounder',
+  gemini: 'The eye, long context',
+  deepseek: 'The cheap mathlete',
+  qwen: 'The speedy polyglot',
+};
+
+export const TECHNIQUES = ['zero', 'cot', 'few', 'tool', 'hot'] as const;
+export type Technique = (typeof TECHNIQUES)[number];
+export interface TechniqueRule {
+  name: string;
+  cost: number;                            // tokens du budget de combat
+  mult: Partial<Record<Category, number>>; // multiplicateur par catégorie…
+  multElse: number;                        // … et ailleurs
+  add: Partial<Record<Category, number>>;  // bonus fixe APRÈS multiplicateurs
+  variance: number;                        // facteur sur la variance ±12 %
+  halluc: number;                          // facteur sur le risque d'hallucination
+  hint: string;
+}
+export const TECHNIQUE_RULES: Record<Technique, TechniqueRule> = {
+  zero: { name: 'Zero-shot', cost: 0, mult: {}, multElse: 1, add: {}, variance: 1, halluc: 1, hint: '×1.0, free' },
+  cot: { name: 'Chain-of-thought', cost: 3, mult: { math: 1.5, code: 1.5 }, multElse: 1.15, add: {}, variance: 1, halluc: 0.5, hint: '×1.5 math/code · ×1.15 else · halluc ÷2' },
+  few: { name: 'Few-shot', cost: 2, mult: { writing: 1.3, lang: 1.3 }, multElse: 1, add: {}, variance: 0.5, halluc: 1, hint: '×1.3 writing/lang · steadier' },
+  tool: { name: 'Tool use', cost: 2, mult: {}, multElse: 1, add: { math: 3, vision: 3, code: 3 }, variance: 1, halluc: 1, hint: '+3 math/vision/code' },
+  hot: { name: 'High temp', cost: 1, mult: { writing: 1.4 }, multElse: 1, add: {}, variance: 2, halluc: 2, hint: '×1.4 writing · wild · halluc ×2' },
+};
+
+export const ARENA = {
+  teamSize: 3,                    // 3 familles différentes (≥ 1 éclat de chacune ; rien n'est consommé)
+  rounds: 5,                      // 5 épreuves tirées au début
+  winsNeeded: 3,                  // premier à 3 manches
+  tokenBudget: 10,                // tokens de techniques par combat (chaque camp)
+  variance: 0.12,                 // ±12 % (graine)
+  hallucBase: 0.08,               // 8 % de base…
+  hallucPower: 0.3,               // … puissance × 0,3
+  affinityBonus: 0.1,             // familles du thème de la Forge : +10 % des deux côtés
+  guardianMasteryBase: 2,         // maîtrise du Gardien = 2 + (numéro de jour mod 3)
+  guardianMasteryMod: 3,
+  championExpiryMs: 48 * 3600_000, // Champion inactif 48 h → le Gardien reprend l'arène
+  championFluxPer10Min: 4,        // +4 ƒ par tranche de 10 min tenue…
+  championFluxMaxDay: 240,        // … max 240 ƒ / jour de Paris / joueur (versés à la consultation ou à la défaite)
+  entryFee: 10,                   // frais d'entrée (puits de Flux)
+  battlesPerDay: 12,              // combats / joueur / jour de Paris
+  level: 2,                       // débloqué au niveau 2
+  battleTtlMs: 15 * 60_000,       // un combat abandonné expire après 15 min (frais perdus, aucune récompense)
+  rewards: {
+    guardian: { xp: 60, flux: 20 },
+    champion: { xp: 100, flux: 30 },
+    loss: { xp: 15, flux: 0 },
+  },
+} as const;
+
+/** Maîtrise : XP par famille et par joueur ; niveau 1–10 ; bonus de puissance en arène. */
+export const MASTERY = {
+  thresholds: [0, 30, 80, 150, 250, 400, 600, 850, 1150, 1500] as readonly number[], // XP pour atteindre le niveau i+1
+  maxLevel: 10,
+  powerPerLevel: 0.04,            // × (1 + 0.04 × (m − 1)) : +36 % au niveau 10
+  xpCatch: 5,
+  xpDecodeBonus: 5,
+  xpRound: 10,                    // manche d'arène jouée avec la famille
+  xpRoundWon: 10,                 // … et gagnée
+} as const;

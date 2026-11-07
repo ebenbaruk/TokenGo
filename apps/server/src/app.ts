@@ -40,6 +40,8 @@ import { codexView } from './game/codex.ts';
 import { dealHaggle, playHaggleCard, startHaggleSession } from './game/haggle.ts';
 import { withLock } from './game/lock.ts';
 import { HAGGLE_CARDS } from '@tokengo/shared';
+import { playBattle, startBattle, viewArena } from './game/arena.ts';
+import { TECHNIQUES } from '@tokengo/shared';
 import { createRegions, overpassFetcher, parseOverpassUrls, type OverpassFetch, type RegionTimings } from './game/regions.ts';
 
 const SESSION_TTL = 30 * 24 * 3600_000;
@@ -293,6 +295,20 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
   app.get('/api/forge/:id', async (req) => viewForge(ctx, auth(req), Id.parse(req.params).id));
   app.post('/api/forge/:id/compile', rl(6), async (req) =>
     compile(ctx, auth(req), Id.parse(req.params).id, z.object({ tier: z.enum(['first', 'spark', 'prism', 'aura']) }).parse(req.body).tier));
+
+  // ── Arène des modèles (Docs/13 §4) : le client n'envoie que l'équipe, puis modèle + technique ; verrou par joueur ──
+  app.get('/api/arena/:id', rl(30), async (req) => viewArena(ctx, auth(req), Id.parse(req.params).id));
+  app.post('/api/arena/:id/start', rl(15), async (req) => {
+    const userId = auth(req);
+    const b = z.object({ team: z.array(z.enum(FAMILIES)).length(3) }).parse(req.body);
+    return withLock(`arena:${userId}`, async () => startBattle(ctx, userId, Id.parse(req.params).id, b.team));
+  });
+  app.post('/api/arena/battle/:battleId/play', rl(30), async (req) => {
+    const userId = auth(req);
+    const { battleId } = z.object({ battleId: z.string().max(40) }).parse(req.params);
+    const b = z.object({ family: z.enum(FAMILIES), technique: z.enum(TECHNIQUES) }).parse(req.body);
+    return withLock(`arena:${userId}`, async () => playBattle(ctx, userId, battleId, b));
+  });
 
   app.get('/api/credits', async (req) => creditsView(ctx, auth(req)));
   app.post('/api/credits/reveal', rl(5, '1 hour'), async (req) => revealKey(ctx, auth(req)));
