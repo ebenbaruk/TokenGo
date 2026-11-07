@@ -13,6 +13,7 @@ import { getMerchant, getP0, saveMerchant } from './game/merchants.ts';
 import { _resetHaggles } from './game/haggle.ts';
 import { kvSet } from './db.ts';
 import { parisDay } from './game/reserve.ts';
+import { endEvent, startEvent } from './game/events.ts';
 
 const ORIGIN = 'http://localhost:5173';
 const LOUVRE = { lat: 48.8611, lng: 2.3358 };
@@ -246,5 +247,29 @@ describe('haggle', () => {
     expect(w.body.phase).toBe('walked');
     expect(w.body.event).toBe('walk-bye');
     expect((ctx.db.prepare('SELECT outcome FROM haggles WHERE id = ?').get(s.body.haggleId) as { outcome: string }).outcome).toBe('walked');
+  });
+
+  it('city event (flash crash): the haggle starts from the event price like a normal quote; an event ending mid-haggle → PRICE_MOVED', async () => {
+    stage('deepseek');
+    const { c } = await player();
+    await visitBoth(c);
+    const plain = await c.post<QuoteResponse>(`/api/merchant/${mid(B)}/quote`, { side: 'buy', family: 'deepseek', qty: 4 });
+    startEvent(ctx, { kind: 'flash_crash', zone: 'louvre', family: 'deepseek' }, 'admin');
+    try {
+      const q = await c.post<QuoteResponse>(`/api/merchant/${mid(B)}/quote`, { side: 'buy', family: 'deepseek', qty: 4 });
+      expect(q.status, JSON.stringify(q.body)).toBe(200);
+      expect(q.body.total).toBeLessThan(plain.body.total); // l'événement fait bien baisser le prix
+      const s = await c.post<HaggleView>(H(B), { side: 'buy', family: 'deepseek', qty: 4 });
+      expect(s.status, JSON.stringify(s.body)).toBe(200);
+      expect(s.body.baseTotal).toBe(q.body.total); // même point de départ que le devis normal
+      expect(s.body.bestTotal).toBeLessThanOrEqual(s.body.baseTotal);
+      endEvent(ctx);
+      const d = await c.post<HaggleDealResponse>(H(B, '/deal'), { haggleId: s.body.haggleId });
+      expect(d.body.error?.code).toBe('PRICE_MOVED');
+      // le joueur confirme à nouveau : le Deal passe au nouveau prix (hors événement)
+      const d2 = await c.post<HaggleDealResponse>(H(B, '/deal'), { haggleId: s.body.haggleId });
+      expect(d2.status, JSON.stringify(d2.body)).toBe(200);
+      expect(d2.body.total).toBeGreaterThan(q.body.total);
+    } finally { endEvent(ctx); }
   });
 });

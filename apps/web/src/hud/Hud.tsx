@@ -11,6 +11,7 @@ import { Sprite } from '../sprites/Sprite.tsx';
 import { FLUX, SCOUT as SCOUT_SPRITE } from '../sprites/index.ts';
 import { FLAME } from '../sprites/variants.ts';
 import { mapCtl } from '../map/ctl.ts';
+import { EventBanner } from './EventBanner.tsx';
 import { isMuted, setMuted } from '../lib/sound.ts';
 import s from './Hud.module.css';
 
@@ -46,9 +47,9 @@ function RouteChip() {
   if (!route) return null;
   const complete = route.completedAt !== null;
   return (
-    <button type="button" className={`${s.routeChip} ${complete ? s.routeDone : ''}`} data-testid="route-chip" onClick={() => openOverlay({ kind: 'route' })}>
+    <button type="button" className={`${s.routeChip} ${complete ? s.routeDone : ''}`} data-testid="route-chip" aria-label={`Daily Route ${route.done}/${route.total}`} onClick={() => openOverlay({ kind: 'route' })}>
       {complete ? <Check size={16} strokeWidth={3.5} /> : <RouteIcon size={16} strokeWidth={3} />}
-      <span className={s.routeLabel}>Daily Route</span>
+      <span className={s.routeLabel}>Route</span>
       <span className={s.routeDots}>{route.stops.map((st) => <i key={st.id} className={st.done ? s.on : ''} />)}</span>
       <span className="num">{route.done}/{route.total}</span>
       {route.streak > 0 ? <span className={s.streak} title="day streak">🔥{route.streak}</span> : null}
@@ -157,7 +158,7 @@ export function Hud({ onAction }: { onAction: (t: Target) => void }) {
 
   return (
     <div className={s.hud}>
-      <div className={s.top}>
+      <div className={s.top} data-hud="top">
         <div className={s.row}>
           {me ? <LevelRing level={me.level} into={me.xpInto} need={me.xpNeed} onClick={() => openOverlay({ kind: 'menu' })} /> : null}
           <Pill className={s.fluxPill} testId="flux"><Sprite def={FLUX} scale={2} /><Counter value={me?.flux ?? 0} /></Pill>
@@ -186,21 +187,25 @@ export function Hud({ onAction }: { onAction: (t: Target) => void }) {
         {inTransit ? <div className={s.banner}>In transit — catching paused</div> : null}
         {demo ? <GroundedBanner /> : null}
         <RegionCard region={world?.region} />
+        <EventBanner />
         {world?.objective ? (
           <button type="button" className={s.objective} data-testid="objective" onClick={() => mapCtl.recenter()}>
             <TargetIcon size={18} strokeWidth={3} /> <span>{world.objective.text}</span>
           </button>
         ) : null}
-        <RouteChip />
       </div>
 
-      <div className={s.bottom}>
-        {!following ? (
-          <button type="button" className={s.recenter} onClick={() => mapCtl.recenter()} aria-label="Recenter" data-testid="recenter">
-            <LocateFixed strokeWidth={2.5} />
-          </button>
-        ) : null}
+      <div className={s.bottom} data-hud="bottom">
         <ComboBar />
+        {/* dock bas : Daily Route à gauche (au-dessus du sac), recentrage à droite — le haut reste aux alertes (événement, batterie) */}
+        <div className={s.dock}>
+          <RouteChip />
+          {!following ? (
+            <button type="button" className={s.recenter} onClick={() => mapCtl.recenter()} aria-label="Recenter" data-testid="recenter">
+              <LocateFixed strokeWidth={2.5} />
+            </button>
+          ) : null}
+        </div>
         <div className={s.bar}>
           <div className={`${s.side} ${bagBump ? s.bagBump : ''}`} key={`bag${bagBump}`}>
             <IconButton label="Bag" showLabel onClick={() => openOverlay({ kind: 'bag' })} testId="bag-btn"><Backpack strokeWidth={2.5} /></IconButton>

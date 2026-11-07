@@ -2,7 +2,7 @@
 // Deux préférences locales indépendantes : son coupé (tg.muted) et vibrations coupées (tg.haptics = '0').
 export type SoundName =
   | 'tap' | 'catch' | 'perfect' | 'miss' | 'fled' | 'sync' | 'trade' | 'forge' | 'error' | 'level'
-  | 'discover' | 'shiny' | 'stop' | 'route' | 'reveal' | 'coin' | 'whoosh' | 'share';
+  | 'discover' | 'shiny' | 'stop' | 'route' | 'reveal' | 'coin' | 'whoosh' | 'share' | 'event' | 'pop';
 
 let ctx: AudioContext | null = null;
 const KEY = 'tg.muted';
@@ -98,6 +98,9 @@ export function play(name: SoundName, pitch = 0): void {
     case 'reveal': noise(a, 0, 0.25, 0.04, 600, 5000); tone(a, 1760, 0.15, 0.25, 'triangle', 0.06); break;
     case 'whoosh': noise(a, 0, 0.28, 0.06, 300, 3000); break;
     case 'share': tone(a, 880, 0, 0.07, 'triangle', 0.06); tone(a, 1320, 0.07, 0.07, 'triangle', 0.06); tone(a, 1760, 0.14, 0.14, 'triangle', 0.06); break;
+    // événement de ville : jingle ; bulle de marchand : petit « pop »
+    case 'event': arp(a, [659, 880, 659, 988], 0.09, 0.12, 'square', 0.045); break;
+    case 'pop': tone(a, 1200, 0, 0.04, 'triangle', 0.025, 1600); break;
   }
 }
 

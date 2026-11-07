@@ -36,7 +36,10 @@ const Env = z.object({
   NEAR_ACCOUNT_PREFIX: z.string().regex(/^([a-z0-9]+-)?$/).optional(), // défaut : '' en prod, 'dev-' sinon (chain/accounts.ts)
   FEATURE_CHAIN: bool.optional(),
   JOBS: bool.default(true),
-  RUNNERS: z.coerce.number().int().min(0).max(24).default(24),
+  /** Runners-agents ; défaut : 24 si JOBS, sinon 0 (les tests e2e les activent explicitement). */
+  RUNNERS: z.coerce.number().int().min(0).max(24).optional(),
+  /** 0 : les runners marchent, synchronisent et capturent, mais ne commercent pas (e2e : prix stables). */
+  RUNNER_TRADES: bool.default(true),
   /** Monde « partout » : génère un quartier jouable autour d'un joueur hors de Paris (OSM, sinon procédural). */
   WORLD_ANYWHERE: bool.default(true),
   /** Miroirs Overpass essayés dans l'ordre, séparés par des virgules ; 'off' = procédural seulement (hors ligne, tests). */
@@ -45,7 +48,8 @@ const Env = z.object({
   GOOGLE_CLIENT_SECRET: z.string().optional(),
 });
 
-export type Config = z.infer<typeof Env> & {
+export type Config = Omit<z.infer<typeof Env>, 'RUNNERS'> & {
+  RUNNERS: number;
   realCredits: boolean; chain: boolean; prod: boolean; allowedOrigins: string[]; googleEnabled: boolean; trustProxy: number | false;
 };
 
@@ -61,6 +65,7 @@ export function loadConfig(overrides: Record<string, string | undefined> = {}): 
   if (!prod) allowedOrigins.push('http://localhost:5173', 'http://surface:5173', 'http://localhost:8787', 'http://127.0.0.1:5173', 'http://localhost:4173');
   return {
     ...env,
+    RUNNERS: env.RUNNERS ?? (env.JOBS ? 24 : 0),
     prod,
     realCredits: env.FEATURE_REAL_CREDITS ?? hasNearAi,
     chain: env.FEATURE_CHAIN ?? (hasChain && env.NODE_ENV !== 'test'),

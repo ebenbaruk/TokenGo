@@ -6,12 +6,14 @@ import type { Tier, Variant } from './economy/rules.ts';
 import type { ScoutRefusal } from './economy/scout.ts';
 import type { Pools } from './economy/reserve.ts';
 import type { HaggleCard, HaggleEvent, HaggleFace, HagglePhase, HaggleTrait } from './economy/haggle.ts';
+import type { CityEvent } from './economy/events.ts';
+import type { Bubble } from './living.ts';
 
 export type ErrorCode =
   | 'UNAUTHENTICATED' | 'BAD_REQUEST' | 'NOT_FOUND' | 'FORBIDDEN_ORIGIN' | 'RATE_LIMITED'
   | 'NO_POSITION' | 'TOO_FAR' | 'IN_TRANSIT' | 'SUSPICIOUS_MOVE' | 'COOLDOWN' | 'LEVEL_LOCKED'
   | 'ALREADY_CAUGHT' | 'EXPIRED' | 'INSUFFICIENT' | 'PRICE_MOVED' | 'RESERVE_LOW' | 'FORGE_PAUSED'
-  | 'CLOSED' | 'NOT_BUYING' | 'MERCHANT_NO_FLUX' | 'OUT_OF_STOCK' | 'CONTRACT_LOCK' | 'BAD_QTY'
+  | 'CLOSED' | 'NOT_BUYING' | 'MERCHANT_NO_FLUX' | 'OUT_OF_STOCK' | 'CONTRACT_LOCK' | 'BAD_QTY' | 'STRIKE'
   | 'NO_CONTRACT' | 'NOT_STRUGGLING' | 'BAD_AMOUNT' | 'DEMO_CANNOT_SELL' | 'TUTORIAL_INCOMPLETE'
   | 'HANDLE_TAKEN' | 'BAD_HANDLE' | 'FORBIDDEN' | 'GRANT_PENDING' | 'HAGGLE_SOUR' | 'HAGGLE_NO_ROOM';
 export interface ApiError { error: { code: ErrorCode; message: string; [k: string]: unknown } }
@@ -73,7 +75,7 @@ export interface NodeView {
   /** relay : fin de recharge pour ce joueur (ms epoch) ; null si prête */
   cooldownUntil?: number | null;
   /** market */
-  merchant?: { id: string; name: string; archetype: string; status: MerchantStatus; hasContract: boolean; contractFamily?: Family };
+  merchant?: { id: string; name: string; archetype: string; status: MerchantStatus; hasContract: boolean; contractFamily?: Family; bubble?: Bubble };
   /** forge : thème */
   theme?: Family[];
 }
@@ -101,8 +103,8 @@ export interface WorldResponse {
   objective: Objective | null;
   /** Daily Route du jour (absente s'il n'y a pas assez de lieux autour du joueur ou pas encore de position serveur). */
   route?: DailyRouteView | null;
-  /** Runners-agents (PNJ joueurs) dans ~1,2 km — points discrets sur la carte. Absent si les runners sont désactivés. */
-  runners?: RunnerView[];
+  /** Événement de ville en cours (partagé par tous les joueurs), où qu'il soit dans Paris. */
+  event: CityEventView | null;
   /** Couverture du monde à cette position : Paris, région générée (OSM ou procédurale), en cours de repérage, ou plafond atteint. */
   region?: RegionStatus;
 }
@@ -112,10 +114,30 @@ export interface RegionStatus {
   source: 'paris' | 'osm' | 'procedural' | null;
   /** régions de ce secteur (cellules H3 r7) */
   ids: string[];
+  /** quartier servi en procédural, la vraie carte OSM arrive peut-être encore (le client réinterroge /api/world) */
+  upgrading?: boolean;
 }
 
-/** Runner-agent visible sur la carte (position interpolée sur son trajet à vitesse de marche). */
-export interface RunnerView { id: string; handle: string; lat: number; lng: number }
+/** Événement de ville tel que le voit le client (titre et effet déjà rédigés). */
+export interface CityEventView extends CityEvent { title: string; effect: string }
+
+/**
+ * GET /api/walkers?lat&lng : marcheurs autour du joueur (≤ 12). Runners-agents : trajet exact (from → to à 5 km/h,
+ * interpolé côté client). Joueurs réels : position anonymisée (cellule H3 + décalage), immobile, sans nom.
+ */
+export interface WalkerView {
+  id: string;
+  kind: 'runner' | 'player';
+  name: string | null;
+  from: { lat: number; lng: number };
+  to: { lat: number; lng: number };
+  departAt: number;
+  arriveAt: number;
+  /** « just sold 3 Gemini at Café X » / « heading to Café X » (runners) */
+  note: string | null;
+  variant: number;
+}
+export interface WalkersResponse { now: number; walkers: WalkerView[] }
 
 export interface CatchStartResponse {
   attemptId: string;
@@ -326,6 +348,9 @@ export interface PulseResponse {
   index: Record<Family, number[]>;   // P0 horaire (7 j max)
   reserve: ReserveView;
   merchants: { open: number; closing: number; closed: number };
+  cityEvent: CityEventView | null;
+  /** marcheurs sur la carte : runners-agents actifs + joueurs réels vus dans les 3 dernières minutes */
+  walkers: { runners: number; players: number };
 }
 
 // ───────────── Config publique, profil, classements, Lab ─────────────

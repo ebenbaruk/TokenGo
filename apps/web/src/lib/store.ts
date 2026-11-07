@@ -1,6 +1,6 @@
 // État global (Zustand). Exposé en lecture sur window.__tg pour les tests E2E (la carte WebGL n'est pas lisible).
 import { create } from 'zustand';
-import type { Me, NodeView, SpawnView, WorldResponse, Family, Variant, RouteCheckin, CompileResponse, ScoutView } from '@tokengo/shared';
+import type { Me, NodeView, SpawnView, WorldResponse, Family, Variant, RouteCheckin, CompileResponse, ScoutView, WalkerView } from '@tokengo/shared';
 
 export interface Pos { lat: number; lng: number; acc: number; heading?: number; t: number }
 
@@ -45,7 +45,7 @@ interface State {
   lastResult: unknown;
   /** éclats capturés localement (masqués en attendant le prochain /world) */
   hiddenSpawns: string[];
-  /** destination en Demo Walk */
+  /** destination du vol (Remote Scout) */
   walkTarget: { lat: number; lng: number } | null;
   serverDown: boolean;
   showRunners: boolean;
@@ -56,6 +56,9 @@ interface State {
   lastShare: LastShare | null;
   /** Remote Scout : batterie (dernier état serveur ; l'UI la fait progresser avec scoutCharge) */
   scout: ScoutView | null;
+  /** marcheurs autour (runners-agents + joueurs anonymisés) ; skew = horloge serveur − horloge locale */
+  walkers: WalkerView[];
+  skewMs: number;
 }
 
 export const useGame = create<State>(() => ({
@@ -73,6 +76,8 @@ export const useGame = create<State>(() => ({
   walkTarget: null,
   serverDown: false,
   scout: null,
+  walkers: [],
+  skewMs: 0,
   showRunners: (() => { try { return localStorage.getItem('tg.runners') !== '0'; } catch { return true; } })(),
   flyers: [],
   bagBump: 0,
@@ -127,6 +132,6 @@ declare global {
 if (typeof window !== 'undefined') {
   window.__tg = () => {
     const s = get();
-    return { phase: s.phase, position: s.pos, me: s.me, world: s.world, lastResult: s.lastResult, overlay: s.overlay?.kind ?? null, demo: s.demo, gps: s.gps, scout: s.scout, toasts: s.toasts.map((t) => t.text), route: s.world?.route ?? null, celebration: s.celebration?.kind ?? null, lastShare: s.lastShare };
+    return { phase: s.phase, position: s.pos, me: s.me, world: s.world, walkers: s.walkers, lastResult: s.lastResult, overlay: s.overlay?.kind ?? null, demo: s.demo, gps: s.gps, scout: s.scout, toasts: s.toasts.map((t) => t.text), route: s.world?.route ?? null, celebration: s.celebration?.kind ?? null, lastShare: s.lastShare };
   };
 }

@@ -50,3 +50,14 @@
   .idxRow { grid-template-columns: 32px 1fr 90px 60px; }
   .idxRow > :nth-child(5) { display: none; }
 }
+
+/* Carte « Now in Paris » : événement de ville + marcheurs */
+.living { display: flex; flex-direction: column; gap: 10px; }
+.livingWalkers { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; border-top: 2px dashed var(--mist); padding-top: 10px; }
+.livingWalkers .big { margin: 0; font-size: 26px; }
+.livingWalkers .kSub { margin: 0; }
+.evTitle { display: flex; align-items: center; gap: 8px; margin-top: 6px; font-weight: 900; font-size: 18px; line-height: 1.15; }
+.evBadge { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border: var(--border-thin); border-radius: 8px; background: var(--sun); font-size: 15px; }
+.evBadge[data-kind='flash_crash'] { background: var(--berry); color: var(--white); }
+.evBadge[data-kind='hype'] { background: var(--green); color: var(--white); }
+.evBadge[data-kind='strike'] { background: var(--slate); color: var(--white); }

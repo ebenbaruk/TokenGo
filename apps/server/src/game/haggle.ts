@@ -12,8 +12,8 @@ import { fail } from './context.ts';
 import { randomId } from './crypto.ts';
 import { assertCanAct } from './actions.ts';
 import { balance } from './players.ts';
-import { getMerchant, getP0 } from './merchants.ts';
-import { QUOTE_ERRORS, canTrade, isPatron, load, settleTrade, viewMerchant } from './market.ts';
+import { getMerchant } from './merchants.ts';
+import { QUOTE_ERRORS, canTrade, load, pricingFor, settleTrade, viewMerchant } from './market.ts';
 import { bumpRep, hagglesLeft, relationOf, sour } from './relations.ts';
 import { haggleLine } from './haggleLines.ts';
 import { parisDay } from './reserve.ts';
@@ -51,7 +51,6 @@ const firstName = (m: MerchantState) => m.name.split(' ')[0] ?? m.name;
 function rivalFor(ctx: Ctx, userId: string, m: MerchantState, req: QuoteRequest): HaggleRival | null {
   const rows = ctx.db.prepare('SELECT merchant_id, prices FROM price_seen WHERE user_id = ? AND at > ? AND merchant_id != ?')
     .all(userId, ctx.now() - HAGGLE_SEEN_MS, m.id) as { merchant_id: string; prices: string }[];
-  const p0 = getP0(ctx)[req.family];
   let best: HaggleRival | null = null;
   for (const r of rows) {
     const seen = (JSON.parse(r.prices) as Record<Family, { buy: number | null; sell: number | null }>)[req.family];
@@ -60,7 +59,8 @@ function rivalFor(ctx: Ctx, userId: string, m: MerchantState, req: QuoteRequest)
     if (best && (req.side === 'buy' ? claimed >= best.claimed : claimed <= best.claimed)) continue;
     const cur = getMerchant(ctx, r.merchant_id);
     if (!cur) continue;
-    const e = explainPrice(p0, cur.m, req.family, { patron: isPatron(ctx, cur.m.id, userId) });
+    const pr = pricingFor(ctx, userId, cur.m.id, req.family, cur.node); // prix réel chez le rival (événement compris)
+    const e = explainPrice(pr.p0, cur.m, req.family, pr.opts);
     best = { merchant: firstName(cur.m), place: cur.node.name, claimed, real: req.side === 'buy' ? e.sell : e.buy };
   }
   return best;
@@ -80,9 +80,10 @@ function hintsFor(m: MerchantState, sit: HaggleSituation, f: Family): string[] {
 /** Totaux actuels (devis normal, marchandé, meilleur possible) recalculés sur l'état courant du marchand. */
 function totals(ctx: Ctx, s: Session): { base: number; total: number; best: number } {
   const cur = getMerchant(ctx, s.merchantId);
-  const p0 = getP0(ctx)[s.req.family];
-  const q = cur ? priceQuote(p0, cur.m, s.req.side, s.req.family, s.req.qty, { patron: isPatron(ctx, s.merchantId, s.userId) }) : null;
-  if (!cur || !q || 'error' in q) return { base: s.baseTotal, total: s.baseTotal, best: s.baseTotal };
+  if (!cur) return { base: s.baseTotal, total: s.baseTotal, best: s.baseTotal };
+  const { p0, opts } = pricingFor(ctx, s.userId, s.merchantId, s.req.family, cur.node);
+  const q = priceQuote(p0, cur.m, s.req.side, s.req.family, s.req.qty, opts);
+  if ('error' in q) return { base: s.baseTotal, total: s.baseTotal, best: s.baseTotal };
   return { base: q.total, total: haggledQuote(p0, cur.m, q, s.state.bp).total, best: haggledQuote(p0, cur.m, q, maxBp(s.sit.rep)).total };
 }
 
@@ -137,8 +138,8 @@ export function startHaggleSession(ctx: Ctx, userId: string, merchantId: string,
   const lim = hagglesLeft(ctx, userId, merchantId);
   if (lim.perMerchant === 0) fail('RATE_LIMITED', 'Enough haggling here today.', 429, { quota: 'haggles at this shop', limit: HAGGLE.perMerchantDay });
   if (lim.perPlayer === 0) fail('RATE_LIMITED', 'Enough haggling today.', 429, { quota: 'haggles', limit: HAGGLE.perPlayerDay });
-  const p0 = getP0(ctx)[req.family];
-  const q = priceQuote(p0, m, req.side, req.family, req.qty, { patron: isPatron(ctx, m.id, userId) });
+  const { p0, opts } = pricingFor(ctx, userId, m.id, req.family, node);
+  const q = priceQuote(p0, m, req.side, req.family, req.qty, opts);
   if ('error' in q) return fail(q.error, QUOTE_ERRORS[q.error] ?? 'Not possible.');
   const best = haggledQuote(p0, m, q, maxBp(rel.rep));
   if (best.total === q.total) fail('HAGGLE_NO_ROOM', 'That’s already my rock-bottom price.');
@@ -204,11 +205,12 @@ export function dealHaggle(ctx: Ctx, userId: string, merchantId: string, haggleI
   return ctx.db.transaction((): HaggleDealResponse => {
     if (sessions.get(haggleId) !== s) return fail('EXPIRED', 'This haggle is over — start a new one.');
     const cur = load(ctx, merchantId);
-    const p0 = getP0(ctx)[s.req.family];
-    const q = priceQuote(p0, cur.m, s.req.side, s.req.family, s.req.qty, { patron: isPatron(ctx, merchantId, userId) });
+    const { p0, opts } = pricingFor(ctx, userId, merchantId, s.req.family, cur.node);
+    const q = priceQuote(p0, cur.m, s.req.side, s.req.family, s.req.qty, opts);
     if ('error' in q) { sessions.delete(haggleId); return fail(q.error, QUOTE_ERRORS[q.error] ?? 'Not possible.'); }
     const hq = haggledQuote(p0, cur.m, q, s.state.bp);
-    if (cur.version !== s.version && q.total !== s.baseTotal) {
+    // prix bougé (autre trade, dérive de P0, événement de ville qui démarre ou finit) : le joueur confirme à nouveau
+    if (q.total !== s.baseTotal) {
       s.version = cur.version; // l'offre (en %) reste valable sur le nouveau prix : le joueur confirme à nouveau
       s.baseTotal = q.total;
       fail('PRICE_MOVED', 'Prices just moved — here is the new haggled total.', 409, { total: hq.total });

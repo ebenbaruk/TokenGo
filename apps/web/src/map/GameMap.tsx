@@ -5,10 +5,11 @@ import { Map as MLMap, AttributionControl, setWorkerUrl, type GeoJSONSource, typ
 import type { Feature, FeatureCollection } from 'geojson';
 import { FAMILIES, ACTION_RADIUS_M, haversineM, type NodeView, type SpawnView, type LatLng } from '@tokengo/shared';
 import { useGame } from '../lib/store.ts';
-import { SHARDS, AVATAR, SCOUT, RUNNER, RELAY, RELAY_COOLDOWN, FORGE, BADGE, ACCENTS, hashStr, marketSprite, spriteImageData, gridsOf, type SpriteDef } from '../sprites/index.ts';
+import { SHARDS, AVATAR, SCOUT, RELAY, RELAY_COOLDOWN, FORGE, BADGE, ACCENTS, hashStr, marketSprite, spriteImageData, gridsOf, type SpriteDef } from '../sprites/index.ts';
 import { NODE_GRIDS } from '../sprites/nodes.grids.ts';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { mapCtl } from './ctl.ts';
+import { addLivingLayers, attachLiving, registerWalkerImages, type Living } from './living.ts';
 import s from './GameMap.module.css';
 
 setWorkerUrl(workerUrl);
@@ -46,7 +47,6 @@ function registerImages(map: MLMap): Anim[] {
   add('forge', FORGE, 2, { shadow: true });
   add('avatar', AVATAR, 2, { shadow: true });
   add('scout', SCOUT, 2, { shadow: true });
-  add('runner', RUNNER, 1);
   add('badge', BADGE, 2);
   ACCENTS.forEach((_, i) => add(`market-${i}`, { frames: NODE_GRIDS.market, keys: { A: ACCENTS[i]!.a, B: ACCENTS[i]!.b }, outline: true, fps: 1 }, 2));
   add('market-closed', marketSprite('x', true), 2);
@@ -95,6 +95,7 @@ export default function GameMap({ handlers }: { handlers: MapHandlers }) {
     let anims: Anim[] = [];
     let frame = 0;
     let animTimer = 0;
+    let living: Living | null = null;
     let ready = false; // sources/couches ajoutées (isStyleLoaded() reste faux tant que les tuiles chargent)
     const setFollow = (f: boolean) => { following = f; mapCtl.onFollowChange(f); };
     mapCtl.isFollowing = () => following;
@@ -102,6 +103,12 @@ export default function GameMap({ handlers }: { handlers: MapHandlers }) {
       setFollow(true);
       const p = useGame.getState().pos;
       if (p) map.easeTo({ center: [p.lng, p.lat], zoom: FOLLOW.zoom, pitch: FOLLOW.pitch, duration: 600 });
+    };
+    mapCtl.lookAt = (p, zoom = 14.4) => {
+      setFollow(false);
+      clearTimeout(freeTimer);
+      map.easeTo({ center: [p.lng, p.lat], zoom, pitch: 30, duration: 900 });
+      freeTimer = window.setTimeout(() => mapCtl.recenter(), FREE_MS);
     };
     const userMoved = (e: { originalEvent?: unknown }) => {
       if (!e.originalEvent) return;
@@ -126,7 +133,7 @@ export default function GameMap({ handlers }: { handlers: MapHandlers }) {
         sort: n.kind === 'forge' ? 3 : n.kind === 'market' ? 2 : 1,
       }))));
       syncSpawns();
-      (map.getSource('runners') as GeoJSONSource).setData(fc(st.showRunners ? (st.world?.runners ?? []).map((r) => pt(r, { handle: r.handle })) : []));
+      living?.syncEvent();
       // Daily Route : boucle pointillée entre les arrêts + pastilles numérotées (vertes une fois validées)
       const route = st.world?.route;
       const rs = route?.stops ?? [];
@@ -158,6 +165,7 @@ export default function GameMap({ handlers }: { handlers: MapHandlers }) {
 
     map.on('load', () => {
       anims = registerImages(map);
+      registerWalkerImages(map);
       const before = map.getLayer('place-quarter') ? 'place-quarter' : undefined;
       map.addSource('radius', { type: 'geojson', data: fc([]) });
       map.addSource('route', { type: 'geojson', data: fc([]) });
@@ -166,7 +174,6 @@ export default function GameMap({ handlers }: { handlers: MapHandlers }) {
       map.addSource('nodes', { type: 'geojson', data: fc([]) });
       map.addSource('spawns', { type: 'geojson', data: fc([]) });
       map.addSource('me', { type: 'geojson', data: fc([]) });
-      map.addSource('runners', { type: 'geojson', data: fc([]) });
       map.addLayer({ id: 'radius-fill', type: 'fill', source: 'radius', paint: { 'fill-color': '#41a6f6', 'fill-opacity': 0.12 } }, before);
       map.addLayer({ id: 'radius-line', type: 'line', source: 'radius', paint: { 'line-color': '#3b5dc9', 'line-width': 2, 'line-dasharray': [2, 2], 'line-opacity': 0.6 } }, before);
       map.addLayer({ id: 'route', type: 'line', source: 'route', layout: { 'line-cap': 'round' },
@@ -182,11 +189,8 @@ export default function GameMap({ handlers }: { handlers: MapHandlers }) {
       map.addLayer({ id: 'daily-num', type: 'symbol', source: 'daily-stops', layout: {
         'text-field': ['get', 'n'], 'text-font': ['Noto Sans Bold'], 'text-size': ['interpolate', ['linear'], ['zoom'], 13, 9, 16, 13], 'text-allow-overlap': true, 'text-ignore-placement': true,
       }, paint: { 'text-color': ['case', ['==', ['get', 'done'], 1], '#f4f4f4', '#1a1c2c'], 'text-translate': [0, 10] } });
-      // runners-agents : sprite seul (pas d'étiquette), sous les nœuds et les éclats
-      map.addLayer({ id: 'runners', type: 'symbol', source: 'runners', minzoom: 14, layout: {
-        'icon-image': 'runner', 'icon-anchor': 'bottom', 'icon-allow-overlap': true, 'icon-pitch-alignment': 'viewport',
-        'icon-size': ['interpolate', ['linear'], ['zoom'], 14, 0.6, 17, 1],
-      }, paint: { 'icon-opacity': 0.9 } });
+      // carte vivante : zone de l'événement (sous les routes du jeu), marcheurs (sous les nœuds et les éclats)
+      addLivingLayers(map, before);
       map.addLayer({ id: 'nodes', type: 'symbol', source: 'nodes', layout: {
         'icon-image': ['get', 'icon'], 'icon-anchor': 'bottom', 'icon-allow-overlap': true, 'icon-ignore-placement': true,
         'symbol-sort-key': ['get', 'sort'], 'icon-pitch-alignment': 'viewport',
@@ -207,7 +211,10 @@ export default function GameMap({ handlers }: { handlers: MapHandlers }) {
       map.addLayer({ id: 'me', type: 'symbol', source: 'me', layout: {
         'icon-image': ['get', 'icon'], 'icon-anchor': 'bottom', 'icon-allow-overlap': true, 'icon-ignore-placement': true,
       } });
+      // marcheurs au-dessus des échoppes et relais (on les voit devant), sous les éclats et l'avatar
+      map.moveLayer('walkers', 'spawns');
       ready = true;
+      living = attachLiving(map, (n) => h.current.onNode(n));
       sync();
       syncMe();
       // frames d'animation (rebond des éclats, étincelles de la forge, lumière des relais)
@@ -222,7 +229,7 @@ export default function GameMap({ handlers }: { handlers: MapHandlers }) {
       }, 380);
     });
 
-    const clickable = ['spawns', 'nodes', 'node-badges'];
+    const clickable = ['spawns', 'nodes', 'node-badges', 'walkers'];
     map.on('click', (e: MapMouseEvent) => {
       const box: [PointLike, PointLike] = [[e.point.x - 18, e.point.y - 22], [e.point.x + 18, e.point.y + 14]];
       const feats = map.queryRenderedFeatures(box, { layers: clickable.filter((l) => map.getLayer(l)) });
@@ -232,9 +239,18 @@ export default function GameMap({ handlers }: { handlers: MapHandlers }) {
         const spawn = st.world?.spawns.find((x) => x.id === sp.properties.id);
         if (spawn) return h.current.onSpawn(spawn);
       }
-      const nf = feats.find((f: MapGeoJSONFeature) => f.layer.id === 'nodes' || f.layer.id === 'node-badges');
-      if (nf) {
-        const node = st.world?.nodes.find((x) => x.id === nf.properties.id);
+      // nœud ou marcheur : le plus proche du doigt (un runner arrêté devant une échoppe reste « tapable »)
+      const near = (f: MapGeoJSONFeature) => {
+        const c = (f.geometry as unknown as { coordinates: [number, number] }).coordinates;
+        const p = map.project(c);
+        const dx = f.layer.id === 'walkers' && f.properties.idle === 1 ? 24 : 0; // pas de côté des marcheurs à l'arrêt (living.ts)
+        return Math.hypot(p.x + dx - e.point.x, p.y - 14 - e.point.y);
+      };
+      const hit = feats.filter((f: MapGeoJSONFeature) => f.layer.id === 'nodes' || f.layer.id === 'node-badges' || f.layer.id === 'walkers')
+        .sort((a, b) => near(a) - near(b))[0];
+      if (hit?.layer.id === 'walkers' && living) return living.showTag(String(hit.properties.id));
+      if (hit) {
+        const node = st.world?.nodes.find((x) => x.id === hit.properties.id);
         if (node) return h.current.onNode(node);
       }
       h.current.onGround({ lat: e.lngLat.lat, lng: e.lngLat.lng });
@@ -249,18 +265,21 @@ export default function GameMap({ handlers }: { handlers: MapHandlers }) {
     let lastHidden = useGame.getState().hiddenSpawns;
     let lastRunners = useGame.getState().showRunners;
     let lastSyncMe = 0;
+    let trailingMe = 0;
     const unsub = useGame.subscribe((st) => {
       if (st.world !== lastWorld || st.hiddenSpawns !== lastHidden || st.showRunners !== lastRunners) { lastWorld = st.world; lastHidden = st.hiddenSpawns; lastRunners = st.showRunners; sync(); }
       if (st.pos !== lastPos) {
         lastPos = st.pos;
         const now = performance.now();
-        // marche démo : on lisse la caméra (≈ 8 maj/s suffisent, l'easeTo interpole)
-        if (now - lastSyncMe > 120) { lastSyncMe = now; syncMe(); }
+        // marche démo : on lisse la caméra (≈ 8 maj/s suffisent, l'easeTo interpole) + un dernier appel différé
+        // pour que la caméra finisse bien sur la position d'arrivée
+        clearTimeout(trailingMe);
+        if (now - lastSyncMe > 120) { lastSyncMe = now; syncMe(); } else trailingMe = window.setTimeout(() => { lastSyncMe = performance.now(); syncMe(); }, 130);
       }
     });
     const tick = window.setInterval(sync, 5000); // recharges des relais, expirations
     (window as unknown as { __tgMap?: MLMap }).__tgMap = map;
-    return () => { unsub(); clearInterval(tick); clearInterval(animTimer); clearTimeout(freeTimer); map.remove(); };
+    return () => { unsub(); clearInterval(tick); clearInterval(animTimer); clearTimeout(freeTimer); living?.stop(); map.remove(); };
   }, []);
 
   return <div ref={el} className={s.map} data-testid="map" />;

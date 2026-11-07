@@ -5,6 +5,7 @@ import { test as base, expect, type APIRequestContext, type APIResponse, type Pa
 
 export const E2E_PORT = Number(process.env.E2E_PORT ?? 8788);
 export const ORIGIN = `http://localhost:${E2E_PORT}`;
+export const ADMIN_TOKEN = 'e2e-admin';
 export const DEMO_TOKEN = 'e2e-judge';
 export const LOUVRE = { lat: 48.8611, lng: 2.3358 };
 

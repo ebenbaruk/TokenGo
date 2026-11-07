@@ -6,7 +6,7 @@ import fastifyStatic from '@fastify/static';
 import { existsSync } from 'node:fs';
 import { isAbsolute, resolve as resolvePath } from 'node:path';
 import { z } from 'zod';
-import { FAMILIES, RESERVE_PARTITION, haversineM, type PulseEvent } from '@tokengo/shared';
+import { CITY_EVENT, CITY_EVENT_KINDS, EVENT_ZONES, FAMILIES, RESERVE_PARTITION, haversineM, type PulseEvent } from '@tokengo/shared';
 import type { Config } from './config.ts';
 import { openDb, type DB } from './db.ts';
 import { GameError, type Ctx } from './game/context.ts';
@@ -31,14 +31,16 @@ import type { ChainClient } from './chain/near.ts';
 import { googleClient, newAuthorization, realExchange, signInWithGoogle, type GoogleExchange } from './auth/google.ts';
 import { deleteAccount, leaderboards, setDistrict, setHandle } from './game/profile.ts';
 import { labSnapshot } from './game/pulse.ts';
-import { activeRunnerCount, runnersNear } from './game/runners.ts';
+import { activeRunnerCount } from './game/runners.ts';
+import { walkersNear } from './game/walkers.ts';
+import { endEvent, eventView, startEvent } from './game/events.ts';
 import { invariantStatus, parisDay } from './game/reserve.ts';
 import { judgeOpen } from './game/forge.ts';
 import { codexView } from './game/codex.ts';
 import { dealHaggle, playHaggleCard, startHaggleSession } from './game/haggle.ts';
 import { withLock } from './game/lock.ts';
 import { HAGGLE_CARDS } from '@tokengo/shared';
-import { createRegions, overpassFetcher, parseOverpassUrls, type OverpassFetch } from './game/regions.ts';
+import { createRegions, overpassFetcher, parseOverpassUrls, type OverpassFetch, type RegionTimings } from './game/regions.ts';
 
 const SESSION_TTL = 30 * 24 * 3600_000;
 /** Connexions SSE simultanées max : par joueur (/api/stream), par IP (/api/pulse/stream), au total. */
@@ -63,6 +65,8 @@ export interface AppOptions {
   googleExchange?: GoogleExchange;
   /** Client Overpass (tests : faux client ; null = procédural seulement) ; sinon miroirs de OVERPASS_URLS. */
   overpass?: OverpassFetch | null;
+  /** Attente d'Overpass avant le repli procédural (tests : quelques ms). */
+  regionTimings?: RegionTimings;
 }
 
 export async function buildApp(cfg: Config, opts: AppOptions = {}) {
@@ -84,7 +88,7 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
   });
   app.decorateRequest('userId', null);
   ctx.regions = createRegions(ctx, opts.overpass !== undefined ? opts.overpass : overpassFetcher(parseOverpassUrls(cfg.OVERPASS_URLS)),
-    (msg) => app.log.info({ world: true }, msg));
+    (msg) => app.log.info({ world: true }, msg), opts.regionTimings);
   const stopChain = startChain(ctx, opts.chainClient, { log: (level, msg) => app.log[level]({ chain: true }, msg) });
   await app.register(cookie, { secret: cfg.SESSION_SECRET });
   await app.register(rateLimit, {
@@ -231,9 +235,12 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
   app.post('/api/move', rl(40), async (req) => move(ctx, auth(req), LatLng.extend({ acc: z.number().min(0).max(10_000), heading: z.number().optional() }).parse(req.body)));
   app.get('/api/world', async (req) => {
     const q = z.object({ lat: z.coerce.number().min(-90).max(90), lng: z.coerce.number().min(-180).max(180) }).parse(req.query);
-    const w = worldView(ctx, auth(req), q.lat, q.lng, sha256hex(`${cfg.SESSION_SECRET}:${req.ip}`));
-    const runners = runnersNear(ctx, q.lat, q.lng);
-    return runners.length ? { ...w, runners } : w;
+    return worldView(ctx, auth(req), q.lat, q.lng, sha256hex(`${cfg.SESSION_SECRET}:${req.ip}`));
+  });
+  // marcheurs autour du joueur : au plus 12, interrogé toutes les ~6 s par la carte
+  app.get('/api/walkers', rl(30), async (req) => {
+    const q = z.object({ lat: z.coerce.number().min(-90).max(90), lng: z.coerce.number().min(-180).max(180) }).parse(req.query);
+    return walkersNear(ctx, auth(req), q.lat, q.lng);
   });
   app.post('/api/catch/start', rl(30), async (req) => catchStart(ctx, auth(req), z.object({ spawnId: z.string().max(80) }).parse(req.body).spawnId));
   app.post('/api/catch/resolve', rl(30), async (req) => {
@@ -327,7 +334,12 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
   app.get('/api/pulse/stream', async (req, reply) => sse(req, reply, `ip:${req.ip}`, SSE_LIMITS.perIp, ctx.bus.subscribe));
   app.get('/api/stream', async (req, reply) => {
     const userId = auth(req);
-    return sse(req, reply, `user:${userId}`, SSE_LIMITS.perUser, (fn) => ctx.bus.subscribeUser(userId, fn));
+    // événements privés du joueur + événements de ville (city.*) partagés par tous
+    return sse(req, reply, `user:${userId}`, SSE_LIMITS.perUser, (fn) => {
+      const offUser = ctx.bus.subscribeUser(userId, fn);
+      const offCity = ctx.bus.subscribe((e) => { if (e.kind.startsWith('city.')) fn(e); });
+      return () => { offUser(); offCity(); };
+    });
   });
 
   const isAdmin = (req: FastifyRequest) => !!cfg.ADMIN_TOKEN && safeEqual(req.headers.authorization ?? '', `Bearer ${cfg.ADMIN_TOKEN}`);
@@ -336,6 +348,25 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
     const action = z.object({ action: z.enum(['pause', 'resume']) }).parse(req.params).action;
     kvSet(db, 'forge-paused', action === 'pause');
     return { ok: true, paused: action === 'pause' };
+  });
+
+  // déclenche un événement de ville maintenant (vidéo de démo) — effets toujours bornés par rules.ts
+  app.post('/api/admin/event', async (req, reply) => {
+    if (!isAdmin(req)) return reply.code(403).send({ error: { code: 'FORBIDDEN', message: 'No.' } });
+    const b = z.object({
+      kind: z.enum(CITY_EVENT_KINDS as [string, ...string[]]),
+      zone: z.enum(EVENT_ZONES.map((x) => x.id) as [string, ...string[]]).default('louvre'),
+      family: z.enum(FAMILIES).optional(),
+      minutes: z.number().int().min(1).max(Math.floor(CITY_EVENT.durationMaxMs / 60_000)).optional(),
+    }).parse(req.body);
+    const e = startEvent(ctx, {
+      kind: b.kind as never, zone: b.zone as never, ...(b.family ? { family: b.family } : {}), ...(b.minutes ? { durationMs: b.minutes * 60_000 } : {}),
+    }, 'admin');
+    return { ok: true, event: eventView(e) };
+  });
+  app.post('/api/admin/event/end', async (req, reply) => {
+    if (!isAdmin(req)) return reply.code(403).send({ error: { code: 'FORBIDDEN', message: 'No.' } });
+    return { ok: true, ended: eventView(endEvent(ctx)) };
   });
 
   app.get('/healthz', async (req) => {

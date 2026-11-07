@@ -52,6 +52,30 @@ export function addRegion(w: World, id: string, source: 'osm' | 'procedural', no
   w.regions.set(id, source);
 }
 
+/**
+ * Retire une région générée (remplacement procédural → OSM) : nœuds, forges, index, puis recalcule les cellules
+ * touchées (supprimées si plus aucun nœud autour). Les tableaux sont modifiés en place (les autres modules en gardent la référence).
+ */
+export function removeRegion(w: World, id: string): WorldNode[] {
+  if (!w.regions.has(id)) return [];
+  const gone = w.nodes.filter((n) => n.region === id);
+  const ids = new Set(gone.map((n) => n.id));
+  for (let i = w.nodes.length - 1; i >= 0; i--) if (ids.has(w.nodes[i]!.id)) w.nodes.splice(i, 1);
+  for (let i = w.forges.length - 1; i >= 0; i--) if (ids.has(w.forges[i]!.id)) w.forges.splice(i, 1);
+  for (const n of gone) {
+    w.byId.delete(n.id);
+    const list = (w.byCell.get(n.h3) ?? []).filter((x) => x.id !== n.id);
+    if (list.length) w.byCell.set(n.h3, list); else w.byCell.delete(n.h3);
+  }
+  const nodesIn = (k: string) => w.byCell.get(k) ?? [];
+  for (const c of touchedCells(gone)) {
+    const around = [c, ...gridDisk(c, 1)].some((k) => nodesIn(k).length > 0);
+    if (around) w.cells[c] = cellInfoAt(c, nodesIn); else delete w.cells[c];
+  }
+  w.regions.delete(id);
+  return gone;
+}
+
 export const cellOf = (lat: number, lng: number): string => latLngToCell(lat, lng, H3_RES);
 
 /** Nœuds dans un rayon (m), via les cellules H3 voisines. k ≈ rayon / 300 m. */

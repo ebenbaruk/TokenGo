@@ -65,3 +65,11 @@
 }
 .haggleBtn:active:not(:disabled) { transform: translate(1px, 1px); box-shadow: none; }
 .haggleBtn:disabled { background: var(--panel); opacity: .55; box-shadow: none; cursor: not-allowed; }
+
+/* prix modifié par un événement de ville en cours */
+.prices { position: relative; }
+.evChip { position: absolute; z-index: 1; top: -11px; left: 50%; translate: -50% 0; white-space: nowrap; padding: 0 6px; box-shadow: var(--shadow-hard-s); border: var(--border-thin); border-radius: 6px; font: 900 11px/16px var(--font-ui); animation: evPulse 1.2s ease-in-out infinite; }
+.evDown { background: var(--berry); color: var(--white); }
+.evUp { background: var(--green); color: var(--white); }
+@keyframes evPulse { 50% { transform: scale(1.08); } }
+@media (prefers-reduced-motion: reduce) { .evChip { animation: none; } }

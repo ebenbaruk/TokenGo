@@ -272,7 +272,13 @@ export const WORLD_GEN = {
   minOsmRelays: 8,              // en dessous → génération procédurale
   minOsmMarkets: 2,
   procedural: { relays: 36, markets: 5, forges: 1 },
-  overpassBudgetMs: 35_000,     // budget total, miroirs essayés dans l'ordre (mesuré : 20–45 s un jour chargé) ; au-delà : procédural
+  // Overpass public : 20–90 s mesurés. On n'attend que 8 s avant de jouer en procédural ; la requête continue en fond
+  // (budget 120 s, miroirs essayés dans l'ordre) et remplace le quartier procédural s'il est encore « frais » (regionFresh).
+  overpassQuickMs: 8_000,
+  overpassBudgetMs: 120_000,
+  overpassRetryMs: 30_000,      // miroirs qui échouent vite (429/504) : un seul nouvel essai 30 s plus tard
+  upgradeWindowMs: 15 * 60_000, // remplacement procédural → OSM seulement dans les 15 min après la création…
+  upgradePollMs: 10_000,        // … pendant lesquelles le client réinterroge /api/world toutes les 10 s
   overpassMaxElements: 900,
 } as const;
 
@@ -327,4 +333,70 @@ export const DAILY_ROUTE = {
   streakFluxPerDay: 10,
   streakFluxMax: 30,
   rewardShard: 'gemini' as Family,
+} as const;
+
+// ───────────────────────────── Événements de ville (Docs/03 §9) ─────────────────────────────
+/**
+ * Un seul événement actif à la fois, partagé par tous les joueurs, dans une zone circulaire.
+ * Effets BORNÉS (le serveur ne sort jamais de ces bornes, même déclenché par l'admin) :
+ *  - priceMult : multiplie le prix de référence (P0) d'UNE famille chez les marchands de la zone (achat ET vente) ;
+ *  - extraSpawnChance : vague bonus d'éclats d'UNE famille rare, par cellule de la zone et par fenêtre de 10 min ;
+ *  - strike : les marchands de la zone ne vendent plus (ils achètent toujours, au prix normal).
+ * Rien ne touche la Réserve : les crédits réels restent bornés par les plafonds de la Forge.
+ */
+export type CityEventKind = 'flash_crash' | 'hype' | 'gold_rush' | 'strike';
+export interface CityEventRule {
+  durationMs: number;
+  families: Family[];        // familles tirées au sort (vide : sans famille)
+  priceMult?: number;
+  extraSpawnChance?: number;
+  strike?: true;
+  weight: number;            // poids au tirage automatique
+}
+export const CITY_EVENTS: Record<CityEventKind, CityEventRule> = {
+  flash_crash: { durationMs: 20 * 60_000, families: ['deepseek', 'qwen', 'gemini'], priceMult: 0.6, weight: 3 },
+  hype: { durationMs: 20 * 60_000, families: ['gemini', 'gpt'], priceMult: 1.25, weight: 2 },
+  gold_rush: { durationMs: 20 * 60_000, families: ['gpt', 'claude'], extraSpawnChance: 0.3, weight: 2 },
+  strike: { durationMs: 15 * 60_000, families: [], strike: true, weight: 1 },
+};
+export const CITY_EVENT_KINDS = Object.keys(CITY_EVENTS) as CityEventKind[];
+export const CITY_EVENT = {
+  radiusM: 650,                // rayon de la zone
+  gapMinMs: 2 * 3600_000,      // pause entre deux événements automatiques : 2 à 4 h…
+  gapMaxMs: 4 * 3600_000,
+  maxPerDay: 6,                // … et jamais plus de 6 par jour de Paris
+  firstHour: 8, lastHour: 23,  // créneau des événements automatiques (heure de Paris)
+  priceMultMin: 0.6,           // bornes dures de priceMult
+  priceMultMax: 1.3,
+  extraSpawnMax: 0.5,          // borne dure de extraSpawnChance
+  durationMaxMs: 45 * 60_000,
+} as const;
+/** Zones nommées (centres de quartiers animés de Paris). */
+export const EVENT_ZONES = [
+  { id: 'chatelet', name: 'Châtelet', lat: 48.8586, lng: 2.347 },
+  { id: 'montmartre', name: 'Montmartre', lat: 48.8865, lng: 2.341 },
+  { id: 'bastille', name: 'Bastille', lat: 48.8533, lng: 2.3692 },
+  { id: 'republique', name: 'République', lat: 48.8674, lng: 2.3636 },
+  { id: 'louvre', name: 'the Louvre', lat: 48.8611, lng: 2.3358 },
+  { id: 'saint-germain', name: 'Saint-Germain', lat: 48.854, lng: 2.3335 },
+  { id: 'marais', name: 'the Marais', lat: 48.859, lng: 2.36 },
+  { id: 'opera', name: 'Opéra', lat: 48.871, lng: 2.332 },
+  { id: 'latin', name: 'the Latin Quarter', lat: 48.8496, lng: 2.347 },
+  { id: 'canal', name: 'Canal Saint-Martin', lat: 48.871, lng: 2.366 },
+] as const;
+export type EventZoneId = (typeof EVENT_ZONES)[number]['id'];
+
+// ───────────────────────────── Carte vivante ─────────────────────────────
+export const LIVING = {
+  walkersMax: 12,              // marcheurs renvoyés au plus (runners + joueurs)
+  playersMax: 5,               // dont joueurs réels anonymisés
+  walkersRadiusM: 900,
+  playerSeenMs: 3 * 60_000,    // un joueur réel apparaît s'il a bougé dans les 3 dernières minutes
+  playerJitterM: 60,           // position publiée = centre de sa cellule H3 r9 (~175 m) ± 60 m, stable 10 min
+  privacyWindowMs: 10 * 60_000,
+  bubbleRadiusM: 400,          // les marchands à ≤ 400 m peuvent parler
+  bubblesMax: 3,
+  bubbleSlotMs: 7000,          // rotation des bulles
+  reopenedBubbleMs: 3 * 3600_000, // « Back in business » pendant 3 h après une réouverture
+  eventFarM: 25_000,           // joueur à > 25 km de la zone (autre ville, monde « partout ») : ni bannière ni jingle
 } as const;

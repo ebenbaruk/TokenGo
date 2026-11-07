@@ -14,3 +14,4 @@ export * from './codex.ts';
 export * from './route.ts';
 export * from './haggle.ts';
 export * from './scout.ts';
+export * from './events.ts';

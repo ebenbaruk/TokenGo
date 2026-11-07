@@ -1,9 +1,9 @@
 // Boucle de position : GPS (watchPosition filtré + lissé) ou Remote Scout (pigeon-drone piloté au tap : vol à 30 km/h,
-// Dash 3 s, batterie vérifiée par le serveur), envoi throttlé à POST /api/move, rafraîchissement du monde.
-import { haversineM, scoutCharge, scoutCost, MOVE, SCOUT, type LatLng, type ScoutState, type RouteCheckin } from '@tokengo/shared';
+// Dash 3 s, batterie vérifiée par le serveur), envoi throttlé à POST /api/move, rafraîchissement du monde et des marcheurs.
+import { haversineM, scoutCharge, scoutCost, LIVING, MOVE, SCOUT, WORLD_GEN, type LatLng, type ScoutState, type RouteCheckin, type WorldResponse } from '@tokengo/shared';
 import { api, ApiFail } from '../lib/api.ts';
 import { useGame, setMe, toast, celebrate, rebaseScout, type Pos } from '../lib/store.ts';
-import { feedback } from '../lib/sound.ts';
+import { buzz, feedback, play } from '../lib/sound.ts';
 
 export const LOUVRE: LatLng = { lat: 48.8611, lng: 2.3358 };
 const SEND_EVERY_MS = 3000;
@@ -15,6 +15,7 @@ const WORLD_MOVE_M = 40;
 let lastSent: { p: Pos; at: number } | null = null;
 let lastWorld: { p: LatLng; at: number } | null = null;
 let scoutingTimer = 0;
+let upgradeTimer = 0;
 let worldInflight = false;
 let gpsWatch: number | null = null;
 let timers: number[] = [];
@@ -30,18 +31,52 @@ export async function refreshWorld(force = false): Promise<void> {
     const world = await api.world(pos.lat, pos.lng);
     lastWorld = { p: { lat: pos.lat, lng: pos.lng }, at: Date.now() };
     const visible = new Set(world.spawns.map((s) => s.id));
-    const before = useGame.getState().world?.region?.status;
+    const prev = useGame.getState().world?.region;
+    const before = prev?.status;
     useGame.setState({ world, serverDown: false, hiddenSpawns: useGame.getState().hiddenSpawns.filter((id) => visible.has(id)) });
     // monde « partout » : quartier en cours de repérage → on réinterroge vite ; annonce quand il est prêt
     if (world.region?.status === 'scouting') { clearTimeout(scoutingTimer); scoutingTimer = window.setTimeout(() => void refreshWorld(true), 1500); }
+    const n = (k: string) => world.nodes.filter((x) => x.kind === k).length;
     if (before === 'scouting' && world.region?.status === 'ready') {
-      const n = (k: string) => world.nodes.filter((x) => x.kind === k).length;
       toast(`Your neighbourhood is live · ${n('relay')} relays · ${n('market')} merchants${n('forge') ? ' · a Forge' : ''}`, 'good', 'xp', 4000);
     }
+    // quartier procédural en attente de la vraie carte : on réinterroge plus lentement ; annonce quand OSM l'a remplacé
+    if (world.region?.upgrading) { clearTimeout(upgradeTimer); upgradeTimer = window.setTimeout(() => void refreshWorld(true), WORLD_GEN.upgradePollMs); }
+    if (prev?.source === 'procedural' && world.region?.source === 'osm' && prev.ids[0] === world.region.ids[0]) {
+      toast(`Real map loaded · ${n('relay')} relays · ${n('market')} merchants from OpenStreetMap`, 'good', 'xp', 4000);
+    }
+    announceEvent(world);
   } catch (e) {
     if (e instanceof ApiFail && e.code === 'NETWORK') useGame.setState({ serverDown: true });
   } finally {
     worldInflight = false;
+  }
+}
+
+/** Annonce sonore une seule fois par événement de ville. */
+let announcedEvent = 0;
+function announceEvent(world: WorldResponse): void {
+  const e = world.event;
+  if (!e || e.id === announcedEvent) return;
+  const pos = useGame.getState().pos;
+  if (pos && haversineM(pos, e) > LIVING.eventFarM) return; // autre ville : pas de jingle
+  announcedEvent = e.id;
+  // pas de toast : la bannière du HUD (qui tombe avec un rebond) porte l'annonce ; juste un jingle et une vibration
+  play('event');
+  buzz([40, 60, 40]);
+}
+
+// ───────── Marcheurs (carte vivante) ─────────
+let walkersInflight = false;
+export async function refreshWalkers(): Promise<void> {
+  const { pos, phase } = useGame.getState();
+  if (!pos || phase !== 'play' || walkersInflight || document.visibilityState === 'hidden') return;
+  walkersInflight = true;
+  try {
+    const r = await api.walkers(pos.lat, pos.lng);
+    useGame.setState({ walkers: r.walkers, skewMs: r.now - Date.now() });
+  } catch { /* la carte garde les marcheurs précédents */ } finally {
+    walkersInflight = false;
   }
 }
 
@@ -225,6 +260,8 @@ export function startPlay(opts: { demo: boolean; start?: LatLng | null }): void 
     startGps();
   }
   timers.push(window.setInterval(() => void refreshWorld(), 4000));
+  timers.push(window.setInterval(() => void refreshWalkers(), 6000));
+  window.setTimeout(() => void refreshWalkers(), 800);
   timers.push(window.setInterval(() => {
     // re-sync idle : le serveur veut une position récente (< 30 s)
     const p = useGame.getState().pos;
@@ -246,6 +283,8 @@ function startUserStream(): void {
     try {
       const e = JSON.parse(m.data as string) as { kind: string; text: string };
       if (e.kind === 'grant.done') { toast(e.text, 'good', 'xp', 4000); void refreshMe(); }
+      // événement de ville (partagé) : nouveau monde tout de suite (zone, prix, éclats bonus, bannière)
+      if (e.kind === 'city.event' || e.kind === 'city.event.end') void refreshWorld(true);
     } catch { /* ping */ }
   };
 }

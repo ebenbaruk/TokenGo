@@ -66,7 +66,9 @@
   background: var(--panel); border: 2px solid var(--ink); border-radius: 8px; padding: 3px 8px; color: var(--ink); align-self: center;
 }
 .count { position: absolute; top: -8px; right: -8px; min-width: 24px; height: 24px; padding: 0 5px; display: grid; place-items: center; background: var(--berry); color: var(--white); border: 2px solid var(--ink); border-radius: 12px; font-weight: 800; font-size: 13px; }
-.recenter { align-self: flex-end; width: 52px; height: 52px; display: grid; place-items: center; border: var(--border); border-radius: 50%; background: var(--panel); box-shadow: var(--shadow-hard); cursor: pointer; }
+.dock { display: flex; align-items: flex-end; gap: 10px; min-height: 0; }
+.dock:empty { display: none; }
+.recenter { margin-left: auto; flex: none; width: 52px; height: 52px; display: grid; place-items: center; border: var(--border); border-radius: 50%; background: var(--panel); box-shadow: var(--shadow-hard); cursor: pointer; }
 .combo { align-self: center; display: flex; align-items: center; gap: 8px; padding: 4px 10px; background: var(--panel); border: var(--border-thin); border-radius: 10px; box-shadow: var(--shadow-hard-s); font-size: 18px; }
 .comboTrack { display: inline-flex; gap: 3px; }
 .comboTrack i.on { background: var(--orange); }
@@ -82,7 +84,7 @@
 
 /* Daily Route */
 .routeChip {
-  align-self: flex-start; display: flex; align-items: center; gap: 7px; padding: 6px 10px; min-height: 36px;
+  flex: none; display: flex; align-items: center; gap: 7px; padding: 6px 10px; min-height: 36px;
   background: var(--panel); color: var(--ink); border: var(--border-thin); border-radius: 10px; box-shadow: var(--shadow-hard-s);
   font-weight: 800; font-size: 14px; cursor: pointer;
 }

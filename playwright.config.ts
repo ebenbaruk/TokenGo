@@ -27,9 +27,11 @@ export default defineConfig({
     timeout: 30_000,
     env: {
       NODE_ENV: 'test', PORT: String(PORT), DB_PATH: `var/e2e-${PORT}.db`, PUBLIC_URL: `http://localhost:${PORT}`,
-      FEATURE_CHAIN: '0', FEATURE_REAL_CREDITS: '0', JOBS: '0', DEMO_TOKEN: 'e2e-judge',
+      FEATURE_CHAIN: '0', FEATURE_REAL_CREDITS: '0', JOBS: '0', DEMO_TOKEN: 'e2e-judge', ADMIN_TOKEN: 'e2e-admin',
       // monde « partout » sans réseau : miroir Overpass injoignable → repli procédural (déterministe)
       OVERPASS_URLS: 'http://127.0.0.1:9/api/interpreter',
+      // carte vivante : les 24 runners marchent (sans commercer : les prix des specs restent stables)
+      RUNNERS: '24', RUNNER_TRADES: '0',
     },
   },
 });

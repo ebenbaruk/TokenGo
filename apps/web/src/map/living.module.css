@@ -1,0 +1,33 @@
+/* Carte vivante : bulles de BD des marchands et étiquette des marcheurs (marqueurs DOM : l'animation est sur l'enfant). */
+.bubble {
+  position: relative; display: block; max-width: 168px; padding: 6px 10px; margin: 0;
+  background: var(--panel); color: var(--ink); border: var(--border-thin); border-radius: 12px; box-shadow: var(--shadow-hard-s);
+  font: 800 13px/1.15 var(--font-ui); text-align: center; white-space: normal; cursor: pointer;
+  transform-origin: 50% 100%; animation: pop .34s var(--ease-pop) both;
+}
+/* queue de la bulle */
+.bubble::after, .bubble::before { content: ''; position: absolute; left: 50%; border-style: solid; border-color: transparent; }
+.bubble::before { bottom: -10px; margin-left: -8px; border-width: 10px 8px 0; border-top-color: var(--ink); }
+.bubble::after { bottom: -6px; margin-left: -5px; border-width: 7px 5px 0; border-top-color: var(--panel); }
+.deal { background: #eafbe0; } .deal::after { border-top-color: #eafbe0; }
+.buy { background: #fff3d6; } .buy::after { border-top-color: #fff3d6; }
+.help { background: #fde4e6; color: var(--berry); } .help::after { border-top-color: #fde4e6; }
+.help { animation: pop .34s var(--ease-pop) both, wobble 1.6s .4s ease-in-out infinite; }
+.thanks { background: #e2f7ea; color: var(--teal); } .thanks::after { border-top-color: #e2f7ea; }
+.contract { background: var(--panel-alt); color: var(--navy); } .contract::after { border-top-color: var(--panel-alt); }
+.event { background: var(--sun); } .event::after { border-top-color: var(--sun); }
+
+.tag {
+  display: flex; flex-direction: column; align-items: center; gap: 1px; max-width: 190px; padding: 5px 10px;
+  background: var(--night); color: var(--white); border: var(--border-thin); border-radius: 10px; box-shadow: var(--shadow-hard-s);
+  font: 700 12px/1.2 var(--font-ui); text-align: center; pointer-events: none;
+  transform-origin: 50% 100%; animation: pop .3s var(--ease-pop) both;
+}
+.tag b { font-size: 13px; color: var(--sun); }
+
+.out { animation: out .2s ease-in both !important; }
+
+@keyframes pop { from { transform: scale(.3) translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes out { to { transform: scale(.4) translateY(6px); opacity: 0; } }
+@keyframes wobble { 0%, 100% { rotate: 0deg; } 25% { rotate: -2.5deg; } 75% { rotate: 2.5deg; } }
+@media (prefers-reduced-motion: reduce) { .bubble, .tag, .help { animation: none; } }

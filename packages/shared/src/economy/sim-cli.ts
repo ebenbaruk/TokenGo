@@ -1,4 +1,4 @@
-// CLI du simulateur : npm run sim -- --days 7 --players 200 --scenario flood-deepseek --seed 42 [--json out.json] [--override '{"RELAY":{"fluxMax":6}}']
+// CLI du simulateur : npm run sim -- --days 7 --players 200 --scenario flood-deepseek --seed 42 [--json out.json] [--override '{"RELAY":{"fluxMax":6}}'] [--no-events]
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { FAMILIES } from '../types.ts';
@@ -17,6 +17,7 @@ const scenario = flag('scenario', 'baseline') as Scenario;
 const jsonOut = flag('json');
 const override = flag('override');
 const botOverride = flag('bot');
+const cityEvents = !args.includes('--no-events');
 if (!SCENARIOS.includes(scenario)) {
   console.error(`Unknown scenario "${scenario}". Use one of: ${SCENARIOS.join(', ')}`);
   process.exit(1);
@@ -27,7 +28,7 @@ const world = JSON.parse(readFileSync(worldPath, 'utf8')) as WorldLike;
 
 const t0 = performance.now();
 const r = simulate({
-  world, days, players, seed, scenario,
+  world, days, players, seed, scenario, cityEvents,
   ...(override ? { rulesOverride: JSON.parse(override) } : {}),
   ...(botOverride ? { bot: JSON.parse(botOverride) } : {}),
 });
@@ -39,6 +40,7 @@ const last = r.series[r.series.length - 1]!;
 const first = r.series[0]!;
 
 console.log(`\nTokenGo economy sim — scenario ${scenario}, ${days} d × ${players} bots, seed ${seed}  (${(ms / 1000).toFixed(2)} s)`);
+console.log(`City events: ${cityEvents ? `${r.events.filter((e) => e.kind === 'city-event').length} (${[...new Set(r.events.filter((e) => e.kind === 'city-event').map((e) => e.detail!.split(' ')[0]))].join(', ')})` : 'off (--no-events)'}`);
 console.log(`Mix: ${Object.entries(r.mix).filter(([, v]) => v > 0).map(([k, v]) => `${k} ${Math.round(v * 100)} %`).join(', ')} · ${r.merchants} merchants`);
 if (override) console.log(`Rules override: ${override}`);
 

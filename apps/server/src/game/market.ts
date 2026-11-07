@@ -1,7 +1,7 @@
 // Échanges avec les marchands : vue, devis (20 s, liés à la version du marchand), trade, contrats, sauvetage.
 import {
   MERCHANT, UNLOCKS, XP, applyTrade, deliverContract, quote as priceQuote, rescue as rescueRule, shardToken, souredQuote,
-  type Family, type MerchantState, type MerchantView, type Quote, type QuoteError, type QuoteRequest, type QuoteResponse, type TradeResponse, FAMILIES,
+  type Family, type LatLng, type MerchantState, type PriceOpts, type MerchantView, type Quote, type QuoteError, type QuoteRequest, type QuoteResponse, type TradeResponse, FAMILIES,
 } from '@tokengo/shared';
 import type { Ctx } from './context.ts';
 import { fail } from './context.ts';
@@ -10,6 +10,7 @@ import { addXp, balance, credit, debit, getUser, levelOf, markTutorial, meView, 
 import { getMerchant, getP0, merchantView, recordSeenPrices, saveMerchant } from './merchants.ts';
 import { assertCanAct } from './actions.ts';
 import { isSoured, noteRegular } from './relations.ts';
+import { activeEvent, eventPriceOpts } from './events.ts';
 
 export const QUOTE_ERRORS: Record<string, string> = {
   CLOSED: 'This shop is closed.',
@@ -18,6 +19,7 @@ export const QUOTE_ERRORS: Record<string, string> = {
   OUT_OF_STOCK: "I don't have that many.",
   CONTRACT_LOCK: "I'm keeping those for my contract — find them elsewhere!",
   BAD_QTY: 'Pick a quantity between 1 and 50.',
+  STRIKE: "I'm on strike — buying only until it's over!",
 };
 
 /** Les événements Pulse des runners-agents portent data.agent = true (badge « agent » dans le ticker). */
@@ -51,9 +53,20 @@ export function canTrade(ctx: Ctx, userId: string) {
   return u;
 }
 
-/** Devis normal pour ce joueur : prix des règles (patron compris), 3 % moins bon si le marchand boude après un marchandage raté. */
-export function playerQuote(ctx: Ctx, userId: string, m: MerchantState, req: QuoteRequest): Quote | { error: QuoteError } {
-  const q = priceQuote(getP0(ctx)[req.family], m, req.side, req.family, req.qty, { patron: isPatron(ctx, m.id, userId) });
+/**
+ * Prix de référence et options pour ce joueur chez ce marchand (en `pos`) : P0 de la famille déjà multiplié par l'événement
+ * de ville en cours (borné par rules.ts), avantage Patron, grève. Partagé par le devis normal et le marchandage, pour que
+ * le plancher du marchandage (Σ mid) et le devis partent du même prix.
+ */
+export function pricingFor(ctx: Ctx, userId: string, merchantId: string, family: Family, pos: LatLng): { p0: number; opts: PriceOpts } {
+  const { event, ...rest } = eventPriceOpts(activeEvent(ctx), family, pos, ctx.now());
+  return { p0: getP0(ctx)[family] * (event?.mult ?? 1), opts: { patron: isPatron(ctx, merchantId, userId), ...rest } };
+}
+
+/** Devis normal pour ce joueur : prix des règles (patron, événement compris), 3 % moins bon si le marchand boude après un marchandage raté. */
+export function playerQuote(ctx: Ctx, userId: string, m: MerchantState, pos: LatLng, req: QuoteRequest): Quote | { error: QuoteError } {
+  const { p0, opts } = pricingFor(ctx, userId, m.id, req.family, pos);
+  const q = priceQuote(p0, m, req.side, req.family, req.qty, opts);
   if ('error' in q || !isSoured(ctx, userId, m.id)) return q;
   const s = souredQuote(q);
   return q.side === 'sell' && s.total > m.flux ? { error: 'MERCHANT_NO_FLUX' } : s;
@@ -65,7 +78,7 @@ export function makeQuote(ctx: Ctx, userId: string, merchantId: string, req: Quo
   assertCanAct(ctx, u, 'market', node);
   if (req.side === 'sell' && u.demo_token) fail('DEMO_CANNOT_SELL', 'Demo passes can buy, forge and invest — but not sell.');
   if (!FAMILIES.includes(req.family)) fail('BAD_REQUEST', 'Unknown shard.');
-  const q = playerQuote(ctx, userId, m, req);
+  const q = playerQuote(ctx, userId, m, node, req);
   if ('error' in q) return fail(q.error, QUOTE_ERRORS[q.error] ?? 'Not possible.');
   if (req.side === 'sell' && balance(ctx, userId, shardToken(req.family)) < req.qty) fail('INSUFFICIENT', "You don't have that many shards.");
   if (req.side === 'buy' && balance(ctx, userId, 'flux') < q.total) fail('INSUFFICIENT', `You need ${q.total} ƒ.`, 400, { total: q.total });
@@ -87,9 +100,10 @@ export function executeTrade(ctx: Ctx, userId: string, merchantId: string, quote
   assertCanAct(ctx, u, 'market', node);
   return ctx.db.transaction((): TradeResponse => {
     const cur = load(ctx, merchantId);
-    const q = playerQuote(ctx, userId, cur.m, s!.req);
+    const q = playerQuote(ctx, userId, cur.m, cur.node, s!.req);
     if ('error' in q) return fail(q.error, QUOTE_ERRORS[q.error] ?? 'Not possible.');
-    if (cur.version !== s!.version && q.total !== s!.total) {
+    // le prix a bougé depuis le devis (autre trade, dérive de P0, événement de ville qui démarre ou finit) : nouveau total
+    if (q.total !== s!.total) {
       quotes.delete(quoteId);
       fail('PRICE_MOVED', 'Prices just moved — here is the new total.', 409, { total: q.total });
     }

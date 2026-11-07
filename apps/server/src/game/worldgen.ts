@@ -211,7 +211,7 @@ export function overpassQuery(regionId: string): string {
     '["railway"="station"]["name"]',
     '["office"="coworking"]["name"]',
   ];
-  return `[out:json][timeout:30];(${sel.map((s) => `nwr${s}(${bb});`).join('')});out center tags ${WORLD_GEN.overpassMaxElements};`;
+  return `[out:json][timeout:90];(${sel.map((s) => `nwr${s}(${bb});`).join('')});out center tags ${WORLD_GEN.overpassMaxElements};`;
 }
 
 /** Catégorie lisible hors Paris : + lieux de culte et mairies (candidats Forge). */

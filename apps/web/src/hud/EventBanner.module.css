@@ -1,0 +1,18 @@
+.banner {
+  pointer-events: auto; align-self: stretch; display: flex; align-items: center; gap: 8px; padding: 5px 10px 5px 5px; min-height: 44px;
+  background: var(--panel); color: var(--ink); border: var(--border-thin); border-radius: 12px; box-shadow: var(--shadow-hard-s);
+  text-align: left; cursor: pointer; font-family: var(--font-ui);
+  animation: drop .45s var(--ease-pop) both;
+}
+.icon {
+  flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; border: var(--border-thin);
+  color: var(--white); font-size: 16px; font-weight: 900; animation: blink 1.4s steps(2, end) infinite;
+}
+.body { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.15; }
+.title { font-weight: 900; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.effect { font-weight: 700; font-size: 12px; color: var(--slate); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.effect em { font-style: normal; color: var(--berry); }
+.time { flex: none; font-weight: 900; font-size: 14px; padding: 2px 6px; border-radius: 6px; background: var(--ink); color: var(--sun); }
+@keyframes drop { from { transform: translateY(-14px) scale(.9); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes blink { 50% { filter: brightness(1.25); } }
+@media (prefers-reduced-motion: reduce) { .banner, .icon { animation: none; } }

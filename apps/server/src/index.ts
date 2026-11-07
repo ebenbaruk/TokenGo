@@ -20,8 +20,8 @@ const periodic = [
   ...(real ? nearAiPeriodic(ctx, real) : []),
 ];
 const stop = cfg.JOBS ? startJobs(ctx, npc?.brain, periodic) : () => {};
-const stopRunners = cfg.JOBS ? startRunners(ctx, cfg.RUNNERS) : () => {};
+const stopRunners = startRunners(ctx, cfg.RUNNERS);
 app.addHook('onClose', async () => { stop(); stopRunners(); });
 await app.listen({ port: cfg.PORT, host: cfg.HOST });
-app.log.info(`TokenGo server · credits ${ctx.credits.simulated ? 'SIMULATED' : 'REAL'} · merchant brain ${npc ? 'LLM' : 'fallback'} · chain ${cfg.chain ? 'on' : 'off'} · runners ${cfg.JOBS ? cfg.RUNNERS : 0}`);
+app.log.info(`TokenGo server · credits ${ctx.credits.simulated ? 'SIMULATED' : 'REAL'} · merchant brain ${npc ? 'LLM' : 'fallback'} · chain ${cfg.chain ? 'on' : 'off'} · runners ${cfg.RUNNERS}`);
 for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => void app.close().then(() => process.exit(0)));

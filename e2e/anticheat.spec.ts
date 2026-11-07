@@ -3,14 +3,20 @@
 import type { BrowserContext, Page } from '@playwright/test';
 import { expect, test, LOUVRE, apiMerchant, dist, merchantIdOf, pageErrors, post, shot, tg, worldNodes, type WorldNode } from './helpers.ts';
 
-/** Marché ouvert le plus proche de 5 km du Louvre (choix déterministe). */
+/**
+ * Marché ouvert le plus proche de 5 km du Louvre (choix déterministe), sans éclat à portée dans la fenêtre de spawn
+ * courante : sinon le bouton contextuel propose « Catch » (priorité éclat > marché) et le test dépend de l'heure.
+ */
 async function farMarket(page: Page): Promise<WorldNode> {
   const cands = worldNodes()
     .filter((n) => n.kind === 'market' && Math.abs(dist(n, LOUVRE) - 5000) < 500)
     .sort((a, b) => Math.abs(dist(a, LOUVRE) - 5000) - Math.abs(dist(b, LOUVRE) - 5000) || a.id.localeCompare(b.id));
   for (const n of cands) {
     const m = await apiMerchant(page.request, merchantIdOf(n.id));
-    if (m.status === 'open' && m.prices.some((p) => p.sell !== null && p.stock > 0)) return { ...n, merchant: { id: m.id, status: m.status } };
+    if (m.status !== 'open' || !m.prices.some((p) => p.sell !== null && p.stock > 0)) continue;
+    const w = (await (await page.request.get(`/api/world?lat=${n.lat}&lng=${n.lng}`)).json()) as { spawns: { lat: number; lng: number }[] };
+    if (w.spawns.some((sp) => dist(sp, n) < 80)) continue;
+    return { ...n, merchant: { id: m.id, status: m.status } };
   }
   throw new Error('no open market ~5 km from the Louvre');
 }

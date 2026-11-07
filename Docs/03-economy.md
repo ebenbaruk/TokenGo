@@ -223,7 +223,34 @@ Avec quelques joueurs seulement, les prix ne bougeraient jamais. On fait donc to
 - **ce qu'ils font** : ils se déplacent à vitesse de marche entre des nœuds réels, capturent, vendent, achètent et livrent des contrats ;
 - **ce qu'ils ne font pas** : ils ne compilent jamais de crédits réels (leurs compilations brûlent les éclats sans octroi), et un plafond horaire limite leur volume de trades ;
 - **leur rôle** : c'est l'activité de fond du marché, et cela répond directement à la piste « agent NPCs » ;
-- **dans l'interface** : un badge « agent » dans le ticker Pulse, et des points discrets sur la carte (désactivables).
+- **dans l'interface** : un badge « agent » dans le ticker Pulse, et des marcheurs pixel sur la carte avec leur dernière action (désactivables).
+- **mouvement** : chaque déplacement est un vrai tronçon à 5 km/h entre deux nœuds (≤ 450 m) ou vers un éclat (≤ 100 m, capturé à l'arrivée) ;
+  ils agissent à l'arrivée, puis repartent. En e2e, `RUNNER_TRADES=0` les fait marcher sans commercer.
+
+## 9 ter. Événements de ville
+Un seul événement à la fois, pour tout Paris, dans une zone de **650 m** autour d'un quartier nommé (`EVENT_ZONES`).
+Les effets sont des constantes bornées de `rules.ts` (`CITY_EVENTS`, bornes dures `CITY_EVENT`) appliquées par des fonctions pures
+(`economy/events.ts`) que le serveur **et** le simulateur appellent :
+
+| Genre | Durée | Effet (dans la zone) | Bornes |
+|---|---|---|---|
+| Flash crash | 20 min | P0 d'une famille commune (DeepSeek/Qwen/Gemini) × 0,6 chez les marchands → achat **et** vente −40 % | × [0,6 ; 1,3] |
+| Forge hype | 20 min | P0 de Gemini/GPT × 1,25 → les marchands paient et vendent plus cher | idem |
+| Gold rush | 20 min | Vague bonus : chaque cellule H3 de la zone a 30 % de chances par fenêtre de 10 min d'un éclat GPT/Claude en plus (ids `cell:window:e<id>`) | ≤ 50 % |
+| Merchant strike | 15 min | Les marchands n'y vendent plus (ils achètent toujours, au prix normal) | — |
+
+- **Pourquoi ça ne casse pas l'économie** : le multiplicateur porte sur P0, donc sur les deux côtés du prix : acheter puis revendre au
+  même marchand perd toujours (testé pour chaque famille). Le stock de la zone est fini et l'effet dure 20 min : l'arbitrage
+  « acheter dans la zone, revendre ailleurs » est une vraie opportunité, bornée. Rien ne touche la Réserve : les crédits réels
+  restent bornés par les plafonds de la Forge.
+- **« Why this price? »** : `explainPrice` reçoit l'effet et l'explication le cite (« Base 10 ƒ × Flash crash at the Louvre −40 % × scarcity … »).
+- **Planification** (`jobs` → `eventTick`, chaque minute) : tirage déterministe (genre pondéré 3/2/2/1, famille, zone), pause de 2 à 4 h
+  après la fin, ≤ 6 par jour de Paris, entre 8 h et 23 h. L'admin peut en lancer un tout de suite (`POST /api/admin/event`,
+  `Bearer ADMIN_TOKEN`, ex. `{"kind":"flash_crash","family":"deepseek","zone":"chatelet","minutes":20}`) ou l'arrêter
+  (`POST /api/admin/event/end`) — toujours dans les bornes.
+- **Simulateur** : actif par défaut (`npm run sim -- --no-events` pour comparer). Réglage du 2026-11-07 : avec événements, graines
+  42/1/2/3 à 7 j et 42 à 14 j, toutes les cibles de santé vertes (ex. graine 42 : 35 événements/semaine, Flux +6,2 %/j, 10,5 % de
+  marchands en difficulté, Main −32,5 %/sem).
 
 ## 9. Spawns & émission
 - Probabilité de famille par spawn : poids de base (§3 du game design) × affinité du lieu (×3) × `h` pour GPT/Claude.

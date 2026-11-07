@@ -2,6 +2,20 @@
 
 Mettre à jour à la fin de chaque bloc de travail. Le plus récent en haut.
 
+## 2026-11-07 (soir) — Intégration des 4 fonctionnalités dans `main`
+- **Fait** : merges « Jouer partout + Remote Scout » puis « Carte vivante » par-dessus « juice/Codex/Daily Route » et « marchandage ».
+  `/api/move` = batterie du Scout (vol refusé : rien d'autre) → présence anonymisée (`seen_cell`) → arrêts de Daily Route ; `/api/world` =
+  route + événement + statut de région ; `/api/walkers` remplace les runners de `/api/world`. Événements de ville appliqués aussi au
+  marchandage (`pricingFor`, même P0 que le devis) ; `PRICE_MOVED` du marchandage sur tout changement de total. HUD iPhone désencombré
+  (Daily Route en bas à gauche, le haut reste aux alertes : au sol, repérage, événement). Événement de Paris masqué à > 25 km.
+  Overpass : procédural jouable après 8 s, vraie carte OSM qui remplace le quartier en fond s'il est frais (`regionFresh`, < 15 min, aucun
+  lien joueur ↔ lieu) ; client qui réinterroge tant que `region.upgrading`. Migrations 005/006 appliquées sur une base déjà en 007/008 (test).
+- **Vérif** : typecheck ; `npm test` 206/206 (+ `db.test.ts` migrations, `regions-upgrade.test.ts` remplacement OSM et règle `regionFresh`,
+  marchandage pendant un flash crash) ; build ; `E2E_PORT=8790 npx playwright test --project=full` 28/28 (anti-triche rendu indépendant de
+  la fenêtre de spawn) ; passe manuelle iPhone 14 : Remote Scout, combo ×2, bulles, flash crash admin + marchandage, Daily Route, GPS à
+  Lisbonne (procédural immédiat puis « Real map loaded », 73 nœuds OSM) ; `npm run verify`, `check:secrets`.
+- **Reste** : vrai test GPS hors Paris au téléphone (HTTPS) ; marchandage parfois « rock-bottom » sur les éclats à bas prix (attendu : plancher Σ mid).
+
 ## 2026-11-07 (jour) — Jouer partout + Remote Scout
 - **Fait** :
   - **Monde « partout »** : un joueur GPS hors de Paris déclenche la génération de son quartier (cellule H3 r7) en fond — Overpass
@@ -15,9 +29,10 @@ Mettre à jour à la fin de chaque bloc de travail. Le plus récent en haut.
     Récompenses inchangées pour les comptes démo.
   - Tests : 131 unitaires/API (+18 : batterie, génération, fallback, caps, persistance, partie complète à Lisbonne), e2e 20/20
     (nouveau `e2e/anywhere.spec.ts`), `E2E_PORT` pour lancer plusieurs suites en parallèle.
-- **Limites connues** : les miroirs Overpass publics sont lents (20–90 s mesurés) → au-delà de 35 s le quartier est procédural (définitif pour
-  cette région) ; une r7 en bordure de Paris compte comme « Paris » même si sa partie hors Paris est vide.
+- **Limites connues** : les miroirs Overpass publics sont lents (20–90 s mesurés) → voir l'intégration : procédural après 8 s, remplacé par OSM
+  en fond tant que le quartier est frais ; une r7 en bordure de Paris compte comme « Paris » même si sa partie hors Paris est vide.
 - **Prochaine étape** : déploiement HTTPS (GPS réel), tester un vrai quartier hors Paris au téléphone.
+
 ## 2026-11-07 — Game feel + raisons de revenir (Codex, Daily Route, cartes partageables)
 - **Fait** : passe « juice » sur la capture (combo ressenti : son qui monte, aura/flamme, secousse + confettis PERFECT,
   révélation de variante, XP qui roule, éclat → sac), vibrations par événement + réglage ; Codex de 25 variantes cosmétiques
@@ -38,6 +53,17 @@ Mettre à jour à la fin de chaque bloc de travail. Le plus récent en haut.
   7 tests API (rival vrai → Deal appliqué, double Deal concurrent, TTL / mauvaise séance, limites, bouderie, LLM unique et plafonné),
   e2e `haggle.spec.ts` (3 parcours) + captures `haggle-0x`.
 - **Prochaine étape** : brancher la réplique LLM sur de vrais crédits quand ils existent (aucun code à changer).
+
+## 2026-11-07 (jour) — Carte vivante
+- **Fait** : marcheurs animés sur la carte (24 runners-agents au trajet réel à 5 km/h, étiquette au tap avec leur dernière action ;
+  joueurs réels anonymisés : cellule H3 ± 60 m, sans nom), `GET /api/walkers` (≤ 12, 30/min) ; bulles de BD des marchands dérivées
+  de leur état (≤ 3, sans chevauchement ni HUD) ; événements de ville bornés dans `rules.ts` (flash crash, forge hype, gold rush,
+  grève) : zone + bannière + jingle + Pulse, prix via `explainPrice`/`quote` (« Why this price? » le cite), vague bonus d'éclats,
+  planification par les jobs (≤ 6/j), `POST /api/admin/event` (+ `/end`) ; simulateur avec événements (cibles vertes, graines 42/1/2/3).
+  Migration `006_living.sql`. Correctifs au passage : caméra qui s'arrêtait avant la fin d'une Demo Walk ; devis exécuté à un autre
+  prix que celui affiché (maintenant `PRICE_MOVED`).
+- **Vérif** : `npm test` 142/142, typecheck, `E2E_PORT=8792 npx playwright test --project=full` 21/21 (dont `living.spec.ts` 3/3), `check:secrets` vert.
+- **Prochaine étape** : montrer un événement dans la vidéo (`POST /api/admin/event` avec `ADMIN_TOKEN`), tester les marcheurs avec de vrais téléphones.
 
 ## 2026-11-07 (nuit) — Fin du build : produit complet, vérifié
 - **Fait depuis le bloc précédent** : revue sécurité indépendante → 9 correctifs (courses sur les octrois, XFF, Judge Pool réservé aux passes démo,

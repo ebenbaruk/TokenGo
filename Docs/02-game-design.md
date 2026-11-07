@@ -182,6 +182,20 @@ En mode Démo, le joueur démarre avec un kit (niveau 3, 60 ƒ, 4 éclats) pour 
 - **Leaderboards** : Districts (hebdo), Runners (XP semaine), Patrons (Flux contribués aux sauvetages), Traders (profit d'arbitrage semaine).
 - Pseudonymes uniquement (générés : « NeonPigeon », modifiables, filtrés).
 
+## 9 bis. Carte vivante
+La carte montre la ville qui vit, sans jamais l'encombrer :
+- **Marcheurs** : les runners-agents marchent vraiment de nœud en nœud (5 km/h, tronçons interpolés côté client, petit pas de
+  côté quand ils s'arrêtent devant une échoppe). Tap → étiquette « Nadia — just sold 3 Gemini to Odile ». Les **joueurs réels**
+  apparaissent en gris, sans nom, à une position approximative (cellule H3 ± 60 m) : jamais leur position exacte.
+  Au plus 12 marcheurs, 5 maj/s, interrupteur « Other runners on map » dans le menu.
+- **Bulles des marchands** : les marchands à ≤ 400 m parlent selon leur état réel (règles, pas de LLM) : « Closing soon… help! »,
+  « Back in business, thanks! », « Need 3 GPT — bonus pay! », « Selling Qwen cheap! », « Buying Gemini — top price! »,
+  « Flash crash! DeepSeek −40% ». 3 bulles au plus, sans chevauchement ni HUD, urgences d'abord, les autres tournent toutes
+  les 7 s ; tap = aller au marchand.
+- **Événements de ville** (partagés par tous, détails dans `03-economy.md` §9 ter) : zone colorée sur la carte, bannière en haut
+  (titre, effet, compte à rebours, « you're in the zone! » ; tap = voir la zone), jingle, ligne dans le ticker et carte
+  « Now in Paris » du Pulse (avec le nombre de marcheurs).
+
 ## 10. Ce qu'on ne fait pas (pour rester simple)
 Pas de combat, pas de chat entre joueurs, pas d'échange joueur↔joueur direct (tout passe par les marchands : c'est le
 marché), pas de météo ; les éclats « shiny » n'existent que comme variante cosmétique du Codex (aucune valeur en plus). Stretch possibles listés dans `11-roadmap.md`.
