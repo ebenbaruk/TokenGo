@@ -7,7 +7,7 @@
   "nearAddress": "",
   "projectUrl": "https://github.com/ebenbaruk/TokenGo",
   "demoUrl": "https://x.com/<you>/status/<id>",
-  "playUrl": "https://<your-app>.up.railway.app",
-  "judgeLink": "https://<your-app>.up.railway.app/?demo=1&k=<DEMO_TOKEN>",
+  "playUrl": "https://tokengo-production-195c.up.railway.app",
+  "judgeLink": "https://tokengo-production-195c.up.railway.app/?demo=1&k=adXQaIwuy-CPqn8UVfJihkuZ6IKIl-AaFz00ShZIjZo",
   "consent": false
 }

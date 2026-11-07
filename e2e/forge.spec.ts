@@ -89,9 +89,9 @@ test('demo pass (DEMO_TOKEN) compiles a Spark → credit ticket', async ({ page 
   const res = (await tg(page)).lastResult as { payoutNusd: number; simulated: boolean; xp: number };
   expect(res.simulated).toBe(true);
   expect(res.payoutNusd).toBeGreaterThan(0);
-  await expect(ticket).toContainText('Compiled. This is real compute now.');
+  await expect(ticket).toContainText('Compiled! Demo credits for now.');
   await expect(ticket).toContainText(/\+\$\d+\.\d{3}/);
-  await expect(ticket).toContainText('simulated');
+  await expect(ticket).toContainText('demo credits');
   await expect(ticket).toContainText(`+${res.xp} XP`);
   await shot(page, 'forge-03-ticket');
   // carte partageable du ticket (PNG, téléchargé faute de Web Share en headless)

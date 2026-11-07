@@ -134,6 +134,11 @@ export function Splash() {
           <p className={s.small} data-testid="mode-explainer">
             Made to be played walking, for real. <b>Remote Scout</b> lets you try it from your couch.
           </p>
+          {config?.simulatedCredits ? (
+            <p className={s.small} data-testid="demo-season">
+              🧪 <b>Demo season:</b> AI credits are simulated, everything else is live (items settle on NEAR). Real NEAR AI credits come next.
+            </p>
+          ) : null}
         </div>
       ) : (
         <div className={s.actions} data-testid="location-explainer">

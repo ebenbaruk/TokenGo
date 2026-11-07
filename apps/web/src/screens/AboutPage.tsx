@@ -1,6 +1,6 @@
 // /about : ce que le jeu stocke, vie privée, suppression de compte, usage de NEAR, avertissement sur les crédits.
 import { useEffect, useState } from 'react';
-import type { Me } from '@tokengo/shared';
+import type { Me, PublicConfig } from '@tokengo/shared';
 import { api, humanError } from '../lib/api.ts';
 import { PageShell } from './PageShell.tsx';
 import { Button, Card } from '../ui/index.tsx';
@@ -14,7 +14,8 @@ export default function AboutPage() {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  useEffect(() => { void api.meIfSession().then(setMe); }, []);
+  const [config, setConfig] = useState<PublicConfig | null>(null);
+  useEffect(() => { void api.meIfSession().then(setMe); api.config().then(setConfig).catch(() => {}); }, []);
 
   const del = async () => {
     setBusy(true); setErr(null);
@@ -54,7 +55,10 @@ export default function AboutPage() {
 
         <Card>
           <h2>About the credits</h2>
-          <p>Credits are real NEAR AI Cloud inference credits on a personal API key, paid from a small city reserve (a few dollars in total). Amounts are small, limited per day, and <b>valid until the end of 2026</b>. When the reserve runs low, payouts shrink — the game never promises more than it holds. On a server without a NEAR AI account, credits are clearly marked “simulated”.</p>
+          {config?.simulatedCredits ? (
+            <p data-testid="about-demo-season"><b>🧪 Demo season.</b> On this server the credits are <b>simulated</b>, so everyone can play for free during the hackathon. The rest is live: merchants, prices, events, and your items settled as NEP-245 tokens on NEAR testnet (the Forge burn is a real on-chain transaction). The real-credit pipe is already built and tested: next, each player gets a personal NEAR AI Cloud API key whose spend limit grows with every compile.</p>
+          ) : null}
+          <p>With a live reserve, credits are real NEAR AI Cloud inference credits on a personal API key, paid from a small city reserve. Amounts are small and limited per day. When the reserve runs low, payouts shrink — the game never promises more than it holds.</p>
         </Card>
 
         <Card>

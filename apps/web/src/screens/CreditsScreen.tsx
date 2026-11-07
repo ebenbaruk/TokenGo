@@ -48,12 +48,12 @@ export function CreditsScreen({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Sheet open onClose={onClose} full title="Your credits" subtitle={c ? `Real compute on NEAR AI Cloud${c.simulated ? ' · simulated' : ''}` : undefined} testId="credits-screen">
+    <Sheet open onClose={onClose} full title="Your credits" subtitle={c ? (c.simulated ? 'Demo season · simulated NEAR AI Cloud credits' : 'Real compute on NEAR AI Cloud') : undefined} testId="credits-screen">
       {err ? <p style={{ color: 'var(--berry)', fontWeight: 800 }}>{err}</p> : null}
       {!c ? <p className="dim">Loading…</p> : (
         <div className={s.stack}>
           <div className={s.balance} data-testid="credits-balance">
-            {c.simulated ? <span className={s.sim}>simulated</span> : null}
+            {c.simulated ? <span className={s.sim}>demo</span> : null}
             <div className={s.balLabel}>Remaining</div>
             <div className={s.balAmount}>{fmtUsd(c.remainingNusd)}</div>
             <Gauge value={c.usageNusd} max={Math.max(c.limitNusd, 1)} color="var(--orange)" height={14} />
@@ -67,6 +67,12 @@ export function CreditsScreen({ onClose }: { onClose: () => void }) {
             ) : null}
           </div>
 
+          {c.simulated ? (
+            <Card testId="credits-demo-season">
+              <div className={s.cardTitle}>🧪 Demo season</div>
+              <p className="dim">During the hackathon demo, credits and the key are simulated so anyone can play for free. Everything else is live: prices, merchants, and your items settled on NEAR. The real NEAR AI Cloud pipe (one API key per player, capped by the city reserve) is built and tested; it switches on after the hackathon.</p>
+            </Card>
+          ) : null}
           <Card>
             <div className={s.cardTitle}>Your API key</div>
             {c.hasKey ? (

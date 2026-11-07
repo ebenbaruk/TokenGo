@@ -1,152 +1,523 @@
-# TokenGo — Walk Paris. Catch AI. Spend it for real.
+# TokenGo — Walk your city. Catch AI. Spend it for real.
 
 ![TokenGo](docs-assets/cover.jpg)
 
-▶️ **Demo video (83 s):** [`docs-assets/video/tokengo-demo.mp4`](docs-assets/video/tokengo-demo.mp4) · portrait: [`tokengo-demo-portrait.mp4`](docs-assets/video/tokengo-demo-portrait.mp4)
+<p align="center">
+<b><a href="https://tokengo-production-195c.up.railway.app">▶️ Play now</a></b> ·
+<b><a href="https://tokengo-production-195c.up.railway.app/?demo=1&k=adXQaIwuy-CPqn8UVfJihkuZ6IKIl-AaFz00ShZIjZo">🎟 Judges' pass (level 7, full bag)</a></b> ·
+<a href="docs-assets/video/tokengo-demo.mp4">🎬 Demo video (83 s)</a> ·
+<a href="https://tokengo-production-195c.up.railway.app/pulse">📈 City Pulse</a> ·
+<a href="https://tokengo-production-195c.up.railway.app/lab">🧪 Economy Lab</a> ·
+<a href="https://testnet.nearblocks.io/address/tokengo.testnet">⛓ Contract on NEAR</a>
+</p>
 
-**TokenGo is a location-based browser game where the loot is real AI compute.** Shards of Claude, GPT, DeepSeek, Gemini and Qwen
-spawn around real landmarks. AI shopkeepers buy and sell them at prices driven by local supply and demand, so the same shard is cheap
-at one café and expensive near the Louvre. Walk the spread, haggle, fill a Forge recipe, and compile it into **real NEAR AI Cloud
-credits on your own API key**. No wallet, no seed phrase, no gas: just play. Paris is the hand-built showcase city; anywhere else the
-server maps your neighbourhood from OpenStreetMap on the fly.
+> **TokenGo is a location-based browser game where the loot is AI compute.**
+> Shards of **Claude, GPT, DeepSeek, Gemini and Qwen** spawn around real places. AI shopkeepers buy and sell them at prices
+> driven by their own stock, so the same shard is cheap at one café and expensive near the Louvre. You walk the spread,
+> haggle, complete a Forge recipe at a monument, and compile it into **inference credits on your own NEAR AI Cloud API key**.
+> Every item is a **NEP-245 token on NEAR**, every compile is preceded by an **on-chain burn**, and the player never sees a
+> wallet, a seed phrase or a gas fee.
 
-**Problem it solves.** Location games reward walking with loot that is worth nothing outside the app, and "play-to-earn" games that pay
-real value usually go insolvent. TokenGo pays in something people actually use (LLM inference) through a single, capped door, so the
-game is solvent by construction and the loot is useful the day you earn it.
+Built from scratch for the **NEAR HACKATHON**, track **`games`**: *"Judged on the game loop, not the token — bonus if players
+never notice the chain."* That sentence is the design brief of this whole repository.
 
-Built for the NEAR HACKATHON — track **games**.
-
-| | | | |
-|---|---|---|---|
-| ![](docs-assets/shots/living-03-bubbles.png) | ![](docs-assets/shots/juice-01-combo-lock-on.png) | ![](docs-assets/shots/haggle-02-rival.png) | ![](docs-assets/shots/07-credit-ticket.png) |
-| Living map (Remote Scout) | Lock-on catch + combo | Haggling card game | Real credit ticket |
-| ![](docs-assets/shots/05-merchant-why.png) | ![](docs-assets/shots/juice-04-codex.png) | ![](docs-assets/shots/living-04-event-map.png) | ![](docs-assets/shots/lab-01-flood.png) |
-| "Why this price?" | Shard Codex (25 variants) | City event: flash crash | Economy Lab |
+> [!NOTE]
+> **🧪 Demo season.** For the hackathon, the public server runs with **simulated AI credits**, so anyone can play the whole
+> loop for free, for as long as they like. **Everything else is live**: the world, merchants, prices, city events, runner bots,
+> and **the NEAR side — items are minted, moved and burned on `tokengo.testnet`, with explorer links in the game**.
+> The real-credit pipe (NEP-413 login to NEAR AI Cloud, one API key per player, spend limit raised by the Forge, solvency
+> invariant) is **fully built and unit-tested** in [`apps/server/src/nearai/`](apps/server/src/nearai) and
+> [`game/reserve.ts`](apps/server/src/game/reserve.ts); it is switched on by environment variables once the city reserve
+> is funded. See [Demo season → real credits](#-demo-season--real-credits).
 
 ---
 
-## Try it
-### Hosted demo
-- **Play:** _(URL added at deploy time)_ → **Play for real** (GPS, works in any city) or **Remote Scout** (no GPS: fly a
-  battery-limited courier pigeon over Paris from your couch — the game is meant to be walked, this mode lets you try it anywhere).
-  On a laptop the game opens in a phone frame and Remote Scout is the default.
-- **Judges' pass:** `/?demo=1&k=<DEMO_TOKEN>` (link in the submission) → a level-7 Remote Scout account with a full bag, to see
-  Prism/Aura compiles, haggling and merchant rescues in a few minutes, paid in **real** credits from the Judge pool ($0.20 max per account).
-- **City Pulse** (`/pulse`, no account): live ticker, active city event, walkers, Paris Shard Index, reserve, on-chain settlements.
-- **Economy Lab** (`/lab`, no account): simulate a week of Paris with 200 bots in under a second, with the exact live rules.
+## Contents
+1. [TokenGo in 30 seconds](#-tokengo-in-30-seconds)
+2. [Judge it in 5 minutes](#-judge-it-in-5-minutes)
+3. [Why this game should exist](#-why-this-game-should-exist)
+4. [The game loop, in depth](#-the-game-loop-in-depth)
+5. [The economy: a living market you can read](#-the-economy-a-living-market-you-can-read)
+6. [How NEAR is used (and hidden)](#-how-near-is-used-and-hidden)
+7. [Demo season → real credits](#-demo-season--real-credits)
+8. [Play anywhere on Earth](#-play-anywhere-on-earth)
+9. [Security, anti-cheat and solvency](#-security-anti-cheat-and-solvency)
+10. [Art direction, UX and game feel](#-art-direction-ux-and-game-feel)
+11. [Architecture](#-architecture)
+12. [Quality: how we know it works](#-quality-how-we-know-it-works)
+13. [Run it yourself](#-run-it-yourself)
+14. [Roadmap](#-roadmap)
+15. [Hackathon disclosure](#-hackathon-disclosure)
 
-### Locally in 5 minutes (no secrets needed)
-Requirements: Node ≥ 24, npm 11.
+---
+
+## ⚡ TokenGo in 30 seconds
+
+| | |
+|---|---|
+| **Genre** | Location-based collecting + trading game (walk → catch → trade → craft), browser only, mobile first |
+| **Hook** | The loot is something people actually use every day: LLM inference |
+| **Core twist** | Every shop has its own stock, so its own price: **walking is arbitrage** |
+| **Where** | Paris is the hand-built showcase (1 060 relays, 153 shops, 10 monument Forges, all from OpenStreetMap). **Anywhere else**, the server maps your neighbourhood live |
+| **No GPS? No problem** | **Remote Scout**: fly a battery-limited courier pigeon over Paris from your couch |
+| **Onboarding** | One tap, no sign-up, no wallet. A guest account exists in under a second |
+| **Chain** | Homemade **NEP-245** multi-token contract on NEAR testnet, batched idempotent settlement, burn-before-credit, verify-from-your-browser proofs |
+| **AI** | **NEAR AI Cloud** for player API keys (NEP-413 login, per-key spend limits) and merchant "brains" (bounded, JSON-schema output) |
+| **Liveness** | 24 runner bots trade around the clock, real players show up as anonymous walkers, city-wide events move prices for everyone |
+| **Proof it works** | 211 unit tests, 28 end-to-end flows on a mobile viewport, contract tests, an economy simulator with health checks |
+
+<table>
+<tr>
+<td><img src="docs-assets/shots/living-03-bubbles.png" width="200"/></td>
+<td><img src="docs-assets/shots/juice-01-combo-lock-on.png" width="200"/></td>
+<td><img src="docs-assets/shots/haggle-02-rival.png" width="200"/></td>
+<td><img src="docs-assets/shots/07-credit-ticket.png" width="200"/></td>
+</tr>
+<tr><td>Living map: shops shout their state</td><td>Lock-on catch + combo flame</td><td>Haggling card game</td><td>Forge credit ticket + burn proof</td></tr>
+<tr>
+<td><img src="docs-assets/shots/05-merchant-why.png" width="200"/></td>
+<td><img src="docs-assets/shots/juice-04-codex.png" width="200"/></td>
+<td><img src="docs-assets/shots/living-04-event-map.png" width="200"/></td>
+<td><img src="docs-assets/shots/lab-01-flood.png" width="200"/></td>
+</tr>
+<tr><td>"Why this price?": the real formula</td><td>Shard Codex: 25 variants</td><td>City event: flash crash</td><td>Economy Lab: a week in 1 s</td></tr>
+<tr>
+<td><img src="docs-assets/shots/scout-02-hud.png" width="200"/></td>
+<td><img src="docs-assets/shots/anywhere-02-lisbon-live.png" width="200"/></td>
+<td><img src="docs-assets/shots/juice-06-route-sheet.png" width="200"/></td>
+<td><img src="docs-assets/shots/living-06-pulse.png" width="200"/></td>
+</tr>
+<tr><td>Remote Scout: the couch mode</td><td>Lisbon, generated live from OSM</td><td>Daily Route: same loop for the whole block</td><td>City Pulse: the city's dashboard</td></tr>
+</table>
+
+---
+
+## 🎟 Judge it in 5 minutes
+
+1. Open the **[judges' pass](https://tokengo-production-195c.up.railway.app/?demo=1&k=adXQaIwuy-CPqn8UVfJihkuZ6IKIl-AaFz00ShZIjZo)**
+   (on a laptop the game opens inside a phone frame, with a QR code to continue on your phone) → **Remote Scout**.
+   You land at the Louvre as a **level-7** runner with a full bag, so every tier of the game is unlocked.
+2. **Catch.** Tap **Catch** on the glowing shard, then tap when the shrinking ring meets the dashed circle. PERFECT → combo flame,
+   variant reveal (Classic / Night / Landmark / Overclocked / Shiny), XP. Chain two catches to see the combo grow.
+3. **Fly.** Tap anywhere on the map, or the big **Fly there** button on an objective. The pigeon cruises at 30 km/h; its battery
+   drains per km and recharges in real time. Walking is the real game; this mode lets you taste it from anywhere.
+4. **Trade.** Open a shop (market stall). Read its speech bubble ("Need 5 GPT — bonus pay!"), tap ⓘ **Why this price?** to see
+   the exact formula with this shop's numbers, then buy 3+ shards and **Haggle**: a 3-round card game against the shopkeeper's
+   personality. *"My rival pays more"* only works if a rival you visited *really* pays more.
+5. **Forge.** Fly to a monument Forge, pick **Aura** (the top tier), **hold to compile**. You get a credit ticket with
+   "≈ N chats" equivalences, a **Burn proof ↗** link to the NEAR explorer (the shards were burned on-chain *before* the credit),
+   a shareable PNG card, and **Try it now** → the Playground.
+6. **Proofs.** Profile › **Proofs** → your NEAR account, your settled operations, and **Verify on-chain**, which asks a public NEAR
+   RPC node for your balances *from your browser*, without trusting our server.
+7. **The city.** Open **[/pulse](https://tokengo-production-195c.up.railway.app/pulse)** (live ticker, Paris Shard Index, active city
+   event, merchant health, on-chain status) and **[/lab](https://tokengo-production-195c.up.railway.app/lab)** → scenario
+   *DeepSeek flood* → **Simulate 1 week**: 200 bots, the exact live rules, under a second, compared with a baseline week.
+
+For AI triage (Claude Code / Codex): `npm install && npm run verify` runs typecheck, 211 unit tests, the production build and a
+headless end-to-end smoke test of the whole loop. **No secret needed.**
+
+---
+
+## 💡 Why this game should exist
+
+**The problem.** Location games reward walking with loot that is worth nothing outside the app. "Play-to-earn" games that pay
+real value do the opposite: they print a token, the token dumps, the treasury goes insolvent, and the game dies with it.
+Both fail for the same reason: the reward is not something people actually want to *use*.
+
+**The insight.** In 2026 everyone uses LLMs, and inference is priced per token, in cents. It is the perfect game reward:
+- **Useful the day you earn it.** Paste the key into any OpenAI-compatible tool and it works.
+- **Naturally divisible.** A $0.03 compile is ≈ 20 chats; a top-tier compile is a real afternoon of AI.
+- **Not a speculative asset.** Nobody farms it to dump it on a market; you spend it.
+
+**The design.** A single, capped door from the game to real value (the Forge), paid as a *fraction of a reserve*, so the game
+is **solvent by construction**: it can never promise more than it holds. Everything before that door (catching, trading,
+haggling, arbitrage, rescuing shops) is a game you enjoy for its own sake, with its own in-game currency, Flux (ƒ).
+
+**Why NEAR.** NEAR gives both halves under one roof: a fast, cheap L1 where an account per player and per merchant costs nothing
+(named, keyless sub-accounts), and **NEAR AI Cloud**, whose organisations, per-key spend limits and NEP-413 login are exactly
+the primitives a game needs to hand out capped, revocable compute. TokenGo uses both, and hides both.
+
+---
+
+## 🎮 The game loop, in depth
+
+```mermaid
+flowchart LR
+  W["🚶 Walk / 🕊 Scout"] --> C["✨ Catch shards<br/>(timing mini-game)"]
+  W --> R["📡 Sync relays<br/>(Flux ƒ + shard)"]
+  C --> M["🏪 Trade with AI shops<br/>(own stock = own price)"]
+  R --> M
+  M -->|"arbitrage: walk the spread"| M
+  M --> H["🃏 Haggle"]
+  H --> M
+  M --> F["🔥 Forge recipe<br/>at a monument"]
+  C --> F
+  F -->|"burn on NEAR → credit"| K["🔑 Credits on your<br/>NEAR AI Cloud key"]
+  K --> P["💬 Playground / any OpenAI-compatible app"]
+  F --> X["⭐ XP, levels, unlocks"]
+  X --> W
+```
+
+### 1. Move: walking for real, or Remote Scout
+- **For real (GPS).** The game is designed to be walked. Your phone reports positions; the server decides what you can reach.
+  Action radii: 40 m for shards, relays and shops, 60 m for Forges (+ up to 20 m of GPS-accuracy tolerance).
+- **Remote Scout (couch mode).** A pigeon-drone you fly by tapping the map: cruise 30 km/h; anything faster than 40 km/h is a
+  **Dash** that costs ×1.5 battery and is capped at 1.5 km per hop. Battery: −30 %/km, +8 %/min, grounded until 10 % when empty.
+  The full demo loop around the Louvre fits in one battery (5–10 min). Every number is enforced **server-side**.
+- **Why both.** Judges and remote players can play the whole game in five minutes; real players get the real thing outside.
+  Scout accounts are "demo" accounts: they can never draw from the main reward pool.
+
+### 2. Catch: a one-second skill test with depth
+- Five families with real rarity: **DeepSeek** (common, 41 % of spawns), **Qwen** (common, 27 %), **Gemini** (uncommon, 19 %),
+  **GPT** (rare, 9 %), **Claude** (epic, 4 %). Places have affinities (libraries favour Claude, stations GPT, parks Gemini…, ×3 weight).
+- **Lock-on mini-game:** a ring shrinks toward a dashed circle. Rarer shards have a faster ring and a narrower PERFECT window
+  (1.4 s / 7 % for commons → 0.8 s / 5 % for epics) and can **flee** after a miss (10–30 %). Three tries.
+- **PERFECT** = +5 XP and a 25 % chance of a bonus shard. Good catches within 90 s of each other build a **combo** (up to ×5, +2 XP per level).
+- Spawns are **deterministic**: `HMAC(secret, H3 cell, 10-min window)`. Everyone sees the same shards in the same place, and the
+  server recomputes every spawn instead of trusting the client. λ = 0.8 + 0.25 × place richness, ≤ 3 per cell, visible within 250 m.
+- **Shard Codex:** each catch rolls a purely cosmetic **variant**: Classic, Night (21:00–06:00 local *solar* time, so it works in any
+  city), Landmark (≤ 300 m from a monument), Overclocked (PERFECT with combo ≥ 3) or Shiny (1 in 40). 5 × 5 = **25 entries**, +15 XP
+  each, titles from *Shard Spotter* to *City Archivist*. Variants never change prices or recipes: collection, not power.
+
+### 3. Relays: the Flux faucet
+Swipe the disc on a relay (fountains, statues, kiosks from OpenStreetMap): **3–7 Flux + a 50 % chance of a shard**, 5-minute
+cooldown per relay, +20 XP the first time you visit one. Flux (ƒ) is the in-game coin.
+
+### 4. Trade: every shop is a tiny market maker
+- **153 shops** in Paris (real cafés, bakeries, bookshops…), each with its own **stock, treasury, specialty and personality**
+  (8 archetypes: gambler, hoarder, scholar, hustler, grandma, purist, trend-chaser, night owl).
+- **Price = f(its own stock):** `mid = P0 × clamp((target / stock)^1.1, 0.35, 3)`, buy/sell = `mid × (1 ± spread)`, spread 3–12 %.
+  Each unit is priced at the stock *after* that unit, so **buying then selling back always loses** (tested on 500 random draws).
+- **Result:** 15–40 % price gaps between shops 600 m apart. **Walking is arbitrage**, the most satisfying "aha" of the game.
+- **"Why this price?"** Every quote opens a breakdown of the formula with this shop's live numbers, the active city event and
+  your personal modifiers. No black box.
+- **Shops are alive.** They import when low (Flux sink), sell surplus to "the city" when high (Flux source), pay rent when active,
+  post **contracts** ("Need 5 GPT — bonus pay!", +5–15 %), and shout their state in speech bubbles on the map.
+- **Bankruptcy and rescue.** Treasury < 150 ƒ → *closing* (2 h, −10 % clearance sale) → *closed*. Players can **rescue** a shop
+  (≥ 50 ƒ each) until it reaches 600 ƒ; it reopens and the top contributor becomes its **Patron** (half spread for 7 days).
+  Rescues are announced city-wide on the Pulse ticker ("Odile the Archivist reopened thanks to 1 patron").
+
+### 5. Haggle: a card game that respects the economy
+With 3+ shards in a deal you can **Haggle**: three rounds where you play cards (*Bulk*, *Regular*, *Rival*, *Bluff*, *Compliment*,
+*Lowball*, *Walk away*) against the shopkeeper's trait (greedy, friendly or proud, read from their archetype) and patience. The
+*Rival* card only works when it is **true**: you must have seen a rival's better price in the last 2 hours, and the server checks
+it against that rival's real current price; a *Bluff* can be caught. Bounds are hard: discount ≤ 5 % + 0.3 pt per reputation point,
+**never more than 8 %, never closer than 1 % to the shop's mid-price** (so haggling can never create a buy-low/sell-high loop),
+2 sessions per shop and 6 per player per day, quotes expire in 90 s. Reputation runs from −5 to +10; lose the shopkeeper's patience
+and they sulk for 20 minutes (−3 % on your quotes).
+
+### 6. Forge: the only door to real value
+Ten monument Forges (Louvre Pyramid, Notre-Dame, Eiffel Tower, Arc de Triomphe, Sacré-Cœur, Panthéon, Centre Pompidou, Bastille,
+BnF, Station F) publish **daily recipes**. Three tiers plus a tutorial compile:
+
+| Tier | Unlocks at | Recipe (by rarity) | Fee | Weight |
+|---|---|---|---|---|
+| **First Compile** | level 1 | 2 DeepSeek + 1 Qwen | — | fixed $0.03 |
+| **Spark** | level 3 | 4 common + 2 uncommon | 60 ƒ | ×1 |
+| **Prism** | level 5 | 3 common + 3 uncommon + 2 rare | 160 ƒ | ×3 |
+| **Aura** | level 7 | 2 common + 3 uncommon + 2 rare + 2 epic | 300 ƒ | ×8 |
+
+`payout = min(pool × 0.4 % × weight, player cap $0.25 / 24 h, city cap 5.5 % of the pool / day)`, scaled by reserve health
+(payouts shrink smoothly as the reserve drains, never to zero, never above what is held). Hold to compile → **the shards are burned
+on NEAR first**, then the credit is granted → a ticket with "≈ 20 DeepSeek chats / ≈ N Claude Sonnet tokens" equivalences,
+**Burn proof ↗**, a share card, and **Try it now** → an in-game Playground that calls the models with *your* key, plus copy-paste
+`curl` / OpenAI SDK snippets.
+
+### 7. A city that lives without you
+- **24 runner bots** walk real streets and trade 24/7 with the same rules and the same API as players, so prices move overnight.
+- **Living map:** up to 12 walkers around you: bots, and **real players shown anonymously** (snapped to their H3 cell + 60 m jitter,
+  identifier rotating every 10 min, only visible near the viewer).
+- **City events** (one at a time, shared by everyone in a zone, 15–20 min, strictly bounded):
+  *Flash crash* (DeepSeek, Qwen or Gemini at −40 %), *Hype* (Gemini or GPT at +25 %), *Gold rush* (bonus waves of GPT or Claude spawns),
+  *Merchant strike* (shops in the zone stop selling, still buy). Hard bounds: price multiplier 0.6–1.3, 45 min max, the reserve is never
+  touched. Events start on their own during the day, appear as a banner + map overlay, and show up in every "Why this price?".
+- **Merchant brains:** every 3 hours each shop "reflects" and may nudge its spread and stock targets (±30 % max per reflection,
+  within hard bounds) and update its mood line. With NEAR AI Cloud this runs on a cheap TEE-hosted model with JSON-schema output,
+  ≤ 150 calls/day, clamped by the server; in demo season (and on any LLM failure) the same interface is served by a deterministic
+  policy. **The LLM never moves value**: it can only choose parameters inside the public rules file.
+
+### 8. Reasons to come back tomorrow
+- **Daily Route:** 3–5 real stops within 500 m of your neighbourhood (the same route for everyone on the block that day, seeded by
+  `(day, H3 r8 cell)`). Reward: 200 XP + 60 ƒ + streak bonus (+10 ƒ/day, max +30) + a guaranteed Gemini.
+- **Daily Forge recipes**, shop contracts that expire, the Codex, Patron perks, levels 1–20 (`XP to next = 100 × L^1.5`) with
+  unlocks at 2 (trade), 3 (Spark), 4 (contracts), 5 (Prism), 6 (rescue), 7 (Aura).
+- **Share cards** (1200 × 675 PNG) for catches, Codex pages and compiles, made for X.
+- **District leaderboards.**
+
+---
+
+## 📊 The economy: a living market you can read
+
+All constants live in **one readable file**: [`packages/shared/src/economy/rules.ts`](packages/shared/src/economy/rules.ts).
+Every formula next to it is a **pure, tested function** (`pricing.ts`, `market.ts`, `forge.ts`, `reserve.ts`, `spawns.ts`, `agent.ts`,
+`haggle.ts`), imported by the **server**, the **simulator** and the **UI**. What the Lab simulates and what "Why this price?"
+explains is literally the code that runs the game.
+
+| Flux sources (in) | Flux sinks (out) |
+|---|---|
+| Relays (3–7 ƒ) | Forge fees (60 / 160 / 300 ƒ) |
+| Selling shards to shops | Buying shards from shops (spread) |
+| Shops exporting surplus to "the city" (P0 × 0.75) | Shops importing when low (P0 × 1.3) |
+| Daily Route reward | Shop rent (4 ƒ/h, only when active) |
+| Shop contracts (+5–15 %) | Rescues (≥ 50 ƒ) |
+
+- **Reference price (Paris Shard Index):** `P0 ← 0.95 × P0 + 0.05 × P0₀ × median scarcity`, bounded to 0.6–1.4 × P0₀: anchored,
+  no runaway inflation, visible live on `/pulse`.
+- **The reserve** (real money, counted in integer nano-USD) is partitioned into pools: *main* (players who proved a walk),
+  *welcome* (one First Compile per guest, global cap 4/hour), *judge* (judges' passes, $0.20 per account), *npc* (merchant brains)
+  and *safety*.
+- **Health targets**, checked by the simulator and by a unit test: shop prices stay within 0.6–1.8 × P0, ≥ 15 % gap between nearby
+  shops (arbitrage exists), ≥ 10 % of shops struggle in a week (rescues happen) but ≤ 30 % are closed, the main pool drains ≤ 35 %/week.
+- **Economy Lab (`/lab`):** the simulator runs in a Web Worker in your browser: 200 bots (walkers, arbitrageurs, forgers, patrons,
+  flooders) × 7 days of Paris in under a second. Scenarios (*DeepSeek flood*, *reserve refill*, *everyone does Aura*) are compared
+  with a baseline week, with a story-mode explanation of what happened.
+  CLI version: `npm run sim -- --days 7 --players 200 --scenario flood-deepseek --seed 42`.
+
+Full design rationale: [`Docs/03-economy.md`](Docs/03-economy.md).
+
+---
+
+## ⛓ How NEAR is used (and hidden)
+
+The track asks for a game where *players never notice the chain*. The words *blockchain, wallet, gas, transaction* appear nowhere
+in the game loop, only behind **Profile › Proofs** and **Pulse › On-chain**, for the curious. Underneath, every item lives on NEAR.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant P as Player (browser)
+  participant S as Game server
+  participant DB as SQLite (WAL)
+  participant ST as Settler (every 8 s)
+  participant C as tokengo.testnet (NEP-245)
+  participant AI as NEAR AI Cloud
+  P->>S: intent (catch / trade / compile)
+  S->>DB: one transaction: game state + outbox op
+  S-->>P: instant result (no waiting on chain)
+  ST->>DB: take pending ops
+  ST->>C: op_settle(ops, settlement_id), batched and idempotent
+  C-->>ST: NEP-245 mint / burn / transfer events
+  Note over P,C: Compile is the exception: the burn is settled FIRST
+  P->>S: hold to compile
+  S->>C: burn shards (waits for the result)
+  S->>AI: raise spendLimit of the player's API key
+  S-->>P: credit ticket + Burn proof ↗ (explorer link)
+```
+
+### The contract: [`contracts/tokengo-mt`](contracts/tokengo-mt) → **`tokengo.testnet`**
+A homemade **NEP-245 multi-token** contract in Rust (near-sdk), one contract for every item:
+`flux`, `shard:deepseek`, `shard:qwen`, `shard:gemini`, `shard:gpt`, `shard:claude`.
+
+| Method | Who | What |
+|---|---|---|
+| `op_settle(ops, settlement_id)` | operator | Applies a whole batch of mint / burn / transfer **atomically**; **idempotent** (a `settlement_id` applies once; `is_settled` to check) |
+| `op_mint_batch`, `op_burn_batch`, `op_transfer_batch` | operator | Batch primitives with memos |
+| `mt_transfer`, `mt_batch_transfer` | any holder | Standard NEP-245 transfers (1 yocto); players' accounts can move their own tokens |
+| `mt_balance_of`, `mt_batch_balance_of`, `mt_supply`, `mt_batch_supply`, `mt_token`, `mt_tokens` | anyone | Standard views, used by the in-game **Verify on-chain** button |
+| `set_operator`, `set_paused`, `get_config` | owner | Operator rotation and an emergency pause |
+
+Events are standard NEP-245 `EVENT_JSON` logs, **aggregated per type** per batch (one `mt_mint`, one `mt_burn`, one `mt_transfer`)
+to keep receipts small. `mt_transfer_call` is deliberately unsupported (no cross-contract attack surface). Contract unit tests cover
+settlement, idempotency, events, transfers and views.
+
+### Accounts: one per player and one per merchant, invisible
+Logical accounts map to named sub-accounts (`p-<id>.tokengo.testnet` for players, `<merchant>.tokengo.testnet` for shops), created
+lazily and **keyless** (zero-balance accounts), so onboarding is instant and free. The model is **custodial by the game operator**,
+and the game says so; "export my account" is on the roadmap.
+
+### Settlement: fast game, honest ledger
+- Every value move is written to an **outbox in the same SQLite transaction** as the game state: the game never blocks on the chain,
+  and the chain never misses a move.
+- The **settler** batches pending ops every 8 s into `op_settle` with a deterministic `settlement_id`; retries check `is_settled`
+  first, and "already applied" counts as success → **exactly-once on-chain**, even across crashes.
+- **Burn-before-credit:** a Forge compile is not paid until its burn is settled on NEAR; the tx hash is shown on the ticket as
+  **Burn proof ↗**. No proof, no credit.
+- **Reconcile:** `npm run reconcile` compares every on-chain balance with the database.
+
+### Proofs the player can check without trusting us
+Profile › **Proofs**: your NEAR account on the explorer, every settled operation with its transaction, and **Verify on-chain**,
+which calls `mt_batch_balance_of` on a public RPC node **from the browser**. City Pulse › On-chain shows the settler's live status
+(pending ops, last batch, contract).
+
+### NEAR AI Cloud
+| Piece | How |
+|---|---|
+| **Organisation login** | The game holds a NEAR AI Cloud organisation; the server obtains its session with a **NEP-413** signed message ([`nearai/nep413.ts`](apps/server/src/nearai/nep413.ts)) |
+| **One API key per player** | Each player gets a personal key; Forge payouts **raise its `spendLimit`**. Keys are encrypted at rest (AES-256-GCM), revocable, revealable by the player |
+| **Solvency invariant** | Checked before every grant: `Σ(limit − usage) + overshoot × keys + NPC budget + safety ≤ organisation balance`. The reserve **never promises more than it holds** |
+| **Merchant brains** | Cheap TEE-hosted model, JSON-schema output, clamped to the rules, ≤ 150 calls/day (30 haggle lines/day), deterministic fallback |
+| **Private inference** | The Playground lists TEE-verifiable models with a badge |
+| **Playground** | An in-game chat that calls NEAR AI Cloud with *your* key, plus `curl` / OpenAI SDK snippets to use it anywhere |
+
+---
+
+## 🧪 Demo season → real credits
+
+**What runs today on the public server:** the full game and the NEAR testnet settlement (mint / transfer / burn, burn proofs,
+Verify on-chain), merchants, events, runners, Codex, routes, haggling, the Forge, with **credits marked "demo"**. The game says so
+plainly on the splash screen, the credit ticket, the credits screen and the About page. We chose this so that **anyone can play the
+whole loop for free during judging**, without us rationing a real budget.
+
+**What is already built for real credits** (covered by unit tests with the exact NEAR AI Cloud request shapes): NEP-413 session,
+per-player key creation, `spendLimit` raises, usage polling, revocation of keys that overshoot, the reserve partition and the
+solvency invariant, a pending-credit queue when the organisation balance is stale, and a smoke script
+(`node apps/server/scripts/nearai-spike.ts`, < $0.001) to validate a funded organisation.
+
+**Switching on** means setting `NEARAI_AUTH_ACCOUNT`, `NEARAI_AUTH_KEY` and `FEATURE_REAL_CREDITS=1` on the server once the city
+reserve is funded. From then on every compile lands as real inference on the player's own key, and the "demo" badges disappear by
+themselves.
+
+---
+
+## 🌍 Play anywhere on Earth
+
+Paris is hand-built: `npm run build-world` turns OpenStreetMap extracts into 1 223 game nodes on an H3 grid. **Everywhere else**:
+1. When a player's **server-verified** position enters an unknown H3 resolution-7 cell (~5 km²), the server queues a region build.
+2. It queries **Overpass** (OpenStreetMap) for real POIs: fountains and statues → relays, cafés and shops → merchants, landmarks →
+   Forges (≥ 1 km apart), with caps per region.
+3. If Overpass hasn't answered in 8 s, a **deterministic procedural region** is served immediately; the real OSM region replaces it
+   when it arrives (within 15 min, if nobody has played there yet).
+4. Abuse bounds: generation only around a fresh server-side position (≤ 1 km, ≤ 5 min old), 300 regions/day globally,
+   12/day per network (/64 for IPv6), mirror fallbacks, kill switch `WORLD_ANYWHERE=0`.
+
+Night variants use local *solar* time, so the Codex works in Tokyo as well as in Paris.
+
+---
+
+## 🛡 Security, anti-cheat and solvency
+
+**Server-authoritative by design:** the client only sends *intents*. Positions, spawns, prices, inventory, XP and credits are all
+decided server-side.
+
+- **Spawns:** recomputed from `HMAC(SPAWN_SECRET, cell, window)`; catches keyed `(user, spawn)` → no double catch, no forged shard.
+  Catch attempts expire in 30 s and resolve no faster than 300 ms; a PERFECT rate above 40 % over 30 catches is downgraded to "good".
+- **Movement:** rolling 60 s speed > 25 km/h → *in transit* (actions paused); impossible jumps (> 200 km/h over > 1 km) → soft-lock,
+  flagged after 3 a day; action distance re-checked server-side; **proof of walk** (1.5 km of plausible segments ≤ 8 km/h at ≤ 30 m
+  accuracy) before a signed-in player can draw from the main pool.
+- **Trading:** quotes are single-use, short-lived and bound to the merchant's version (`PRICE_MOVED` if the market moved);
+  "buy then sell back" is provably a loss; haggling is bounded by a cost floor.
+- **Money:** compiles are serialized per player; the grant is reserved inside the burn transaction (no double spend under
+  concurrency); per-player, per-day and per-city caps; guests get exactly one First Compile (global cap 4/hour); judges' passes are
+  one per network per day and cannot sell; kill switch `POST /api/admin/forge/pause`.
+- **LLM safety:** no free-text player input ever reaches a merchant LLM; outputs are JSON-schema validated and clamped to
+  `AGENT_BOUNDS`; daily budgets; deterministic fallback.
+- **Web:** Origin check on every write, `SameSite=Lax` HttpOnly signed session cookie, strict CSP, per-route rate limits, daily quotas,
+  secrets encrypted at rest, `npm run check:secrets` scans the repo and its history.
+- **Privacy:** guests need no email; we keep the last position only (no route history); real players appear to others only as
+  cell-level anonymous walkers; **Delete my account** (About page) revokes the key and anonymizes everything.
+- **Honest limits:** browser GPS can be spoofed, so we **bound what cheating can earn** (caps, proof of walk, reserve partition)
+  instead of pretending to stop it. Player NEAR accounts are custodial.
+
+---
+
+## 🎨 Art direction, UX and game feel
+
+- **"Pixel Pop Paris":** pixel-art sprites (Sweetie 16 palette, ink outline) on a flat, colourful, daytime cartoon map. Every
+  in-game sprite (shards and their variants, 8 merchant archetypes, the avatar, the pigeon, relays, Forges, walkers) is a
+  **hand-written text grid** in [`apps/web/src/sprites/`](apps/web/src/sprites), rendered at runtime with no sprite sheet.
+  Splash art, logo and cover were made with an image model; no existing character is reproduced.
+- **Juice:** shrinking-ring lock-on with PERFECT flashes, combo flame, variant reveal, rolling counters, hold-to-compile with a
+  charge-up, a printed credit ticket, speech bubbles, event banners, chiptune sound effects synthesized with WebAudio, haptics on Android.
+- **Thumb-first:** every action sits at the bottom of the screen; one primary button always points at your current objective;
+  contextual targeting picks the shard, shop or Forge you are actually next to.
+- **Onboarding:** Margot, a grandma shopkeeper, guides the first five steps in one-line bubbles (skippable); the first loop
+  (catch → relay → trade → First Compile) takes about three minutes.
+- **Desktop:** the game opens inside a phone frame with an explainer panel and a **QR code** to continue on your phone.
+- **Accessibility:** large tap targets, readable fonts (Pixelify Sans for titles, Nunito for text), `prefers-reduced-motion`
+  respected for banners and the Lab animation.
+
+---
+
+## 🏗 Architecture
+
+```
+ Browser: React 19 + MapLibre GL (OpenFreeMap tiles), Zustand, Motion, sprites from text grids, Web Worker simulator
+   │  JSON over HTTPS + Server-Sent Events (same origin, no CORS)
+ Fastify 5 server: Node 24 + TypeScript, ONE process
+   ├─ game logic (actions, market, haggle, forge, codex, routes, events, regions, runners, walkers)
+   ├─ shared pure economy rules (packages/shared): same code as the simulator and the UI
+   ├─ SQLite (better-sqlite3, WAL, hand-written SQL, numbered migrations)
+   ├─ outbox ──► settler ──► NEP-245 contract on NEAR testnet (near-kit)
+   └─ NEAR AI Cloud: NEP-413 session → per-player API keys (spendLimit) · merchant brains · playground relay
+```
+
+| Folder | What |
+|---|---|
+| [`apps/web`](apps/web) | React app: map, HUD, catch, shops, haggle, Forge, credits & Playground, Codex, Proofs, `/pulse`, `/lab`, `/about` |
+| [`apps/server`](apps/server) | Fastify API, game logic, chain settler & reconcile, NEAR AI Cloud client, world generation, runner bots |
+| [`packages/shared`](packages/shared) | Types, **economy rules** and pure formulas, the simulator |
+| [`contracts/tokengo-mt`](contracts/tokengo-mt) | NEP-245 contract (Rust, near-sdk) |
+| [`data/world`](data/world) | Paris built from OpenStreetMap |
+| [`e2e`](e2e) | Playwright flows on a mobile viewport with simulated geolocation |
+| [`Docs`](Docs/00-INDEX.md) | The full design spec (vision, game design, economy, geo, architecture, blockchain, NEAR AI, security, UX, testing) and the decision log |
+
+**Deliberately boring infrastructure:** one container, one process, one SQLite file on a volume. No ORM, no micro-services, no
+heavy state framework. It deploys anywhere Docker runs (`Dockerfile` + `railway.json` included) and serves the built front itself.
+
+---
+
+## ✅ Quality: how we know it works
+
+| Check | Command | What it covers |
+|---|---|---|
+| **211 unit tests** | `npm test` | Economy invariants, pricing exploits (buy-then-sell), haggling bounds, Forge caps, reserve solvency, spawn determinism, anti-cheat, regions & Overpass fallback, API routes, settler idempotency, NEAR AI request shapes, NEP-413 |
+| **28 end-to-end flows** | `npm run e2e` | Real browser, mobile viewport, simulated GPS: onboarding, catch, relay, trade, haggle, Forge, credits, Codex, Daily Route, events, Remote Scout battery, play-anywhere, Pulse, Lab, account deletion… |
+| **Contract tests** | `cargo test` in `contracts/tokengo-mt` | Settlement, idempotency, events, transfers, views |
+| **Economy health** | `npm run sim` | 7-day simulations with health targets |
+| **One-shot verification** | `npm run verify` | Typecheck + unit tests + production build + headless e2e smoke, **no secrets needed** |
+| **Ledger** | `npm run reconcile` | On-chain balances vs database |
+| **Secrets** | `npm run check:secrets` | No secret in the repo or its history |
+
+The screenshots in [`docs-assets/shots`](docs-assets/shots) are produced by the e2e suite itself (`npm run shots`), and the demo
+video is recorded by Playwright and edited with ffmpeg (`npm run video`), so they always show the real game.
+
+---
+
+## 🛠 Run it yourself
+
+Requirements: Node ≥ 24, npm 11. No secret needed.
 ```bash
 npm install
 npm run build          # builds the web app (served by the server)
-npm run dev            # web http://localhost:5173 + API :8787 (credits simulated, chain off without .env)
+npm run dev            # web http://localhost:5173 + API :8787 (demo credits; chain off without .env)
 ```
-1. Open **http://localhost:5173/?demo=1** → **Remote Scout** → your pigeon lands at the Louvre with a starter kit; Margot, a merchant,
-   guides you in 5 one-line bubbles. Tap the map (or the big **Fly there** button) to fly; the battery recharges over time.
-2. A glowing **DeepSeek shard** is next to you: tap **Catch**, then tap when the shrinking ring hits the dashed circle → see the variant
-   reveal (Classic / Night / Landmark / Overclocked / Shiny) and the combo flame on PERFECTs. Bag › Codex shows your collection.
-3. Fly to a **Relay** (fountain icon) → swipe the disc → Flux + a shard.
-4. Fly to **Le Café Marly** (market stall; merchants shout their state in speech bubbles) → ⓘ **Why this price?** shows the exact formula
-   → buy 3+ shards → **Haggle**: play cards against the merchant's personality; "Your rival pays more" only works if it is *true*.
-5. Fly to the **Louvre Forge** → **First Compile** → hold → a credit ticket: **+$0.030 · ≈ 20 DeepSeek chats** (marked *simulated* without a
-   NEAR AI account) → **Share** makes a PNG card → **Try it now** → Playground → ask a question with your own key.
-6. The **Route** chip (bottom left) is today's Daily Route: 3–5 real stops nearby, same for everyone in the neighbourhood.
-7. Open **/lab** → scenario **DeepSeek flood** → **Simulate 1 week** → compared with the same week without the flood (−49 % on DeepSeek).
-8. Open **/pulse** → watch the live ticker while you trade in another tab. City events (flash crash, gold rush, forge hype, merchant
-   strike) start on their own during the day, or with `curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" -H "Origin: http://localhost:5173" localhost:8787/api/admin/event`.
-9. `npm test` → **211 unit tests** (economy invariants, haggling bounds, anti-cheat, pricing exploits, regions, API, chain settler, NEAR AI request shapes).
-10. `npm run verify` → tests + typecheck + build + headless e2e of the whole loop; `npm run e2e` runs all **28 flows** on a mobile viewport.
+Open **http://localhost:5173/?demo=1** → **Remote Scout**. Trigger a city event:
+`curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" -H "Origin: http://localhost:5173" localhost:8787/api/admin/event`.
 
-Other commands: `npm run sim -- --days 7 --players 200 --scenario flood-deepseek --seed 42` (economy simulator CLI, health checks),
-`npm run shots` (screenshots), `npm run video` (re-records the demo video with Playwright + ffmpeg), `npm run reconcile` (chain vs DB), `npm run check:secrets`.
+- **Turn on the chain:** copy `.env.example` to `.env` and set `NEAR_CONTRACT_ID`, `NEAR_OPERATOR_ID`, `NEAR_OPERATOR_KEY` (testnet).
+- **Turn on real credits:** `NEARAI_AUTH_ACCOUNT` + `NEARAI_AUTH_KEY` + `FEATURE_REAL_CREDITS=1`, then `node apps/server/scripts/nearai-spike.ts`.
+- **Production** also needs `MASTER_KEY` (32 bytes base64), `SESSION_SECRET`, `SPAWN_SECRET`, `TRUST_PROXY`, and optionally
+  `DEMO_TOKEN`, `ADMIN_TOKEN`, `GOOGLE_CLIENT_ID/SECRET`.
 
-## The game loop
-- **Walk (or scout).** Real GPS anywhere: outside Paris the server builds a region from OpenStreetMap around you (relays on real POIs,
-  shops on real cafés, forges on landmarks), with a deterministic procedural fallback while Overpass answers. Remote Scout is the
-  explained couch mode: server-enforced speed and battery.
-- **Catch.** Lock-on timing mini-game, combos, haptics, 25 cosmetic variants in the Codex (night, landmark, shiny…).
-- **Trade.** Every merchant has its own stock, so its own prices: walking is arbitrage (15–40 % gaps 600 m apart). Speech bubbles show
-  real state ("Closing soon… help!"). **Haggling** is a 3-round card game bounded to ±8 % and never below the merchant's cost floor.
-- **Live city.** 24 runner-agents walk the map and trade around the clock; real players appear as anonymous walkers (cell-level only);
-  server-wide **city events** move prices and spawns for 20–40 minutes; merchants go bankrupt and get rescued by players (Patrons).
-- **Come back.** Daily Route with streaks, daily Forge recipes, Codex completion, share cards.
-- **Forge.** The only door to real value: burn shards from several families/places → raise the spend limit of your own NEAR AI Cloud API key.
+**Deploy:** `Dockerfile` + `railway.json`: one service, SQLite on a volume mounted at `/data`, HTTPS required for browser GPS.
+On Railway the public domain is picked up automatically (`RAILWAY_PUBLIC_DOMAIN`). Serverless function hosts don't fit: the game
+needs a persistent SQLite file, background jobs and SSE.
 
-## How NEAR is used
-| Piece | What | Where |
-|---|---|---|
-| **NEP-245 multi-token** | One homemade contract for every item: `flux`, `shard:deepseek`, `shard:qwen`, `shard:gemini`, `shard:gpt`, `shard:claude`. Standard views + transfers, operator batch methods, idempotent `op_settle(ops, settlement_id)`, aggregated `EVENT_JSON` NEP-245 events. | [`contracts/tokengo-mt`](contracts/tokengo-mt) · deployed on **`tokengo.testnet`** ([explorer](https://testnet.nearblocks.io/address/tokengo.testnet)) |
-| **An account per player and per merchant** | Sub-accounts `p-…`/`m-…`/`r-….tokengo.testnet`, created lazily, keyless (custodial by the game operator — stated honestly; "export my account" is a planned stretch). | `apps/server/src/chain/accounts.ts` |
-| **Settlement** | Every value move is written to an outbox in the same SQLite transaction, then settled in batches every 8 s. **Before any real credit is granted, the Forge burn is settled on-chain** and its tx is shown as *Burn proof ↗*. Reconcile job compares on-chain balances with the DB. | `apps/server/src/chain/settler.ts`, `reconcile.ts` |
-| **Proofs** | Profile › Proofs: your account on the explorer, your settled ops, and **"Verify on-chain"** which calls `mt_batch_balance_of` from your browser. | web `Proofs` |
-| **NEAR AI Cloud — real credits** | The game holds a NEAR AI organisation (session obtained by **NEP-413** signature). Each player gets their own API key with a `spendLimit`; Forge payouts raise that limit. Solvency invariant checked before every grant: `Σ(limit − usage) + overshoot × keys + NPC budget + safety ≤ org balance`. | `apps/server/src/nearai/`, `game/reserve.ts` |
-| **NEAR AI Cloud — merchant brains** | Merchants think with a cheap TEE model (`z-ai/glm-5.3-flash`), JSON schema output, clamped, ≤ 150 calls/day, deterministic fallback. | `nearai/brain.ts`, `economy/agent.ts` |
-| **Private inference** | Playground models include TEE-verifiable ones (badged). | Credits screen |
+Other commands: `npm run sim`, `npm run shots`, `npm run video`, `npm run build-world`, `npm run reconcile`, `npm run check:secrets`.
 
-The words *blockchain, wallet, gas, transaction* never appear in the game loop — only in Proofs and Pulse › On-chain.
+---
 
-## Economy rules (one readable file)
-All constants live in [`packages/shared/src/economy/rules.ts`](packages/shared/src/economy/rules.ts); formulas are pure functions next to
-it (`pricing.ts`, `market.ts`, `forge.ts`, `reserve.ts`, `spawns.ts`, `agent.ts`), shared by the server, the simulator and the UI.
-- **Price:** `mid = P0 × clamp((target/stock)^1.1, 0.35, 3)`; buy/sell = `mid × (1 ∓ spread)`, each unit valued at the stock *after* the
-  trade → buying then selling back always loses (tested on 500 random draws).
-- **Merchant life (hourly):** imports when low (Flux sink), the city buys surplus (income that scales with activity), rent only when
-  active; till < 150 ƒ → *closing* (2 h) → *closed*; players rescue it back to 600 ƒ → reopens, top contributor becomes Patron.
-- **Reference price:** `P0` drifts toward `P0₀ × median scarcity` (Paris Shard Index), bounded to 0.6–1.4 × P0₀.
-- **Forge payout:** `min(pool × 0.4 % × weight, player cap $0.25/24 h, city cap 5.5 %/day)` → geometric decay, never zero.
-- **Health targets** (checked by the simulator and a test): merchant prices within 0.6–1.8 × P0, ≥ 15 % price gap between nearby
-  merchants, ≥ 10 % of merchants struggle in a week but ≤ 30 % closed, Main pool drains ≤ 35 %/week.
-Full design: [`Docs/03-economy.md`](Docs/03-economy.md).
+## 🗺 Roadmap
+1. **Real credits on:** fund the city reserve and flip `FEATURE_REAL_CREDITS`; every compile becomes real inference on the player's key.
+2. **NEAR mainnet:** same contract, same settler; then **"export my account"**, handing players the keys to their sub-account
+   (optional self-custody for those who want it).
+3. **Seasons & cities:** hand-tuned showcase cities beyond Paris, seasonal Codex variants, city-vs-city events.
+4. **Player-owned shops:** open your own shop on a real café, set your spreads within the rules, earn from the flow.
+5. **Teams & raids:** co-op Forge recipes that need several players at the same monument.
+6. **Native wrappers:** background location and push notifications ("a shop near you is closing!").
 
-## Security & anti-cheat (and honest limits)
-- Server-authoritative: the client only sends intents. Spawns are deterministic (`HMAC(secret, cell, window)`) and recomputed server-side;
-  quotes are single-use and bound to the merchant version (`PRICE_MOVED`); catches are keyed `(user, spawn)`.
-- Movement: rolling 60 s speed → *in transit* (actions paused); impossible jumps → soft-lock + flag; action distance re-checked
-  server-side; proof of walk (1.5 km) for Google accounts before the Main pool.
-- Money: guests get one $0.03 First Compile (global cap 4/hour); only judge passes (`DEMO_TOKEN`, one per IP per day, cannot sell)
-  draw from the Judge pool; Google accounts need 1.5 km of proof of walk for the Main pool; compiles are serialized per player and
-  grants reserved inside the burn transaction (no double-spend under concurrency); per-player/day/city caps; kill switch
-  `POST /api/admin/forge/pause`.
-- Web: Origin check on every write, `SameSite=Lax` HttpOnly session cookie, strict CSP, rate limits per route, daily quotas,
-  keys encrypted at rest (AES-256-GCM), no free-text input ever reaches the merchant LLM.
-- **Limits:** browser GPS can be spoofed; we bound what cheating earns rather than pretend to stop it. Player NEAR accounts are custodial.
+---
 
-## Architecture
-```
- Browser (React + MapLibre, pixel sprites drawn from text grids, Web Worker simulator)
-   │  JSON + SSE (same origin)
- Fastify server (Node 24, TypeScript, 1 process) ── SQLite (WAL) ── outbox ──► settler ──► NEP-245 contract (NEAR testnet)
-   │                                                                 
-   ├─ shared pure economy rules (packages/shared) — also used by the simulator & UI
-   ├─ runner-agents + merchant reflections (jobs)
-   └─ NEAR AI Cloud: NEP-413 session → per-player API keys (spendLimit) · merchant brain · playground relay
-```
-```
-apps/web        React app (map, screens, Lab, Pulse, Proofs)       apps/server   Fastify API, game logic, chain, NEAR AI
-packages/shared types + economy rules + simulator                  contracts/tokengo-mt   NEP-245 contract (Rust)
-data/world      Paris nodes built from OpenStreetMap               e2e/          Playwright specs     Docs/  full spec
-```
-
-## Run with real credits and chain
-Copy `.env.example` to `.env`:
-- **Chain:** `NEAR_CONTRACT_ID`, `NEAR_OPERATOR_ID`, `NEAR_OPERATOR_KEY` (testnet) → settlement on.
-- **Real credits:** `NEARAI_AUTH_ACCOUNT` + `NEARAI_AUTH_KEY` (a mainnet account's full-access key, used only to sign NEP-413 login
-  messages) → `node apps/server/scripts/nearai-spike.ts` checks everything for < $0.001.
-- `MASTER_KEY` (32 bytes base64), `SESSION_SECRET`, `SPAWN_SECRET`, `TRUST_PROXY` (proxy hops, 1 on Railway/Fly), optional `GOOGLE_CLIENT_ID/SECRET`, `DEMO_TOKEN`, `ADMIN_TOKEN`.
-
-**Deploy:** `Dockerfile` + `railway.json` (one container, SQLite on a volume at `/data`). HTTPS is required for browser geolocation.
-Serverless hosts (e.g. Vercel functions) don't fit: the game needs a persistent SQLite file, background jobs and SSE.
-
-## Hackathon disclosure
-- **Built during the hackathon, from scratch:** first commit 2026-11-06 (spec only), all code written between 2026-11-06 and 2026-11-14.
-  There is no pre-hackathon code and no existing product on another chain. The submitted state is tagged `hackathon-submission`.
+## 📜 Hackathon disclosure
+- **Built during the hackathon, from scratch:** the first commit (2026-11-06) contains only the spec; all code was written during the
+  event. No pre-hackathon code, no existing product on another chain. The submitted state is tagged `hackathon-submission`.
 - **AI-generated code:** most of the code, tests and docs were written with AI coding agents (Claude Code, Anthropic) under the
   direction of the solo developer; the full design spec and every decision are in [`Docs/`](Docs/00-INDEX.md). Splash, logo, cover and
-  icons were generated with an image model (Codex imagegen); the in-game pixel sprites are hand-written text grids in `apps/web/src/sprites/`.
+  icons were generated with an image model (Codex imagegen); the in-game pixel sprites are hand-written text grids.
+- **Demo season:** AI credits on the public server are simulated (see above); the NEAR testnet settlement is real.
 - **Data:** map data © OpenStreetMap contributors (ODbL), tiles © OpenFreeMap / OpenMapTiles.
-- **Libraries:** React, React DOM, Vite, MapLibre GL, Zustand, Motion, clsx, lucide-react, @fontsource (Pixelify Sans, Nunito), Fastify
-  (+ @fastify/cookie, rate-limit, static), better-sqlite3, zod, h3-js, near-kit, @noble/hashes, @noble/curves, arctic;
+- **Libraries:** React, React DOM, Vite, MapLibre GL, Zustand, Motion, clsx, lucide-react, qrcode-generator, @fontsource (Pixelify Sans,
+  Nunito), Fastify (+ @fastify/cookie, rate-limit, static), better-sqlite3, zod, h3-js, near-kit, @noble/hashes, @noble/curves, arctic;
   contract: near-sdk (Rust), cargo-near; tooling: TypeScript, Vitest, Playwright, sharp, ffmpeg. No game template was used.
 
 ## License

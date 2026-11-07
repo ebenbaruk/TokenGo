@@ -178,7 +178,7 @@ export function Hud({ onAction }: { onAction: (t: Target) => void }) {
               <span className={s.resLabel}>Reserve</span>
               <span className={s.resBar}>{Array.from({ length: 5 }, (_, i) => <i key={i} className={i < Math.round(reserve.health * 5) ? s.on : ''} />)}</span>
               <span className="num">{fmtUsd(reserve.mainAvailNusd, 2)}</span>
-              {reserve.simulated ? <span className={s.sim}>sim</span> : null}
+              {reserve.simulated ? <span className={s.sim}>demo</span> : null}
             </Pill>
           ) : null}
           <ModeBadge demo={demo} />

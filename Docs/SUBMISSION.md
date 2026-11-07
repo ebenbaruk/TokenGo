@@ -24,8 +24,8 @@ Règles : https://nearhackathon.com/HACKATHON.md (relire juste avant d'envoyer).
      et, si tu as fait l'étape 2, `NEARAI_*` + `FEATURE_REAL_CREDITS=1`.
    - Vérifier : `https://<domaine>/healthz` → `"ok":true,"invariantOk":true`. Ouvrir le site sur ton iPhone.
    - Coût : ~5 $/mois (plan Hobby) ; garder en ligne jusqu'au 25/11.
-2. **(Recommandé) Crédits réels NEAR AI** : `Docs/HUMAN-TODO.md` 1–3 (compte mainnet + ~10 € de crédits), puis en local
-   `node apps/server/scripts/nearai-spike.ts` (< $0.001). Sans ça, la démo publique tourne en crédits *simulés* (jouable, badge « sim »).
+2. **Saison démo (décision du propriétaire, 2026-11-07)** : crédits IA **simulés** (pas de `NEARAI_*`), chaîne testnet **active** (`NEAR_*` sur Railway).
+   Le jeu, le README et le texte de soumission l'annoncent (« Demo season »). Pour activer plus tard : `NEARAI_*` + `FEATURE_REAL_CREDITS=1`.
 3. **Rendre le repo public** : GitHub → Settings → Change visibility → Public. Puis `git tag hackathon-submission && git push --tags`.
 4. **Post X** : texte ci-dessous + la vidéo `docs-assets/video/tokengo-demo.mp4` (ou la version portrait). Publier, copier le lien du post.
 5. **Soumettre** :
@@ -43,12 +43,12 @@ Règle Q-015 : si tu soumets un **autre** projet à ce même hackathon, chaque R
 
 ## Post X (l'humain publie)
 ```
-I built a game where the loot is real AI compute 🗺️⚡
+I built a game where the loot is AI compute 🗺️⚡
 
 TokenGo: walk your city, catch shards of Claude, GPT, DeepSeek, Gemini & Qwen, haggle with AI shopkeepers whose prices follow real supply & demand, then forge them into a real AI API key.
 
 Built at NEAR HACKATHON #NEARHackathon @NEARProtocol
-▶️ <URL Railway> · 💻 github.com/ebenbaruk/TokenGo
+▶️ tokengo-production-195c.up.railway.app · 💻 github.com/ebenbaruk/TokenGo
 ```
 (≤ 280 caractères hors liens courts ; joindre la vidéo. @NearLegion / @NearBuilders facultatifs.)
 

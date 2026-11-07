@@ -148,8 +148,8 @@ export function ForgeScreen({ node, onClose }: { node: NodeView; onClose: () => 
       ) : res ? (
         <div className={s.ticketWrap}>
           <div className={s.ticket} data-testid="credit-ticket">
-            {res.simulated ? <span className={s.simBadge}>simulated</span> : null}
-            <div className={s.ticketLabel}>{res.payoutNusd > 0 ? 'Compiled. This is real compute now.' : 'Compiled!'}</div>
+            {res.simulated ? <span className={s.simBadge}>demo credits</span> : null}
+            <div className={s.ticketLabel}>{res.payoutNusd > 0 ? (res.simulated ? 'Compiled! Demo credits for now.' : 'Compiled. This is real compute now.') : 'Compiled!'}</div>
             <div className={s.amount}>{res.payoutNusd > 0 ? `+${fmtUsd(res.payoutNusd)}` : `+${res.xp} XP`}</div>
             {res.payoutNusd > 0 ? (
               <ul className={s.equiv}>
@@ -157,6 +157,7 @@ export function ForgeScreen({ node, onClose }: { node: NodeView; onClose: () => 
                 {res.equiv.tokens.slice(0, 3).map((t) => <li key={t.model}>≈ {formatTokens(t.tokens)} {t.label} tokens</li>)}
               </ul>
             ) : null}
+            {res.simulated && res.payoutNusd > 0 ? <div className={s.pendingTicket} data-testid="ticket-demo">Demo season: this payout is simulated. The burn is real and on-chain; real NEAR AI credits switch on after the hackathon.</div> : null}
             {res.pending ? <div className={s.pendingTicket} data-testid="ticket-pending">Credit pending — it reaches your key automatically within minutes.</div> : null}
             {res.note ? <div className={s.note2}>{res.note}</div> : null}
             <div className={s.ticketXp}><Sprite def={XP_STAR} scale={2} /> +{res.xp} XP</div>

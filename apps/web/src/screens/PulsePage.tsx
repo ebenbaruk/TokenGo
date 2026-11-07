@@ -97,7 +97,7 @@ export default function PulsePage() {
           <LivingCard pulse={pulse} />
           <div className={s.kpis}>
             <Card testId="pulse-reserve">
-              <div className={s.kTitle}>City Reserve {pulse?.reserve.simulated ? <span className={s.sim}>simulated</span> : null}</div>
+              <div className={s.kTitle}>City Reserve {pulse?.reserve.simulated ? <span className={s.sim}>demo</span> : null}</div>
               <div className={s.big}>{pulse ? fmtUsd(pulse.reserve.mainAvailNusd, 2) : '—'}</div>
               <Gauge value={pulse?.reserve.mainAvailNusd ?? 0} max={pulse?.reserve.mainInitialNusd ?? 1} color="var(--teal)" height={14} />
               <div className={s.kSub}>{pulse ? `${Math.round(pulse.reserve.health * 100)} % health${pulse.reserve.forgePaused ? ' · forges paused' : ''}` : 'loading…'}</div>

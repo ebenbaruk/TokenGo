@@ -25,7 +25,8 @@ if (!existsSync(path)) {
   process.exit(1);
 }
 const input = JSON.parse(readFileSync(path, 'utf8')) as Partial<Fields>;
-const links = [input.playUrl ? `Play: ${input.playUrl}` : '', input.judgeLink ? `Judges' pass (level-7 account, real credits): ${input.judgeLink}` : ''].filter(Boolean).join(' · ');
+const playUrl = input.playUrl ?? 'https://tokengo-production-195c.up.railway.app';
+const links = [playUrl ? `Play: ${playUrl}` : '', input.judgeLink ? `Judges' pass (level-7 account, full bag): ${input.judgeLink}` : ''].filter(Boolean).join(' · ');
 const idea = [input.idea ?? readFileSync('scripts/submission-idea.txt', 'utf8').trim(), links].filter(Boolean).join('\n\n');
 
 mkdirSync('var', { recursive: true });
