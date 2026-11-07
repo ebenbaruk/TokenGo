@@ -1,9 +1,9 @@
 // Actions de la boucle 30 s / 5 min : déplacement, monde visible, capture, sync de relais.
 import { gridDisk } from 'h3-js';
 import {
-  CATCH, FAMILY_INFO, LIVING, RELAY, WORLD_GEN, XP, eventSpawnsForCell, merchantBubble, applyMove, canActAt, catchParams, catchXp, haversineM, missingFor, nextCombo, offsetM,
-  randInt, recipesFor, resolveCatch, rngFrom, shardToken, spawnWindow, spawnsForCell, weightedPick, familyWeights,
-  type ActionTarget, type CatchResolveResponse, type CatchStartResponse, type Family, type MoveRequest, type MoveResponse,
+  CATCH, DECODE, FAMILY_INFO, LIVING, RELAY, WORLD_GEN, XP, eventSpawnsForCell, merchantBubble, applyMove, canActAt, catchParams, catchXp, haversineM, missingFor, nextCombo, offsetM,
+  judgeTap, randInt, recipesFor, resolveCatch, rngFrom, shardToken, spawnWindow, spawnsForCell, weightedPick, familyWeights,
+  type ActionTarget, type CatchResolveResponse, type CatchStartResponse, type DecodeAnswerResponse, type DecodeView, type Family, type MoveRequest, type MoveResponse,
   type NodeView, type Objective, type SpawnView, type SyncResponse, type WorldResponse,
 } from '@tokengo/shared';
 import type { Ctx } from './context.ts';
@@ -19,8 +19,10 @@ import { reserveHealth, scoutHop } from '@tokengo/shared';
 import { assertQuota, bumpQuota } from './quotas.ts';
 import { recordCatchVariant, routeCheckin, routeFor } from './codex.ts';
 import { activeEvent, eventById, eventView } from './events.ts';
-import { arenaOnCatch } from './mastery.ts'; // Arène (Docs/13 §2) : maîtrise à la capture
+import { addMastery, arenaOnCatch } from './mastery.ts'; // Arène (Docs/13 §2) : maîtrise à la capture
 import { arenaBadge } from './arena.ts';      // Arène (Docs/13 §4) : couronne / bouclier des forges
+// Décodage (Docs/13 §3) : import direct — la banque de questions n'est pas dans l'index du paquet partagé (bundle web)
+import { decodePublic, decodeRequired, judgeDecode, pickDecode, type DecodeChallenge } from '@tokengo/shared/economy/decode.ts';
 
 const TUTORIAL_SPAWN = (userId: string) => `tut:${userId}`;
 
@@ -183,20 +185,32 @@ function objective(ctx: Ctx, u: UserRow, lat: number, lng: number): Objective | 
 }
 
 // ───── Capture ─────
-interface Attempt { id: string; userId: string; spawn: SpawnView; startedAt: number }
+/**
+ * Tentative de capture, en mémoire (TTL court). `phase` : 'lock' = Lock-on en cours ; 'decode' = Lock-on réussi sur un
+ * Rare/Épique, Décodage obligatoire en attente (l'éclat n'est pas encore donné) ; 'bonus' = commun capturé, Décodage
+ * bonus disponible (Docs/13 §3).
+ */
+interface Attempt {
+  id: string; userId: string; spawn: SpawnView; startedAt: number; expiresAt: number;
+  phase: 'lock' | 'decode' | 'bonus';
+  triesUsed: number;              // taps consommés par les Lock-on précédents de cette tentative
+  lastResolveAt: number;
+  decode?: PendingDecode;
+}
 const attempts = new Map<string, Attempt>();
 
 export function catchStart(ctx: Ctx, userId: string, spawnId: string): CatchStartResponse {
   const u = getUser(ctx, userId)!;
   const spawn = findSpawn(ctx, u, spawnId);
   if (!spawn) fail('EXPIRED', 'This shard has faded away.');
+  const now = ctx.now();
+  settleAbandoned(ctx, userId, spawnId, now); // Décodage (Docs/13 §3)
   if (ctx.db.prepare('SELECT 1 FROM catches WHERE user_id = ? AND spawn_id = ?').get(userId, spawnId)) fail('ALREADY_CAUGHT', 'Already caught.');
   assertCanAct(ctx, u, 'spawn', spawn!);
   assertQuota(ctx, userId, 'catch');
-  const now = ctx.now();
-  for (const [k, a] of attempts) if (now - a.startedAt > CATCH.attemptTtlMs) attempts.delete(k);
+  for (const [k, a] of attempts) if (now > a.expiresAt) attempts.delete(k);
   const id = rngFrom(ctx.cfg.SESSION_SECRET, 'attempt', userId, spawnId, now)().toString(36).slice(2) + now.toString(36);
-  attempts.set(id, { id, userId, spawn: spawn!, startedAt: now });
+  attempts.set(id, { id, userId, spawn: spawn!, startedAt: now, expiresAt: now + CATCH.attemptTtlMs, phase: 'lock', triesUsed: 0, lastResolveAt: now });
   const p = catchParams(spawn!.family);
   return { attemptId: id, family: spawn!.family, ringMs: p.ringMs, perfectPct: p.perfectPct, goodPct: p.goodPct, tries: p.tries };
 }
@@ -204,18 +218,33 @@ export function catchStart(ctx: Ctx, userId: string, spawnId: string): CatchStar
 export function catchResolve(ctx: Ctx, userId: string, attemptId: string, offsets: number[]): CatchResolveResponse {
   const a = attempts.get(attemptId);
   const now = ctx.now();
-  if (!a || a.userId !== userId || now - a.startedAt > CATCH.attemptTtlMs) fail('EXPIRED', 'Too slow — the shard drifted away.');
-  attempts.delete(attemptId);
-  if (now - a!.startedAt < CATCH.minResolveMs) fail('BAD_REQUEST', 'Too fast.');
+  if (!a || a.userId !== userId || now > a.expiresAt || a.phase !== 'lock') fail('EXPIRED', 'Too slow — the shard drifted away.');
+  if (now - a!.lastResolveAt < CATCH.minResolveMs) { attempts.delete(attemptId); fail('BAD_REQUEST', 'Too fast.'); }
   const spawn = a!.spawn;
   const recent = ctx.db.prepare('SELECT quality FROM catches WHERE user_id = ? ORDER BY at DESC LIMIT ?').all(userId, CATCH.perfectCapWindow) as { quality: string }[];
   const perfects = recent.filter((r) => r.quality === 'perfect').length;
-  const rng = rngFrom(ctx.cfg.SPAWN_SECRET, 'catch', userId, spawn.id);
+  // relance après un Décodage raté : graine distincte (sinon même tirage) et essais restants seulement
+  const rng = a!.triesUsed
+    ? rngFrom(ctx.cfg.SPAWN_SECRET, 'catch', userId, spawn.id, a!.triesUsed)
+    : rngFrom(ctx.cfg.SPAWN_SECRET, 'catch', userId, spawn.id);
+  const taps = offsets.filter((o) => typeof o === 'number').slice(0, CATCH.maxTries - a!.triesUsed);
   // le tutoriel est indulgent : la capture réussit toujours
   const isTut = spawn.id.startsWith('tut:');
-  let res = resolveCatch(spawn.family, offsets.filter((o) => typeof o === 'number').slice(0, 3), rng, perfects, recent.length);
+  let res = resolveCatch(spawn.family, taps, rng, perfects, recent.length);
   if (isTut && (res.result === 'miss' || res.result === 'fled')) res = { result: 'good', bonus: false };
-  return grantCatch(ctx, userId, spawn, res, now);
+  // Décodage obligatoire (Rare / Épique, Docs/13 §3) : rien n'est donné tant que le bon jeton n'est pas choisi
+  if ((res.result === 'perfect' || res.result === 'good') && !isTut && decodeRequired(spawn.family)) {
+    const p = catchParams(spawn.family);
+    return askDecode(ctx, a!, res, taps.findIndex((o) => judgeTap(o, p) !== 'miss') + 1, now);
+  }
+  attempts.delete(attemptId);
+  const out = grantCatch(ctx, userId, spawn, res, now);
+  // Décodage bonus (Commun / Peu commun) : proposé après la capture, jamais au tutoriel
+  if ((out.result === 'perfect' || out.result === 'good') && !isTut && !decodeRequired(spawn.family)) {
+    offerBonusDecode(a!, now);
+    return { ...out, bonusDecode: { id: attemptId } };
+  }
+  return out;
 }
 
 type CatchOutcome = ReturnType<typeof resolveCatch>;
@@ -238,15 +267,159 @@ function grantCatch(ctx: Ctx, userId: string, spawn: SpawnView, res: CatchOutcom
     const combo = nextCombo(u.combo, u.last_catch_at, now);
     ctx.db.prepare('UPDATE users SET combo = ?, last_catch_at = ?, best_combo = MAX(best_combo, ?) WHERE id = ?').run(combo, now, combo, userId);
     // variante cosmétique (Codex) : ne change rien à l'inventaire ; XP de découverte une fois par case
-    const codex = recordCatchVariant(ctx, userId, spawn, res.result === 'perfect', combo, now);
+    // Décodage bonus réussi avant (Docs/13 §3) : chance de Shiny doublée sur CETTE capture, puis consommée
+    const lucky = consumeLucky(ctx, u);
+    const codex = recordCatchVariant(ctx, userId, spawn, res.result === 'perfect', combo, now, lucky ? DECODE.luckyShinyMult : 1);
     const xp = catchXp(res.result === 'perfect', combo) + codex.xp;
     const levelUp = addXp(ctx, userId, xp);
     markTutorial(ctx, userId, 'caught');
-    return { result: res.result, family: spawn.family, qty, xp, combo, levelUp, me: meView(ctx, userId), codex };
+    return { result: res.result, family: spawn.family, qty, xp, combo, levelUp, me: meView(ctx, userId), codex, ...(lucky ? { lucky } : {}) };
   })();
 }
 
-/** Capture d'un runner-agent : mêmes contrôles serveur (éclat réel, distance, quota, unicité), mini-jeu court-circuité (« good »). */
+// ───── Décodage « Next token » (Docs/13 §3) ─────
+// Question tirée par le serveur (graine HMAC(spawn, joueur, essai)), choix mélangés à ids opaques, réponse gardée ici ;
+// délai mesuré côté serveur depuis l'envoi (+ DECODE.networkGraceMs). Une seule réponse par question.
+interface PendingDecode { ch: DecodeChallenge; issuedAt: number; outcome?: CatchOutcome; used?: number }
+
+function challengeFor(ctx: Ctx, a: Attempt, kind: 'required' | 'bonus'): DecodeChallenge {
+  return pickDecode(a.spawn.family, rngFrom(ctx.cfg.SPAWN_SECRET, 'decode', kind, a.userId, a.spawn.id, a.triesUsed));
+}
+const viewOf = (a: Attempt): DecodeView => ({ id: a.id, ...decodePublic(a.decode!.ch) });
+/** Laisse le temps de répondre (délai + tolérance + marge) même en fin de TTL. */
+const answerWindow = (ch: DecodeChallenge) => ch.timeMs + DECODE.networkGraceMs + 1000;
+
+/** Lock-on réussi sur un Rare/Épique : la tentative attend le Décodage, l'éclat n'est pas donné. `used` = taps consommés. */
+function askDecode(ctx: Ctx, a: Attempt, res: CatchOutcome, used: number, now: number): CatchResolveResponse {
+  a.phase = 'decode';
+  a.decode = { ch: challengeFor(ctx, a, 'required'), issuedAt: now, outcome: res, used };
+  a.expiresAt = Math.max(a.expiresAt, now + answerWindow(a.decode.ch));
+  const u = getUser(ctx, a.userId)!;
+  return {
+    result: 'decode', family: a.spawn.family, qty: 0, xp: 0, combo: u.combo, levelUp: null, me: meView(ctx, a.userId),
+    lock: res.result === 'perfect' ? 'perfect' : 'good', decode: viewOf(a),
+  };
+}
+
+/** Commun capturé : la tentative reste en vie (60 s) pour un Décodage bonus, dont le chrono part à l'ouverture. */
+function offerBonusDecode(a: Attempt, now: number) {
+  a.phase = 'bonus';
+  a.expiresAt = now + DECODE.bonusOpenTtlMs;
+  a.decode = undefined;
+  attempts.set(a.id, a);
+}
+
+/** Tentative du joueur ; celle d'un autre est invisible (même erreur qu'une tentative expirée) et reste intacte. */
+function ownAttempt(ctx: Ctx, userId: string, attemptId: string): Attempt {
+  const a = attempts.get(attemptId);
+  if (!a || a.userId !== userId || ctx.now() > a.expiresAt) fail('EXPIRED', 'Too slow — the shard drifted away.');
+  return a!;
+}
+
+/** POST /api/catch/:attemptId/decode/open — démarre le chrono du Décodage bonus et envoie la question. */
+export function decodeOpen(ctx: Ctx, userId: string, attemptId: string): DecodeView {
+  const a = ownAttempt(ctx, userId, attemptId);
+  if (a.phase !== 'bonus' || a.decode) fail('NO_DECODE', 'No decode waiting here.');
+  const now = ctx.now();
+  a.decode = { ch: challengeFor(ctx, a, 'bonus'), issuedAt: now };
+  a.expiresAt = now + answerWindow(a.decode.ch);
+  return viewOf(a);
+}
+
+/** POST /api/catch/:attemptId/decode — une seule réponse par question, jugée avec l'horloge du serveur. */
+export function decodeAnswer(ctx: Ctx, userId: string, attemptId: string, choiceId: string | null): DecodeAnswerResponse {
+  const a = ownAttempt(ctx, userId, attemptId);
+  const d = a.decode;
+  if (!d || a.phase === 'lock') fail('NO_DECODE', 'No decode waiting here.');
+  const now = ctx.now();
+  const verdict = judgeDecode(d!.ch, choiceId, now - d!.issuedAt);
+  const correctId = d!.ch.correctId;
+  a.decode = undefined; // question consommée avant tout le reste : pas de deuxième réponse
+
+  if (a.phase === 'bonus') {
+    attempts.delete(attemptId);
+    if (verdict !== 'correct') return { verdict, correctId, kind: 'bonus', bonus: { xp: 0, luckyNext: false, levelUp: null, me: meView(ctx, userId) } };
+    return ctx.db.transaction((): DecodeAnswerResponse => {
+      const u = getUser(ctx, userId)!;
+      const flags = JSON.parse(u.flags) as Record<string, unknown>;
+      flags.luckyDecode = 1; // non cumulable : un seul cran, consommé à la prochaine capture réussie
+      ctx.db.prepare('UPDATE users SET flags = ? WHERE id = ?').run(JSON.stringify(flags), userId);
+      const levelUp = addXp(ctx, userId, DECODE.bonusXp);
+      addMastery(ctx, userId, { [a.spawn.family]: DECODE.masteryBonus }); // maîtrise +5 (Docs/13 §2)
+      return { verdict, correctId, kind: 'bonus', bonus: { xp: DECODE.bonusXp, luckyNext: true, levelUp, me: meView(ctx, userId) } };
+    })();
+  }
+
+  // Décodage obligatoire : bon jeton → capture donnée exactement comme un Lock-on réussi (XP, PERFECT, combo, variante, Codex)
+  if (verdict === 'correct') {
+    attempts.delete(attemptId);
+    const caught = ctx.db.transaction(() => {
+      const c = grantCatch(ctx, userId, a.spawn, d!.outcome!, now);
+      addMastery(ctx, userId, { [a.spawn.family]: DECODE.masteryBonus }); // maîtrise +5 (Docs/13 §2)
+      return c;
+    })();
+    return { verdict, correctId, kind: 'required', catch: caught };
+  }
+  return { verdict, correctId, kind: 'required', catch: hallucinate(ctx, a, d!.used ?? 1, now) };
+}
+
+/**
+ * « Hallucination » (mauvais jeton, délai dépassé ou question abandonnée) : même probabilité de fuite qu'un tap raté
+ * (graine HMAC), sinon le Lock-on reprend sur la même tentative avec les essais restants.
+ */
+function hallucinate(ctx: Ctx, a: Attempt, used: number, now: number): CatchResolveResponse {
+  a.triesUsed += used;
+  const flee = CATCH.fleeAfterMiss[FAMILY_INFO[a.spawn.family].rarity];
+  if (rngFrom(ctx.cfg.SPAWN_SECRET, 'decode-flee', a.userId, a.spawn.id, a.triesUsed)() < flee) {
+    attempts.delete(a.id);
+    return grantCatch(ctx, a.userId, a.spawn, { result: 'fled' }, now);
+  }
+  const triesLeft = CATCH.maxTries - a.triesUsed;
+  if (triesLeft <= 0) {
+    attempts.delete(a.id);
+    return grantCatch(ctx, a.userId, a.spawn, { result: 'miss' }, now);
+  }
+  a.phase = 'lock';
+  a.decode = undefined;
+  a.lastResolveAt = now;
+  a.expiresAt = Math.max(a.expiresAt, now + CATCH.attemptTtlMs / 2); // le temps de jouer les essais restants
+  const u = getUser(ctx, a.userId)!;
+  return { result: 'miss', family: a.spawn.family, qty: 0, xp: 0, combo: u.combo, levelUp: null, me: meView(ctx, a.userId), triesLeft };
+}
+
+/**
+ * Relancer une capture en laissant une question obligatoire sans réponse compte comme une hallucination :
+ * on n'esquive pas le risque de fuite en fermant l'écran.
+ */
+function settleAbandoned(ctx: Ctx, userId: string, spawnId: string, now: number) {
+  for (const a of [...attempts.values()]) {
+    if (a.userId !== userId || a.spawn.id !== spawnId || a.phase !== 'decode' || !a.decode) continue;
+    const r = hallucinate(ctx, a, a.decode.used ?? 1, now);
+    attempts.delete(a.id);
+    if (r.result === 'fled') fail('EXPIRED', 'It hallucinated and drifted away.');
+  }
+}
+
+/** Lit et consomme le cran de chance du Décodage bonus (dans la transaction de la capture). */
+function consumeLucky(ctx: Ctx, u: UserRow): boolean {
+  const flags = JSON.parse(u.flags) as Record<string, unknown>;
+  if (!flags.luckyDecode) return false;
+  delete flags.luckyDecode;
+  ctx.db.prepare('UPDATE users SET flags = ? WHERE id = ?').run(JSON.stringify(flags), u.id);
+  return true;
+}
+
+/** Tests seulement (route montée si NODE_ENV=test, jeton admin) : bonne réponse d'une question en attente. */
+export function decodeAnswerForTest(attemptId: string): string | null {
+  return attempts.get(attemptId)?.decode?.ch.correctId ?? null;
+}
+// ───── fin Décodage ─────
+
+/**
+ * Capture d'un runner-agent : mêmes contrôles serveur (éclat réel, distance, quota, unicité), mini-jeu court-circuité (« good »).
+ * Décodage (Docs/13 §3) : les runners ne le jouent pas — ni obligatoire sur les Rares/Épiques, ni bonus. Leur taux de
+ * réussite reste celui d'aujourd'hui (Lock-on déjà court-circuité) ; ils n'ont jamais l'XP ni la chance du bonus.
+ */
 export function agentCatch(ctx: Ctx, userId: string, spawnId: string): CatchResolveResponse {
   const u = getUser(ctx, userId)!;
   if (!u.is_agent) fail('FORBIDDEN', 'Agents only.', 403);

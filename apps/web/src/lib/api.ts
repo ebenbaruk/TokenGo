@@ -4,6 +4,7 @@ import type {
   SyncResponse, MerchantView, QuoteRequest, QuoteResponse, TradeResponse, ForgeView, CompileRequest, CompileResponse, CreditsView,
   PulseResponse, PublicConfig, LeaderboardsResponse, LabSnapshot, CodexView, HaggleCard, HaggleView, HaggleDealResponse,
   ArenaView, ArenaStartResponse, ArenaPlayResponse, Family, Technique,
+  DecodeView, DecodeAnswerResponse,
 } from '@tokengo/shared';
 
 export class ApiFail extends Error {
@@ -112,6 +113,9 @@ export const api = {
   walkers: (lat: number, lng: number) => req<WalkersResponse>('GET', `/api/walkers?lat=${lat.toFixed(5)}&lng=${lng.toFixed(5)}`),
   catchStart: (spawnId: string) => req<CatchStartResponse>('POST', '/api/catch/start', { spawnId }),
   catchResolve: (b: CatchResolveRequest) => req<CatchResolveResponse>('POST', '/api/catch/resolve', b),
+  // Décodage « Next token » (Docs/13 §3)
+  decodeOpen: (attemptId: string) => req<DecodeView>('POST', `/api/catch/${enc(attemptId)}/decode/open`, {}),
+  decodeAnswer: (attemptId: string, choiceId: string | null) => req<DecodeAnswerResponse>('POST', `/api/catch/${enc(attemptId)}/decode`, { choiceId }),
   codex: () => req<CodexView>('GET', '/api/codex'),
   sync: (nodeId: string) => req<SyncResponse>('POST', '/api/relay/sync', { nodeId }),
   merchant: (id: string) => req<MerchantView>('GET', `/api/merchant/${enc(id)}`),

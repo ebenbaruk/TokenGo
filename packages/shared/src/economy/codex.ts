@@ -13,11 +13,12 @@ export interface VariantInput {
   combo: number;          // combo APRÈS cette capture
   solarHour: number;
   nearLandmark: boolean;  // une Forge à ≤ CODEX.landmarkRadiusM
+  shinyMult?: number;     // Décodage bonus réussi : chance de Shiny × DECODE.luckyShinyMult (Docs/13 §3)
 }
 
 /** Tire la variante d'une capture réussie. Consomme toujours exactement un tirage (déterminisme). */
 export function rollVariant(i: VariantInput): Variant {
-  if (i.rng() < CODEX.shinyChance) return 'shiny';
+  if (i.rng() < CODEX.shinyChance * (i.shinyMult ?? 1)) return 'shiny';
   if (i.perfect && i.combo >= CODEX.overclockCombo) return 'overclocked';
   if (i.nearLandmark) return 'landmark';
   if (isNight(i.solarHour)) return 'night';

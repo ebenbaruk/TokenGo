@@ -121,3 +121,9 @@
 @media (prefers-reduced-motion: reduce) {
   .shakeSmall, .shakeBig, .aura, .rays, .prizeOn, .comboBig, .whiteout { animation: none; }
 }
+
+/* ───── Décodage (Docs/13 §3) ───── */
+.footRow { display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; }
+.lucky, .bonusWon { margin-top: 8px; padding: 2px 10px; font-weight: 900; font-size: 14px; border: var(--border-thin); border-radius: 8px; animation: comboIn .45s var(--ease-pop) .3s both; }
+.lucky { background: var(--sun); }
+.bonusWon { background: var(--lime); }

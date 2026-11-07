@@ -32,12 +32,12 @@ const codexRows = (ctx: Ctx, userId: string) =>
  * Tire et enregistre la variante d'une capture réussie (à appeler dans la transaction de la capture).
  * Cosmétique : l'inventaire reste `shard:<famille>` ; seule une petite XP de découverte (une fois par case) est créditée.
  */
-export function recordCatchVariant(ctx: Ctx, userId: string, spawn: SpawnView, perfect: boolean, combo: number, now: number): CatchCodex {
+export function recordCatchVariant(ctx: Ctx, userId: string, spawn: SpawnView, perfect: boolean, combo: number, now: number, shinyMult = 1): CatchCodex {
   const isTut = spawn.id.startsWith('tut:');
   const place = landmarkNear(ctx, spawn);
   const variant: Variant = isTut ? 'classic' : rollVariant({
     rng: rngFrom(ctx.cfg.SPAWN_SECRET, 'variant', userId, spawn.id),
-    perfect, combo, solarHour: solarHour(now, spawn.lng), nearLandmark: place !== null,
+    perfect, combo, solarHour: solarHour(now, spawn.lng), nearLandmark: place !== null, shinyMult,
   });
   const before = (ctx.db.prepare('SELECT COUNT(*) n FROM codex WHERE user_id = ?').get(userId) as { n: number }).n;
   const prev = ctx.db.prepare('SELECT place FROM codex WHERE user_id = ? AND family = ? AND variant = ?').get(userId, spawn.family, variant) as { place: string | null } | undefined;

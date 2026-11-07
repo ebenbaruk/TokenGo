@@ -19,7 +19,9 @@ export type ErrorCode =
   | 'NO_CONTRACT' | 'NOT_STRUGGLING' | 'BAD_AMOUNT' | 'DEMO_CANNOT_SELL' | 'TUTORIAL_INCOMPLETE'
   | 'HANDLE_TAKEN' | 'BAD_HANDLE' | 'FORBIDDEN' | 'GRANT_PENDING' | 'HAGGLE_SOUR' | 'HAGGLE_NO_ROOM'
   // Arène (Docs/13 §4)
-  | 'MODEL_RATE_LIMITED' | 'NO_TOKENS' | 'OWN_ARENA' | 'BAD_TEAM';
+  | 'MODEL_RATE_LIMITED' | 'NO_TOKENS' | 'OWN_ARENA' | 'BAD_TEAM'
+  // Décodage (Docs/13 §3)
+  | 'NO_DECODE';
 export interface ApiError { error: { code: ErrorCode; message: string; [k: string]: unknown } }
 
 export type Inventory = Record<Family, number>;
@@ -159,7 +161,8 @@ export interface CatchStartResponse {
 /** offsets : pour chaque tap, écart relatif entre l'anneau et la cible (0 = parfait, 1 = complètement à côté). */
 export interface CatchResolveRequest { attemptId: string; offsets: number[] }
 export interface CatchResolveResponse {
-  result: 'perfect' | 'good' | 'miss' | 'fled';
+  /** 'decode' : Lock-on réussi sur un Rare/Épique, l'éclat n'est PAS encore donné — répondre au Décodage (Docs/13 §3). */
+  result: 'perfect' | 'good' | 'miss' | 'fled' | 'decode';
   family: Family;
   qty: number;              // éclats gagnés (0, 1 ou 2)
   xp: number;
@@ -168,6 +171,36 @@ export interface CatchResolveResponse {
   me: Me;
   /** Capture réussie : variante cosmétique tirée par le serveur + avancée du Codex. */
   codex?: CatchCodex;
+  // ── Décodage « Next token » (Docs/13 §3) ──
+  /** result = 'decode' : qualité du Lock-on (déjà jugée) et question obligatoire. */
+  lock?: 'perfect' | 'good';
+  decode?: DecodeView;
+  /** Commun / Peu commun capturé : Décodage bonus facultatif, à ouvrir par POST /api/catch/:id/decode/open. */
+  bonusDecode?: { id: string };
+  /** Décodage raté sans fuite : le Lock-on continue sur la même tentative avec ce nombre d'essais. */
+  triesLeft?: number;
+  /** Capture réussie avec la chance de Shiny doublée (bonus de Décodage consommé). */
+  lucky?: boolean;
+}
+
+// ───── Décodage « Next token » (Docs/13 §3) ─────
+/** Question envoyée au client : choix mélangés, ids opaques, jamais la réponse. deadlineMs = durée affichée. */
+export interface DecodeView {
+  id: string;               // = attemptId
+  prompt: string;           // contient « ___ »
+  choices: { id: string; text: string }[];
+  deadlineMs: number;
+}
+/** POST /api/catch/:attemptId/decode — choiceId null = temps écoulé. */
+export interface DecodeAnswerRequest { choiceId: string | null }
+export interface DecodeAnswerResponse {
+  verdict: 'correct' | 'wrong' | 'late';
+  correctId: string;        // révélé APRÈS la réponse
+  kind: 'required' | 'bonus';
+  /** obligatoire : issue de la capture (perfect/good = donné, fled, miss = plus d'essais, triesLeft > 0 = relancer le Lock-on) */
+  catch?: CatchResolveResponse;
+  /** bonus : récompense bornée (aucun éclat) */
+  bonus?: { xp: number; luckyNext: boolean; levelUp: number | null; me: Me };
 }
 
 export interface CatchCodex {

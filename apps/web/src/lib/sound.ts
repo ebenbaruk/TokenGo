@@ -3,7 +3,8 @@
 export type SoundName =
   | 'tap' | 'catch' | 'perfect' | 'miss' | 'fled' | 'sync' | 'trade' | 'forge' | 'error' | 'level'
   | 'discover' | 'shiny' | 'stop' | 'route' | 'reveal' | 'coin' | 'whoosh' | 'share' | 'event' | 'pop'
-  | 'clash' | 'glitch' | 'crown';
+  | 'clash' | 'crown'
+  | 'decodeIn' | 'decoded' | 'glitch' | 'tick';
 
 let ctx: AudioContext | null = null;
 const KEY = 'tg.muted';
@@ -104,12 +105,22 @@ export function play(name: SoundName, pitch = 0): void {
     case 'pop': tone(a, 1200, 0, 0.04, 'triangle', 0.025, 1600); break;
     // Arène : choc des deux réponses, hallucination (glitch), couronne du Champion (fanfare royale)
     case 'clash': noise(a, 0, 0.18, 0.09, 300, 2500); tone(a, 196, 0, 0.18, 'square', 0.05, 98); tone(a, 1568, 0.05, 0.12, 'triangle', 0.05); break;
-    case 'glitch': for (let i = 0; i < 6; i++) tone(a, 200 + ((i * 397) % 900), i * 0.035, 0.03, 'square', 0.04); break;
     case 'crown':
       arp(a, [392, 523, 659, 784], 0.1, 0.18, 'square', 0.05);
       arp(a, [1046, 1318, 1568, 2093], 0.09, 0.35, 'triangle', 0.06, 0.45);
       noise(a, 0.45, 0.6, 0.03, 3000, 9000);
       break;
+    // Décodage (Docs/13 §3) : la carte s'ouvre (modem bref), bon jeton (frappe + accord), hallucination (bruit + chute)
+    case 'decodeIn': arp(a, [880, 1320, 990, 1480], 0.035, 0.05, 'square', 0.035); break;
+    case 'decoded':
+      arp(a, [1046, 1046, 1046], 0.04, 0.03, 'square', 0.035);
+      arp(a, [659, 988, 1319, 1976], 0.06, 0.22, 'triangle', 0.07, 0.12);
+      break;
+    case 'glitch':
+      noise(a, 0, 0.18, 0.09, 200, 8000); noise(a, 0.2, 0.12, 0.07, 6000, 300);
+      tone(a, 420, 0.02, 0.45, 'sawtooth', 0.045, 70); tone(a, 433, 0.02, 0.45, 'square', 0.03, 75);
+      break;
+    case 'tick': tone(a, 1760, 0, 0.025, 'square', 0.025); break;
   }
 }
 
@@ -127,6 +138,8 @@ export const HAPTIC = {
   reveal: 25,
   clash: [30, 20, 60],
   crown: [50, 50, 50, 50, 50, 50, 250],
+  decoded: [20, 30, 50],
+  glitch: [60, 30, 20, 30, 90],
 } as const satisfies Record<string, number | readonly number[]>;
 
 export function buzz(pattern: number | readonly number[]): void {

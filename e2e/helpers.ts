@@ -148,7 +148,8 @@ export async function tapOnTarget(page: Page) {
     const tick = () => {
       const screen = document.querySelector('[data-testid="catch-screen"]');
       if (!screen) return reject(new Error('catch screen closed'));
-      if (screen.querySelector('[data-testid="catch-result"]')) return resolve();
+      // résultat affiché, ou carte DECODE (Docs/13 §3) : l'anneau est à l'arrêt, plus rien à taper
+      if (screen.querySelector('[data-testid="catch-result"], [data-testid="decode-card"]')) return resolve();
       const ring = [...screen.querySelectorAll<HTMLElement>('div')].find((d) => d.style.transform.includes('scale('));
       const m = ring ? /scale\(([\d.]+)\)/.exec(ring.style.transform) : null;
       if (m && performance.now() - t0 > 400 && Math.abs(Number(m[1]) - 1) < 0.03) {

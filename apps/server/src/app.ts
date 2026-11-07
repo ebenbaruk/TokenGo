@@ -15,7 +15,7 @@ import { loadWorld } from './game/world.ts';
 import { simulatedCredits, type CreditsProvider } from './game/credits.ts';
 import { netKey, randomId, safeEqual, sha256hex } from './game/crypto.ts';
 import { createUser, getUser, meView, moveStateOf } from './game/players.ts';
-import { catchResolve, catchStart, move, relaySync, worldView } from './game/actions.ts';
+import { catchResolve, catchStart, decodeAnswer, decodeAnswerForTest, decodeOpen, move, relaySync, worldView } from './game/actions.ts';
 import { deliver, executeTrade, makeQuote, rescue, viewMerchant } from './game/market.ts';
 import { compile, viewForge } from './game/forge.ts';
 import { creditsView, playground, revealKey } from './game/creditsView.ts';
@@ -249,6 +249,13 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
     const b = z.object({ attemptId: z.string().max(80), offsets: z.array(z.number()).max(3) }).parse(req.body);
     return catchResolve(ctx, auth(req), b.attemptId, b.offsets);
   });
+  // ── Décodage « Next token » (Docs/13 §3) ──
+  const AttemptId = z.object({ attemptId: z.string().min(1).max(80) });
+  app.post('/api/catch/:attemptId/decode/open', rl(20), async (req) => decodeOpen(ctx, auth(req), AttemptId.parse(req.params).attemptId));
+  app.post('/api/catch/:attemptId/decode', rl(30), async (req) => {
+    const b = z.object({ choiceId: z.string().min(1).max(16).nullable() }).parse(req.body);
+    return decodeAnswer(ctx, auth(req), AttemptId.parse(req.params).attemptId, b.choiceId);
+  });
   app.get('/api/codex', rl(30), async (req) => codexView(ctx, auth(req)));
   app.post('/api/relay/sync', rl(20), async (req) => relaySync(ctx, auth(req), z.object({ nodeId: z.string().max(80) }).parse(req.body).nodeId));
 
@@ -384,6 +391,13 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
     if (!isAdmin(req)) return reply.code(403).send({ error: { code: 'FORBIDDEN', message: 'No.' } });
     return { ok: true, ended: eventView(endEvent(ctx)) };
   });
+  // Décodage, e2e seulement : bonne réponse d'une question en attente. Route absente hors NODE_ENV=test, et jeton admin exigé.
+  if (cfg.NODE_ENV === 'test' && !cfg.prod) {
+    app.get('/api/test/decode/:attemptId', async (req, reply) => {
+      if (!isAdmin(req)) return reply.code(403).send({ error: { code: 'FORBIDDEN', message: 'No.' } });
+      return { correctId: decodeAnswerForTest(z.object({ attemptId: z.string().max(80) }).parse(req.params).attemptId) };
+    });
+  }
 
   app.get('/healthz', async (req) => {
     db.prepare('SELECT 1').get();
