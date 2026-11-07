@@ -42,6 +42,9 @@ import { withLock } from './game/lock.ts';
 import { HAGGLE_CARDS } from '@tokengo/shared';
 import { playBattle, startBattle, viewArena } from './game/arena.ts';
 import { TECHNIQUES } from '@tokengo/shared';
+import { MISSION_KINDS } from '@tokengo/shared';
+import { claimMission, missionsForTest, missionsView } from './game/missions.ts'; // Missions du jour (Docs/13 §7)
+import { cityControl } from './game/city.ts';                                      // Contrôle de la ville (Docs/13 §8)
 import { createRegions, overpassFetcher, parseOverpassUrls, type OverpassFetch, type RegionTimings } from './game/regions.ts';
 
 const SESSION_TTL = 30 * 24 * 3600_000;
@@ -317,6 +320,15 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
     return withLock(`arena:${userId}`, async () => playBattle(ctx, userId, battleId, b));
   });
 
+  // ── Missions du jour (Docs/13 §7) et contrôle de la ville (§8, public) ──
+  app.get('/api/missions', rl(30), async (req) => missionsView(ctx, auth(req)));
+  app.post('/api/missions/:id/claim', rl(20), async (req) => {
+    const userId = auth(req);
+    const { id } = z.object({ id: z.string().max(40) }).parse(req.params);
+    return withLock(`missions:${userId}`, async () => claimMission(ctx, userId, id));
+  });
+  app.get('/api/city/control', rlIp(60), async (req) => cityControl(ctx, req.userId && getUser(ctx, req.userId) ? req.userId : null));
+
   app.get('/api/credits', async (req) => creditsView(ctx, auth(req)));
   app.post('/api/credits/reveal', rl(5, '1 hour'), async (req) => revealKey(ctx, auth(req)));
   app.post('/api/credits/playground', rl(10), async (req, reply) => {
@@ -396,6 +408,16 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
     app.get('/api/test/decode/:attemptId', async (req, reply) => {
       if (!isAdmin(req)) return reply.code(403).send({ error: { code: 'FORBIDDEN', message: 'No.' } });
       return { correctId: decodeAnswerForTest(z.object({ attemptId: z.string().max(80) }).parse(req.params).attemptId) };
+    });
+    // Missions, e2e seulement : fixe les missions du jour d'un joueur et/ou ajoute à un compteur (jeton admin exigé).
+    app.post('/api/test/missions', async (req, reply) => {
+      if (!isAdmin(req)) return reply.code(403).send({ error: { code: 'FORBIDDEN', message: 'No.' } });
+      const kind = z.enum(MISSION_KINDS as [string, ...string[]]);
+      const b = z.object({
+        userId: z.string().max(40), kinds: z.array(kind).length(3).optional(),
+        bump: z.object({ key: kind, n: z.number().int().min(1).max(1000) }).optional(),
+      }).parse(req.body);
+      return missionsForTest(ctx, b.userId, b as Parameters<typeof missionsForTest>[2]);
     });
   }
 

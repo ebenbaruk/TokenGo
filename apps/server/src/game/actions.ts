@@ -21,6 +21,7 @@ import { recordCatchVariant, routeCheckin, routeFor } from './codex.ts';
 import { activeEvent, eventById, eventView } from './events.ts';
 import { addMastery, arenaOnCatch } from './mastery.ts'; // Arène (Docs/13 §2) : maîtrise à la capture
 import { arenaBadge } from './arena.ts';      // Arène (Docs/13 §4) : couronne / bouclier des forges
+import { missionBump, missionsOnCatch } from './missions.ts'; // Missions du jour (Docs/13 §7) : compteurs
 // Décodage (Docs/13 §3) : import direct — la banque de questions n'est pas dans l'index du paquet partagé (bundle web)
 import { decodePublic, decodeRequired, judgeDecode, pickDecode, type DecodeChallenge } from '@tokengo/shared/economy/decode.ts';
 
@@ -270,6 +271,7 @@ function grantCatch(ctx: Ctx, userId: string, spawn: SpawnView, res: CatchOutcom
     // Décodage bonus réussi avant (Docs/13 §3) : chance de Shiny doublée sur CETTE capture, puis consommée
     const lucky = consumeLucky(ctx, u);
     const codex = recordCatchVariant(ctx, userId, spawn, res.result === 'perfect', combo, now, lucky ? DECODE.luckyShinyMult : 1);
+    missionsOnCatch(ctx, userId, { family: spawn.family, combo, variant: codex.variant }); // Missions (Docs/13 §7)
     const xp = catchXp(res.result === 'perfect', combo) + codex.xp;
     const levelUp = addXp(ctx, userId, xp);
     markTutorial(ctx, userId, 'caught');
@@ -344,6 +346,7 @@ export function decodeAnswer(ctx: Ctx, userId: string, attemptId: string, choice
       const flags = JSON.parse(u.flags) as Record<string, unknown>;
       flags.luckyDecode = 1; // non cumulable : un seul cran, consommé à la prochaine capture réussie
       ctx.db.prepare('UPDATE users SET flags = ? WHERE id = ?').run(JSON.stringify(flags), userId);
+      missionBump(ctx, userId, 'decode'); // Missions (Docs/13 §7)
       const levelUp = addXp(ctx, userId, DECODE.bonusXp);
       addMastery(ctx, userId, { [a.spawn.family]: DECODE.masteryBonus }); // maîtrise +5 (Docs/13 §2)
       return { verdict, correctId, kind: 'bonus', bonus: { xp: DECODE.bonusXp, luckyNext: true, levelUp, me: meView(ctx, userId) } };
@@ -354,6 +357,7 @@ export function decodeAnswer(ctx: Ctx, userId: string, attemptId: string, choice
   if (verdict === 'correct') {
     attempts.delete(attemptId);
     const caught = ctx.db.transaction(() => {
+      missionBump(ctx, userId, 'decode'); // Missions (Docs/13 §7)
       const c = grantCatch(ctx, userId, a.spawn, d!.outcome!, now);
       addMastery(ctx, userId, { [a.spawn.family]: DECODE.masteryBonus }); // maîtrise +5 (Docs/13 §2)
       return c;
@@ -456,6 +460,7 @@ export function relaySync(ctx: Ctx, userId: string, nodeId: string): SyncRespons
     }
     const firstVisit = ctx.db.prepare('INSERT OR IGNORE INTO visits (user_id, node_id, first_at) VALUES (?, ?, ?)').run(userId, nodeId, now).changes === 1;
     const xp = XP.sync + (firstVisit ? XP.firstVisit : 0);
+    missionBump(ctx, userId, 'relay_sync'); // Missions (Docs/13 §7)
     const levelUp = addXp(ctx, userId, xp);
     markTutorial(ctx, userId, 'synced');
     return { flux, shard, xp, firstVisit, cooldownUntil: now + RELAY.cooldownMs, levelUp, me: meView(ctx, userId) };

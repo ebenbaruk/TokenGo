@@ -16,3 +16,4 @@ export * from './haggle.ts';
 export * from './scout.ts';
 export * from './events.ts';
 export * from './arena.ts';
+export * from './missions.ts'; // Missions du jour (Docs/13 §7)

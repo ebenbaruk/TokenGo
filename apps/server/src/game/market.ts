@@ -7,6 +7,7 @@ import type { Ctx } from './context.ts';
 import { fail } from './context.ts';
 import { randomId } from './crypto.ts';
 import { addXp, balance, credit, debit, getUser, levelOf, markTutorial, meView, moveStateOf, tutorialOf } from './players.ts';
+import { missionMark } from './missions.ts'; // Missions du jour (Docs/13 §7)
 import { getMerchant, getP0, merchantView, recordSeenPrices, saveMerchant } from './merchants.ts';
 import { assertCanAct } from './actions.ts';
 import { isSoured, noteRegular } from './relations.ts';
@@ -134,6 +135,7 @@ export function settleTrade(ctx: Ctx, u: { id: string; handle: string; is_agent:
   ctx.db.prepare('INSERT INTO trades (id, at, user_id, merchant_id, side, token_id, qty, flux_total, unit_prices) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
     .run(tradeId, now, userId, merchantId, q.side, token, q.qty, q.total, JSON.stringify(q.unitPrices));
   noteRegular(ctx, userId, merchantId);
+  missionMark(ctx, userId, 'shops', merchantId); // Missions (Docs/13 §7) : marchands distincts
   const xp = XP.tradePerShard * q.qty;
   const levelUp = addXp(ctx, userId, xp);
   markTutorial(ctx, userId, 'traded');

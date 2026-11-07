@@ -10,6 +10,7 @@ import type { CityEvent } from './economy/events.ts';
 import type { Bubble } from './living.ts';
 import type { ArenaBattleStatus, ArenaRoundWinner, MasteryProgress } from './economy/arena.ts';
 import type { Category, Technique } from './economy/rules.ts';
+import type { MissionGroup, MissionKind } from './economy/rules.ts';
 
 export type ErrorCode =
   | 'UNAUTHENTICATED' | 'BAD_REQUEST' | 'NOT_FOUND' | 'FORBIDDEN_ORIGIN' | 'RATE_LIMITED'
@@ -21,7 +22,9 @@ export type ErrorCode =
   // Arène (Docs/13 §4)
   | 'MODEL_RATE_LIMITED' | 'NO_TOKENS' | 'OWN_ARENA' | 'BAD_TEAM'
   // Décodage (Docs/13 §3)
-  | 'NO_DECODE';
+  | 'NO_DECODE'
+  // Missions du jour (Docs/13 §7)
+  | 'MISSION_NOT_DONE' | 'MISSION_CLAIMED';
 export interface ApiError { error: { code: ErrorCode; message: string; [k: string]: unknown } }
 
 export type Inventory = Record<Family, number>;
@@ -49,6 +52,8 @@ export interface Me {
   scout: ScoutView | null;
   /** Maîtrise par famille (Docs/13 §2). */
   mastery: Record<Family, MasteryProgress>;
+  /** Missions du jour (Docs/13 §7) : pastille du bouton Quests ; le client toaste quand `ready` augmente. */
+  missions?: MissionBadge;
 }
 
 /** Batterie du Scout à l'instant `at` (le client la fait progresser avec scoutCharge). */
@@ -89,7 +94,7 @@ export interface NodeView {
   /** forge : qui tient l'arène (couronne du Champion ou bouclier du Gardien sur la carte) */
   arena?: ArenaBadge;
 }
-export interface ArenaBadge { holder: 'guardian' | 'champion'; champion: string | null; mine: boolean }
+export interface ArenaBadge { holder: 'guardian' | 'champion'; champion: string | null; mine: boolean; /** district (1–20) du Champion : couleur de la couronne (Docs/13 §8) */ district?: number | null }
 
 export interface SpawnView { id: string; family: Family; lat: number; lng: number; expiresAt: number }
 
@@ -523,3 +528,53 @@ export interface ArenaBattleView {
 }
 export interface ArenaStartResponse { battle: ArenaBattleView; me: Me }
 export interface ArenaPlayResponse { round: ArenaRoundView; battle: ArenaBattleView; me: Me }
+
+// ───────────── Missions du jour (Docs/13 §7) ─────────────
+// GET /api/missions → MissionsView ; POST /api/missions/:id/claim → MissionClaimResponse (id = MissionKind du jour).
+export interface MissionView {
+  id: MissionKind;
+  title: string;
+  hint: string;
+  icon: string;
+  group: MissionGroup;
+  progress: number;
+  goal: number;
+  done: boolean;
+  claimed: boolean;
+  reward: { xp: number; flux: number };
+}
+export interface MissionsView {
+  day: string;
+  missions: MissionView[];
+  claimed: number;
+  /** coffre des 3 : versé une fois par jour à la 3e réclamation */
+  chest: { flux: number; shard: Family; opened: boolean };
+  /** prochain tirage (minuit, heure de Paris) */
+  resetAt: number;
+}
+/** Résumé dans `Me` : missions réclamables (pastille rouge), réclamées, coffre. */
+export interface MissionBadge { ready: number; claimed: number; total: number; chest: boolean; readyIds: MissionKind[] }
+export interface MissionClaimResponse {
+  missions: MissionsView;
+  reward: { xp: number; flux: number };
+  chest: { flux: number; shard: Family } | null;
+  levelUp: number | null;
+  me: Me;
+}
+
+// ───────────── Contrôle de la ville (Docs/13 §8) ─────────────
+// GET /api/city/control (public) → CityControlResponse.
+export interface CityArenaView {
+  forgeId: string;
+  forgeName: string;
+  lat: number;
+  lng: number;
+  holder: 'champion' | 'guardian';
+  /** pseudo du Champion, ou « Sentinel of … » */
+  name: string;
+  district: number | null;
+  since: number | null;
+  mine: boolean;
+}
+export interface TopChampionView { handle: string; district: number | null; heldMs: number; arenas: number; mine: boolean }
+export interface CityControlResponse { now: number; arenas: CityArenaView[]; top: TopChampionView[]; windowDays: number }

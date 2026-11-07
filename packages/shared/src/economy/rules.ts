@@ -511,3 +511,36 @@ export const MASTERY = {
   xpRound: 10,                    // manche d'arène jouée avec la famille
   xpRoundWon: 10,                 // … et gagnée
 } as const;
+
+// ───────────────────────────── Missions du jour (Docs/13 §7) ─────────────────────────────
+/**
+ * 3 missions par joueur et par jour de Paris, tirées (graine jour + joueur) dans ce catalogue, dont au moins une du groupe
+ * « arena » (Arène / Décodage). Chaque mission : +40 XP + 15 ƒ ; les 3 réclamées → coffre du jour : +60 ƒ + 1 Gemini
+ * (une fois par jour, comme la Daily Route). La clé de la mission est aussi la clé de son compteur serveur.
+ * `needs` : 'arena' = proposée seulement si l'Arène est débloquée (niveau) ; 'raid' = seulement pendant un raid Rogue.
+ */
+export type MissionKind =
+  | 'decode' | 'arena_win' | 'arena_rounds' | 'catch_families' | 'haggle_deal' | 'relay_sync' | 'combo3' | 'shops' | 'raid_damage' | 'rare_variant';
+export type MissionGroup = 'arena' | 'explore' | 'trade' | 'raid';
+export interface MissionRule { title: string; hint: string; goal: number; group: MissionGroup; icon: string; needs?: 'arena' | 'raid' }
+export const MISSION_CATALOG: Record<MissionKind, MissionRule> = {
+  decode: { title: 'Decode 3 tokens', hint: 'Pick the right next token after a Lock-on', goal: 3, group: 'arena', icon: '🔤' },
+  arena_win: { title: 'Win an arena battle', hint: 'Beat a Sentinel or a Champion at any Forge', goal: 1, group: 'arena', icon: '🏆', needs: 'arena' },
+  arena_rounds: { title: 'Play 5 arena rounds', hint: 'Every round counts, won or lost', goal: 5, group: 'arena', icon: '⚔️', needs: 'arena' },
+  catch_families: { title: 'Catch 3 different families', hint: 'Mix it up: DeepSeek, Qwen, Gemini…', goal: 3, group: 'explore', icon: '🧩' },
+  relay_sync: { title: 'Sync 4 relays', hint: 'Tap Relays as you walk by', goal: 4, group: 'explore', icon: '📡' },
+  combo3: { title: 'Hit a ×3 combo', hint: 'Chain 3 catches within 90 s each', goal: 1, group: 'explore', icon: '🔥' },
+  rare_variant: { title: 'Catch a Night or Landmark variant', hint: 'Hunt after dark, or near a monument', goal: 1, group: 'explore', icon: '🌙' },
+  haggle_deal: { title: 'Close a haggle deal', hint: 'Haggle with a merchant, then shake on it', goal: 1, group: 'trade', icon: '🤝' },
+  shops: { title: 'Trade at 2 shops', hint: 'Buy or sell at two different merchants', goal: 2, group: 'trade', icon: '🏪' },
+  raid_damage: { title: 'Deal 200 raid damage', hint: 'Join the Rogue Model raid at its Forge', goal: 200, group: 'raid', icon: '⚠️', needs: 'raid' },
+};
+export const MISSION_KINDS = Object.keys(MISSION_CATALOG) as MissionKind[];
+export const MISSIONS = {
+  perDay: 3,
+  rewardXp: 40,
+  rewardFlux: 15,
+  chestFlux: 60,
+  chestShard: 'gemini' as Family,
+} as const;
+// ───────────────────────────── fin Missions du jour ─────────────────────────────

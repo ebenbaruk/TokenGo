@@ -8,6 +8,7 @@ import { fail } from './context.ts';
 import { randomId } from './crypto.ts';
 import { parisDay } from './reserve.ts';
 import { masteryView } from './mastery.ts';
+import { missionBadge } from './missions.ts'; // Missions du jour (Docs/13 §7)
 
 export interface UserRow {
   id: string; kind: 'guest' | 'google'; handle: string; mode: 'gps' | 'demo'; demo_token: number; xp: number; combo: number;
@@ -159,6 +160,7 @@ export function meView(ctx: Ctx, userId: string): Me {
     tutorial: tutorialOf(u),
     scout: u.mode === 'demo' ? scoutMe(u, ctx.now()) : null,
     mastery: masteryView(ctx, userId), // Arène (Docs/13 §2)
+    missions: missionBadge(ctx, userId), // Missions du jour (Docs/13 §7) : pastille Quests
   };
 }
 

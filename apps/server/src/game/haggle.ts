@@ -14,6 +14,7 @@ import { assertCanAct } from './actions.ts';
 import { balance } from './players.ts';
 import { getMerchant } from './merchants.ts';
 import { QUOTE_ERRORS, canTrade, load, pricingFor, settleTrade, viewMerchant } from './market.ts';
+import { missionBump } from './missions.ts'; // Missions du jour (Docs/13 §7)
 import { bumpRep, hagglesLeft, relationOf, sour } from './relations.ts';
 import { haggleLine } from './haggleLines.ts';
 import { parisDay } from './reserve.ts';
@@ -219,6 +220,7 @@ export function dealHaggle(ctx: Ctx, userId: string, merchantId: string, haggleI
     const saved = Math.abs(q.total - hq.total);
     const bestTotal = haggledQuote(p0, cur.m, q, maxBp(s.sit.rep)).total;
     if (saved > 0) bumpRep(ctx, userId, merchantId, HAGGLE.repPerDeal);
+    missionBump(ctx, userId, 'haggle_deal'); // Missions (Docs/13 §7)
     const res = settleTrade(ctx, u, merchantId, cur.m, hq, saved > 0 ? ` (haggled ${hq.side === 'buy' ? '−' : '+'}${saved} ƒ)` : '');
     ctx.db.prepare("UPDATE haggles SET outcome = 'deal', final_total = ? WHERE id = ?").run(hq.total, s.id);
     sessions.delete(haggleId); // après succès : un 2e « Deal » sur la même séance → EXPIRED

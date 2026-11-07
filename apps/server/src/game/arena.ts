@@ -16,6 +16,8 @@ import { assertCanAct } from './actions.ts';
 import { assertQuota, quotaUsed } from './quotas.ts';
 import { parisDay } from './reserve.ts';
 import { addMastery, masteryLevels, masteryView, touchChampion } from './mastery.ts';
+import { missionBump } from './missions.ts'; // Missions du jour (Docs/13 §7)
+import { holdEnd, holdStart } from './city.ts'; // Contrôle de la ville (Docs/13 §8) : intervalles de détention
 
 interface ArenaRow { forge_id: string; champion_user: string; team: string; mastery: string; since: number; active_at: number; last_paid: number }
 interface BattleRow {
@@ -81,6 +83,7 @@ function settleArena(ctx: Ctx, forge: { id: string; name: string }): { row: Aren
   const paid = gone ? 0 : payChampion(ctx, row, Math.min(now, expiry));
   if (gone || now >= expiry) {
     ctx.db.prepare('DELETE FROM arenas WHERE forge_id = ?').run(forge.id);
+    holdEnd(ctx, forge.id, Math.min(now, expiry)); // Contrôle de la ville (Docs/13 §8)
     const g = guardianOf(ctx, forge);
     ctx.bus.publish('arena.guardian', `${g.name} reclaims the arena — ${handleOf(ctx, row.champion_user)} went quiet`, { forgeId: forge.id });
     return { row: null, paid };
@@ -92,7 +95,9 @@ function settleArena(ctx: Ctx, forge: { id: string; name: string }): { row: Aren
 export function arenaBadge(ctx: Ctx, forgeId: string, userId: string): ArenaBadge {
   const row = arenaRow(ctx, forgeId);
   if (!row || row.active_at + ARENA.championExpiryMs <= ctx.now()) return { holder: 'guardian', champion: null, mine: false };
-  return { holder: 'champion', champion: handleOf(ctx, row.champion_user), mine: row.champion_user === userId };
+  const champ = getUser(ctx, row.champion_user);
+  return { holder: 'champion', champion: champ?.handle ?? 'a runner', mine: row.champion_user === userId,
+    ...(champ?.district ? { district: champ.district } : {}) }; // district : couleur de la couronne (Docs/13 §8)
 }
 
 function holderView(ctx: Ctx, forge: { id: string; name: string }, row: ArenaRow | null, userId: string): ArenaHolderView {
@@ -214,6 +219,7 @@ export function playBattle(ctx: Ctx, userId: string, battleId: string, pick: { f
     const cur = ctx.db.prepare('SELECT state, status FROM battles WHERE id = ?').get(b.id) as { state: string; status: string };
     if (cur.status !== 'open' || cur.state !== b.state) fail('EXPIRED', 'This round was already played.'); // double envoi
     ctx.db.prepare('UPDATE battles SET state = ? WHERE id = ?').run(JSON.stringify(ok.state), b.id);
+    missionBump(ctx, userId, 'arena_rounds'); // Missions (Docs/13 §7)
     if (ok.state.status !== 'open') finishBattle(ctx, b, ok.state);
     return ctx.db.prepare('SELECT * FROM battles WHERE id = ?').get(b.id) as BattleRow;
   })();
@@ -231,6 +237,7 @@ function finishBattle(ctx: Ctx, b: BattleRow, s: ArenaBattleState) {
   const masteryUps = addMastery(ctx, b.user_id, gains);
   if (rw.flux > 0) credit(ctx, b.user_id, 'flux', rw.flux, `arena:${b.id}`);
   const levelUp = addXp(ctx, b.user_id, rw.xp);
+  missionBump(ctx, b.user_id, 'arena_win', outcome === 'won' ? 1 : 0); // Missions (Docs/13 §7)
   let becameChampion = false;
   let note: string | null = null;
   if (outcome === 'won') {
@@ -241,6 +248,7 @@ function finishBattle(ctx: Ctx, b: BattleRow, s: ArenaBattleState) {
           since = excluded.since, active_at = excluded.active_at, last_paid = excluded.last_paid`)
         .run(forge.id, b.user_id, JSON.stringify(s.me.team), JSON.stringify(s.me.mastery), now, now, now);
       becameChampion = true;
+      holdStart(ctx, forge.id, b.user_id, now); // Contrôle de la ville (Docs/13 §8)
       const who = handleOf(ctx, b.user_id);
       ctx.bus.publish('arena.champion', `${who} is the new Champion of ${shortName(forge.name)}${opp.kind === 'champion' ? ` — dethroned ${opp.name}` : ''}`,
         { forgeId: forge.id, champion: who, team: s.me.team });
