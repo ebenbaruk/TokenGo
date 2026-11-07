@@ -2,6 +2,17 @@
 
 Mettre à jour à la fin de chaque bloc de travail. Le plus récent en haut.
 
+
+## 2026-11-07 (nuit) — Démo en ligne + saison démo + chaîne vérifiée de bout en bout
+- **En ligne** : https://tokengo-production-195c.up.railway.app (Railway, 1 service Dockerfile, volume `/data`). Corrigés : `VOLUME` refusé par Railway,
+  services auto-créés par workspace, origine (`RAILWAY_PUBLIC_DOMAIN` accepté).
+- **Saison démo** (décision du propriétaire) : crédits IA simulés, annoncés partout (accueil, ticket, crédits, About, badge « demo ») ; chaîne testnet **active**.
+- **Chaîne** : le règlement était bloqué (`LackBalanceForState` : plus de NEAR de test pour le stockage) → `tokengo.testnet` rechargé à ~56 NEAR via
+  le faucet (`apps/server/scripts/fund-testnet.ts`), message d'erreur explicite. Attente du burn à la Forge 6 s → 20 s (+ mention « Burn settling » sinon).
+- **Test en ligne** `npx playwright test -c playwright.prod.config.ts` : invité → capture → relais → vente → First Compile → tx de burn `success +mt_burn`
+  sur NEAR → soldes chaîne == jeu → Proofs « Everything matches the chain. » ✔ (53 s).
+- README réécrit en dossier complet (15 sections). Reste à l'humain : repo public + tag, post X, `node scripts/submit.ts --send`.
+
 ## 2026-11-07 (après-midi) — Playtest « juge » et polish UX
 - **Fait** : cadre de téléphone + panneau d'explication sur ordinateur (Remote Scout en premier sans écran tactile) ; « Fly there » et objectif
   cliquable en Remote Scout (plus de bouton mort) ; tutoriel qui ne fait plus vendre l'éclat de la First Compile ; Splash (3 étapes, boutons
