@@ -5,6 +5,8 @@ const PICK = [
   '01-splash', '02-map', 'catch-01-lock-on', '03-catch-result', '04-relay', '05-merchant-why', 'market-02-quote',
   'market-04-closing', 'haggle-02-rival', 'haggle-03-deal', 'forge-02-ready', '07-credit-ticket', '08-playground', 'lab-01-flood', 'pulse-02-ticker',
   'scout-01-splash', 'scout-02-hud', 'scout-03-grounded', 'anywhere-01-scouting', 'anywhere-02-lisbon-live',
+  'juice-01-combo-lock-on', 'juice-02-variant-reveal', 'juice-04-codex', 'juice-06-route-sheet', 'juice-card-codex',
+  'living-01-walkers', 'living-03-bubbles', 'living-04-event-map', 'living-06-pulse', 'forge-card-ticket',
 ];
 mkdirSync('docs-assets/shots', { recursive: true });
 let n = 0;

@@ -1,0 +1,13 @@
+{
+  "projectName": "TokenGo",
+  "leadName": "",
+  "email": "",
+  "size": "1",
+  "tracks": ["games"],
+  "nearAddress": "",
+  "projectUrl": "https://github.com/ebenbaruk/TokenGo",
+  "demoUrl": "https://x.com/<you>/status/<id>",
+  "playUrl": "https://<your-app>.up.railway.app",
+  "judgeLink": "https://<your-app>.up.railway.app/?demo=1&k=<DEMO_TOKEN>",
+  "consent": false
+}

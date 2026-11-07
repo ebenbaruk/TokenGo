@@ -1,54 +1,56 @@
-# Soumission — brouillons prêts (rien n'est envoyé sans le « oui » du propriétaire)
+# Soumission — tout est prêt, il ne reste que les gestes humains
 
-Procédure : `Docs/10-demo-and-judging.md` §6. Relire https://nearhackathon.com/HACKATHON.md juste avant (les règles peuvent changer).
-Deadline : **2026-11-14 23:59 UTC** (viser avant 18:00 UTC). Démo en ligne jusqu'au **2026-11-25**.
+Track : **`games` uniquement** (le propriétaire a vérifié avec l'organisateur : pas `agents`).
+Deadline : **2026-11-14 23:59 UTC** (viser avant 18:00 UTC). Démo en ligne au moins jusqu'au **18/11**, idéalement **25/11**.
+Critère écrit du track : *« Judged on the game loop, not the token — bonus if players never notice the chain. »*
+Règles : https://nearhackathon.com/HACKATHON.md (relire juste avant d'envoyer).
 
-## Reste à faire par l'humain (bloquant)
-1. Héberger la démo (Railway : `railway up` avec le Dockerfile + un volume monté sur `/data`, variables de `.env.example`, `TRUST_PROXY=1`,
-   `NODE_ENV=production`, `PUBLIC_URL=https://…`, secrets générés : `openssl rand -base64 32` pour `MASTER_KEY`, `SESSION_SECRET`, `SPAWN_SECRET`,
-   `DEMO_TOKEN`, `ADMIN_TOKEN`). Claude peut le faire si on lui donne un token Railway.
-2. Crédits réels : HUMAN-TODO 1–3 (sinon la démo publique tourne en crédits simulés, ce qui reste jouable mais moins fort).
-3. Rendre le repo public (avec OK), filmer/publier la vidéo + post X, donner les champs ci-dessous.
+## Checklist (≈ 45 min en tout)
+1. **Héberger la démo (Railway, ~15 min).** railway.com → New Project → Deploy from GitHub repo → `ebenbaruk/TokenGo`
+   (le `Dockerfile` et `railway.json` sont détectés). Puis :
+   - Service → *Volumes* → ajouter un volume monté sur **`/data`** (la base SQLite y vit).
+   - Service → *Settings* → *Networking* → **Generate Domain** (HTTPS, nécessaire au GPS) → noter l'URL `https://….up.railway.app`.
+   - Service → *Variables* : coller (générer chaque secret avec `openssl rand -base64 32`) :
+     ```
+     NODE_ENV=production
+     PUBLIC_URL=https://<ton-domaine>.up.railway.app
+     TRUST_PROXY=1
+     MASTER_KEY=<openssl>      SESSION_SECRET=<openssl>      SPAWN_SECRET=<openssl>
+     DEMO_TOKEN=<openssl>      ADMIN_TOKEN=<openssl>
+     ```
+     + recopier depuis ton `.env` local les variables `NEAR_*` (chaîne testnet ; sans elles le jeu marche, sans preuves on-chain)
+     et, si tu as fait l'étape 2, `NEARAI_*` + `FEATURE_REAL_CREDITS=1`.
+   - Vérifier : `https://<domaine>/healthz` → `"ok":true,"invariantOk":true`. Ouvrir le site sur ton iPhone.
+   - Coût : ~5 $/mois (plan Hobby) ; garder en ligne jusqu'au 25/11.
+2. **(Recommandé) Crédits réels NEAR AI** : `Docs/HUMAN-TODO.md` 1–3 (compte mainnet + ~10 € de crédits), puis en local
+   `node apps/server/scripts/nearai-spike.ts` (< $0.001). Sans ça, la démo publique tourne en crédits *simulés* (jouable, badge « sim »).
+3. **Rendre le repo public** : GitHub → Settings → Change visibility → Public. Puis `git tag hackathon-submission && git push --tags`.
+4. **Post X** : texte ci-dessous + la vidéo `docs-assets/video/tokengo-demo.mp4` (ou la version portrait). Publier, copier le lien du post.
+5. **Soumettre** :
+   ```bash
+   cp scripts/submission.example.json var/submission.json   # remplir leadName, email, nearAddress (mainnet), demoUrl (lien du post X),
+                                                            # playUrl + judgeLink (URL Railway + ?demo=1&k=<DEMO_TOKEN>), consent: true
+   node scripts/submit.ts          # valide et affiche le JSON exact (n'envoie rien)
+   node scripts/submit.ts --send   # envoie ; 201 = « Submission saved »
+   ```
+   `consent: true` signifie : *« I agree that the organizers may use these details to review our submission and contact us about this hackathon. »*
+   Le texte `idea` est dans `scripts/submission-idea.txt` (≈ 1 600 car., le lien de jeu et le pass juges sont ajoutés à la fin).
+   Corrections après envoi : https://nearhackathon.com/request-changes.
 
-## Champs (à demander à l'humain — ne jamais inventer)
-| Champ | Valeur |
-|---|---|
-| projectName | TokenGo |
-| leadName | _à fournir_ |
-| email | _à fournir_ |
-| size | 1 |
-| tracks | ["games", "agents"] |
-| nearAddress | _compte mainnet du propriétaire (HUMAN-TODO 6)_ |
-| projectUrl | https://github.com/ebenbaruk/TokenGo (une fois public) |
-| demoUrl | _URL du post X_ |
-| idea | voir ci-dessous |
-| consent | _à confirmer_ |
-Ne pas envoyer le champ `website` (piège à spam). `requestId` : généré une fois, gardé dans `var/submission-request-id`.
+Règle Q-015 : si tu soumets un **autre** projet à ce même hackathon, chaque README doit nommer l'autre (2 max).
 
-## `idea` (≈ 1 400 caractères)
-TokenGo is a location-based browser game where the loot is real AI compute. You walk Paris and catch shards of Claude, GPT, DeepSeek,
-Gemini and Qwen that spawn around real landmarks (libraries favour Claude, stations GPT, parks Gemini). 153 AI merchants — each with its
-own NEAR account and an LLM brain running on NEAR AI Cloud — buy and sell shards at prices set by local supply and demand, so walking
-from one café to another is arbitrage. Merchants import, export, pay rent, go bankrupt and get rescued by players; an LLM tunes their
-margins and contracts every 3 hours inside hard clamps, and every price comes with a "Why this price?" breakdown from one readable rules
-file. Forges on monuments compile daily recipes into real NEAR AI Cloud credits on the player's own API key — the only door from the game
-to real value, paid as a fraction of a capped reserve so the game is solvent by construction. Every item is a NEP-245 token on testnet,
-settled in batches; every real cent is preceded by an on-chain burn proof. No wallet, no seed phrase, no gas: guests play in seconds,
-24 runner-agents keep the market alive, and an in-browser Economy Lab simulates a week of Paris with 200 bots in under a second
-using the exact live rules.
-
-## Post X (≤ 280 car. par tweet ; l'humain publie)
+## Post X (l'humain publie)
 ```
-What if Pokémon-Go-style loot was real AI compute? 🗺️⚡
+I built a game where the loot is real AI compute 🗺️⚡
 
-TokenGo: walk Paris, catch shards of Claude, GPT, DeepSeek, Gemini & Qwen, trade them with AI merchants (each with its own NEAR account & prices from supply/demand), then forge them into real NEAR AI Cloud credits.
+TokenGo: walk your city, catch shards of Claude, GPT, DeepSeek, Gemini & Qwen, haggle with AI shopkeepers whose prices follow real supply & demand, then forge them into a real AI API key.
 
-#NEARHackathon @NEARProtocol
-▶️ <demo url> · 💻 <repo>
+Built at NEAR HACKATHON #NEARHackathon @NEARProtocol
+▶️ <URL Railway> · 💻 github.com/ebenbaruk/TokenGo
 ```
+(≤ 280 caractères hors liens courts ; joindre la vidéo. @NearLegion / @NearBuilders facultatifs.)
 
-## Vidéo (≤ 2 min 30) — plan et images
-Script : `Docs/10-demo-and-judging.md` §4. Images clés : `npm run shots` → `docs-assets/shots/` (splash, carte, capture, marchand
-« Why this price? », ticket de crédit, playground, Lab flood, Pulse). Plans réels dans la rue : optionnels (humain).
-Ordre conseillé : splash (0:00) → capture perfect (0:08) → marchand + Why this price + 2ᵉ marchand plus cher (0:20) → forge → ticket →
-playground (0:45) → Pulse + faillite/sauvetage (1:10) → Lab flood (1:30) → archi (1:50) → slogan + URL (2:10).
+## Ce que voient les juges (≈ 5 min)
+Laptop → le jeu s'ouvre dans un cadre de téléphone, Remote Scout par défaut. Pass juges `?demo=1&k=…` → compte niveau 7, sac plein :
+capture PERFECT + combo → bulles des marchands → marchandage → Forge → ticket de crédit → playground ; `/pulse` et `/lab` sans compte.
+Pistes de l'IA de tri (Claude Code / Codex) : `npm install && npm run verify` (sans secret) → tests + build + e2e.

@@ -1,5 +1,7 @@
 # Ce que seul l'humain peut faire
 
+> **Ordre conseillé et commandes exactes : `Docs/SUBMISSION.md` (checklist finale).**
+
 Claude avance sans attendre grâce aux modes dégradés (crédits simulés, chaîne désactivée, invité seul). Chaque action ci-dessous
 débloque la version « réelle ». Cocher quand c'est fait et mettre les valeurs dans `TokenGo/.env` (jamais dans le chat si possible).
 
@@ -14,7 +16,7 @@ débloque la version « réelle ». Cocher quand c'est fait et mettre les valeur
       cloud.near.ai). Ça double la Réserve gratuitement.
 - [ ] (Claude récupère lui-même `NEARAI_ORG_ID` / `NEARAI_WORKSPACE_ID` via l'API une fois 1 fait.)
 
-## Démo publique HTTPS (décidé le 06/11 : hébergement Vercel/Railway « plus tard », Claude prépare un déploiement Docker/Railway clé en main)
+## Démo publique HTTPS : Railway (image Docker testée en local), étapes exactes dans `Docs/SUBMISSION.md` § 1
 - [ ] ~~**4. Tailscale**~~ (caduc) : dans https://login.tailscale.com/admin/dns activer **HTTPS Certificates**, et dans la policy du tailnet autoriser
       **Funnel** pour la machine `surface` (attribut `funnel`). Claude lancera ensuite `tailscale funnel` sur le port du jeu.
       (Alternative : créer un compte Fly.io avec carte, ~$5/mois — Claude a le Dockerfile prêt.)
@@ -26,8 +28,8 @@ débloque la version « réelle ». Cocher quand c'est fait et mettre les valeur
 ## Pour la soumission (J8)
 - [ ] **6. Compte NEAR mainnet pour recevoir le prix** (peut être ton compte perso, différent de 1).
 - [ ] **7. Repo GitHub** : créé en **privé** le 2026-11-06 → https://github.com/ebenbaruk/TokenGo. Reste : le **rendre public** avant le 14/11 23:59 UTC (avec ton OK).
-- [ ] **8. Vidéo + post X** : Claude prépare le script, les captures et le texte ; tu filmes (optionnel : quelques plans dans la rue) et tu publies.
-- [ ] **9. Valider la soumission** : Claude affiche le JSON exact, tu dis « oui ».
+- [ ] **8. Post X** : la vidéo est prête (`docs-assets/video/`), le texte aussi (`Docs/SUBMISSION.md`) ; tu publies.
+- [ ] **9. Soumettre** : `node scripts/submit.ts` (vérifie, n'envoie rien) puis `node scripts/submit.ts --send`.
 
 ## Facultatif
 - [x] Référence design reçue (pixel art coloré) → DA « Pixel Pop Paris » dans `09-ux-ui-design.md`. D'autres refs bienvenues dans `Docs/design-ref/`.

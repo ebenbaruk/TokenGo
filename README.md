@@ -3,60 +3,73 @@
 ![TokenGo](docs-assets/cover.jpg)
 
 **TokenGo is a location-based browser game where the loot is real AI compute.** Shards of Claude, GPT, DeepSeek, Gemini and Qwen
-spawn around real Paris landmarks. AI merchants — each with its own NEAR account — buy and sell them at prices driven by local supply
-and demand, so the same shard is cheap at one café and expensive near the Louvre. Walk the spread, fill a Forge recipe, and compile it
-into **real NEAR AI Cloud credits on your own API key**. No wallet, no seed phrase, no gas: just play.
+spawn around real landmarks. AI shopkeepers buy and sell them at prices driven by local supply and demand, so the same shard is cheap
+at one café and expensive near the Louvre. Walk the spread, haggle, fill a Forge recipe, and compile it into **real NEAR AI Cloud
+credits on your own API key**. No wallet, no seed phrase, no gas: just play. Paris is the hand-built showcase city; anywhere else the
+server maps your neighbourhood from OpenStreetMap on the fly.
 
-Built for the NEAR HACKATHON — tracks **games** and **agents**.
+**Problem it solves.** Location games reward walking with loot that is worth nothing outside the app, and "play-to-earn" games that pay
+real value usually go insolvent. TokenGo pays in something people actually use (LLM inference) through a single, capped door, so the
+game is solvent by construction and the loot is useful the day you earn it.
+
+Built for the NEAR HACKATHON — track **games**.
 
 | | | | |
 |---|---|---|---|
-| ![](docs-assets/shots/02-map.png) | ![](docs-assets/shots/catch-01-lock-on.png) | ![](docs-assets/shots/05-merchant-why.png) | ![](docs-assets/shots/07-credit-ticket.png) |
-| Map (Remote Scout) | Lock-on catch | "Why this price?" | Real credit ticket |
+| ![](docs-assets/shots/living-03-bubbles.png) | ![](docs-assets/shots/juice-01-combo-lock-on.png) | ![](docs-assets/shots/haggle-02-rival.png) | ![](docs-assets/shots/07-credit-ticket.png) |
+| Living map (Remote Scout) | Lock-on catch + combo | Haggling card game | Real credit ticket |
+| ![](docs-assets/shots/05-merchant-why.png) | ![](docs-assets/shots/juice-04-codex.png) | ![](docs-assets/shots/living-04-event-map.png) | ![](docs-assets/shots/lab-01-flood.png) |
+| "Why this price?" | Shard Codex (25 variants) | City event: flash crash | Economy Lab |
 
 ---
 
-## Live demo
-- **Play:** _(URL added at deploy time)_ → "Play for real · GPS" (works anywhere: outside Paris the server maps your neighbourhood from OpenStreetMap on the fly) or "Remote Scout" (no GPS needed: fly a battery-limited courier pigeon over Paris from your couch).
-- **Judges' pass:** `/?demo=1&k=<DEMO_TOKEN>` (link given in the submission) → a level-7 demo account with a full bag, to see
-  Prism/Aura compiles and merchant rescues in one minute, paid in **real** credits from the Judge pool ($0.20 max per account).
-- **City Pulse** (`/pulse`, no account): live ticker, Paris Shard Index, reserve, merchants going bankrupt, on-chain settlements.
-- **Economy Lab** (`/lab`, no account): simulate a week of Paris with 200 bots in seconds, using the exact live rules.
+## Try it
+### Hosted demo
+- **Play:** _(URL added at deploy time)_ → **Play for real** (GPS, works in any city) or **Remote Scout** (no GPS: fly a
+  battery-limited courier pigeon over Paris from your couch — the game is meant to be walked, this mode lets you try it anywhere).
+  On a laptop the game opens in a phone frame and Remote Scout is the default.
+- **Judges' pass:** `/?demo=1&k=<DEMO_TOKEN>` (link in the submission) → a level-7 Remote Scout account with a full bag, to see
+  Prism/Aura compiles, haggling and merchant rescues in a few minutes, paid in **real** credits from the Judge pool ($0.20 max per account).
+- **City Pulse** (`/pulse`, no account): live ticker, active city event, walkers, Paris Shard Index, reserve, on-chain settlements.
+- **Economy Lab** (`/lab`, no account): simulate a week of Paris with 200 bots in under a second, with the exact live rules.
 
-## Why it's a game with a real economy
-- **Walking is arbitrage.** Every merchant has its own stock and therefore its own prices. The same family can differ by 15–40 % between
-  two merchants 600 m apart — the "Best known price" comparator only shows prices you have actually seen.
-- **The economy is the gameplay.** Prices follow scarcity (`(target/stock)^α`), merchants import, export, pay rent, go bankrupt, and are
-  rescued by players (Patrons). Daily Forge recipes create demand shocks around landmarks.
-- **One real door, protected.** Flux (soft currency) is never convertible. The only way to real value is the Forge, which burns shards
-  from several families/places. Payouts are a *fraction of what remains* in the reserve → the game is **solvent by construction**.
-- **AI merchants with bounded agency.** An LLM (NEAR AI Cloud) adjusts each merchant's margin, targets and contracts every 3 h — inside
-  hard clamps. It never moves value; every number shown in "Why this price?" comes from the rules.
-- **A living world.** 24 runner-agents walk the real map, trade and rescue merchants around the clock (badged "agent", never paid real credits).
-
-## Try it in 5 minutes (no secrets needed)
+### Locally in 5 minutes (no secrets needed)
 Requirements: Node ≥ 24, npm 11.
 ```bash
 npm install
 npm run build          # builds the web app (served by the server)
 npm run dev            # web http://localhost:5173 + API :8787 (credits simulated, chain off without .env)
 ```
-1. Open **http://localhost:5173/?demo=1** → tap **Play as guest** → you are at the Louvre (Cour Napoléon) with a starter kit.
-   Margot, a merchant, guides you in 5 one-line bubbles.
-2. A glowing **DeepSeek shard** is 20 m away: tap **Catch**, then tap when the shrinking ring hits the dashed circle → "+1 DeepSeek Shard".
-3. Tap the map to walk to the nearest **Relay** (fountain icon) → swipe the disc → Flux + a shard.
-4. Walk to **Le Café Marly** (market stall) → tap ⓘ **Why this price?** → see the exact formula → sell 1 Gemini with *slide to confirm*.
-5. Walk to the **Louvre Forge** → **First Compile** → hold the button → a credit ticket: **+$0.030 · ≈ 20 DeepSeek chats** (marked
-   *simulated* without a NEAR AI account).
-6. **Try it now** → Playground → ask a question with your own key.
-7. Open **/lab** → scenario **DeepSeek flood** → **Simulate 1 week** → DeepSeek prices fall, merchants near the flood go bankrupt, health checks table.
-8. Open **/pulse** → watch the live ticker while you trade in another tab.
-9. `npm test` → **113 unit tests** (economy invariants, anti-cheat, pricing exploits, API, chain settler, NEAR AI request shapes).
-10. `npm run verify` → tests + typecheck + build + headless e2e of the whole loop:
-    `✔ TokenGo verified: 113 unit tests, 1 e2e flows` (smoke); `npm run e2e` runs all 18 flows.
+1. Open **http://localhost:5173/?demo=1** → **Remote Scout** → your pigeon lands at the Louvre with a starter kit; Margot, a merchant,
+   guides you in 5 one-line bubbles. Tap the map (or the big **Fly there** button) to fly; the battery recharges over time.
+2. A glowing **DeepSeek shard** is next to you: tap **Catch**, then tap when the shrinking ring hits the dashed circle → see the variant
+   reveal (Classic / Night / Landmark / Overclocked / Shiny) and the combo flame on PERFECTs. Bag › Codex shows your collection.
+3. Fly to a **Relay** (fountain icon) → swipe the disc → Flux + a shard.
+4. Fly to **Le Café Marly** (market stall; merchants shout their state in speech bubbles) → ⓘ **Why this price?** shows the exact formula
+   → buy 3+ shards → **Haggle**: play cards against the merchant's personality; "Your rival pays more" only works if it is *true*.
+5. Fly to the **Louvre Forge** → **First Compile** → hold → a credit ticket: **+$0.030 · ≈ 20 DeepSeek chats** (marked *simulated* without a
+   NEAR AI account) → **Share** makes a PNG card → **Try it now** → Playground → ask a question with your own key.
+6. The **Route** chip (bottom left) is today's Daily Route: 3–5 real stops nearby, same for everyone in the neighbourhood.
+7. Open **/lab** → scenario **DeepSeek flood** → **Simulate 1 week** → compared with the same week without the flood (−49 % on DeepSeek).
+8. Open **/pulse** → watch the live ticker while you trade in another tab. City events (flash crash, gold rush, forge hype, merchant
+   strike) start on their own during the day, or with `curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" -H "Origin: http://localhost:5173" localhost:8787/api/admin/event`.
+9. `npm test` → **211 unit tests** (economy invariants, haggling bounds, anti-cheat, pricing exploits, regions, API, chain settler, NEAR AI request shapes).
+10. `npm run verify` → tests + typecheck + build + headless e2e of the whole loop; `npm run e2e` runs all **28 flows** on a mobile viewport.
 
 Other commands: `npm run sim -- --days 7 --players 200 --scenario flood-deepseek --seed 42` (economy simulator CLI, health checks),
-`npm run e2e` (all Playwright specs, mobile viewport), `npm run reconcile` (chain vs DB), `npm run check:secrets`.
+`npm run shots` (screenshots), `npm run reconcile` (chain vs DB), `npm run check:secrets`.
+
+## The game loop
+- **Walk (or scout).** Real GPS anywhere: outside Paris the server builds a region from OpenStreetMap around you (relays on real POIs,
+  shops on real cafés, forges on landmarks), with a deterministic procedural fallback while Overpass answers. Remote Scout is the
+  explained couch mode: server-enforced speed and battery.
+- **Catch.** Lock-on timing mini-game, combos, haptics, 25 cosmetic variants in the Codex (night, landmark, shiny…).
+- **Trade.** Every merchant has its own stock, so its own prices: walking is arbitrage (15–40 % gaps 600 m apart). Speech bubbles show
+  real state ("Closing soon… help!"). **Haggling** is a 3-round card game bounded to ±8 % and never below the merchant's cost floor.
+- **Live city.** 24 runner-agents walk the map and trade around the clock; real players appear as anonymous walkers (cell-level only);
+  server-wide **city events** move prices and spawns for 20–40 minutes; merchants go bankrupt and get rescued by players (Patrons).
+- **Come back.** Daily Route with streaks, daily Forge recipes, Codex completion, share cards.
+- **Forge.** The only door to real value: burn shards from several families/places → raise the spend limit of your own NEAR AI Cloud API key.
 
 ## How NEAR is used
 | Piece | What | Where |
@@ -124,9 +137,15 @@ Copy `.env.example` to `.env`:
 Serverless hosts (e.g. Vercel functions) don't fit: the game needs a persistent SQLite file, background jobs and SSE.
 
 ## Hackathon disclosure
-Built from 2026-11-06 to 2026-11-14 during the NEAR HACKATHON by a solo developer, with heavy AI assistance (Claude Code; art for the
-splash/logo/cover generated with an image model). Map data © OpenStreetMap contributors, tiles © OpenFreeMap / OpenMapTiles.
-Libraries: React, MapLibre GL, Zustand, Motion, Fastify, better-sqlite3, h3-js, near-kit, near-sdk, @noble/*, zod, arctic, Vitest, Playwright.
+- **Built during the hackathon, from scratch:** first commit 2026-11-06 (spec only), all code written between 2026-11-06 and 2026-11-14.
+  There is no pre-hackathon code and no existing product on another chain. The submitted state is tagged `hackathon-submission`.
+- **AI-generated code:** most of the code, tests and docs were written with AI coding agents (Claude Code, Anthropic) under the
+  direction of the solo developer; the full design spec and every decision are in [`Docs/`](Docs/00-INDEX.md). Splash, logo, cover and
+  icons were generated with an image model (Codex imagegen); the in-game pixel sprites are hand-written text grids in `apps/web/src/sprites/`.
+- **Data:** map data © OpenStreetMap contributors (ODbL), tiles © OpenFreeMap / OpenMapTiles.
+- **Libraries:** React, React DOM, Vite, MapLibre GL, Zustand, Motion, clsx, lucide-react, @fontsource (Pixelify Sans, Nunito), Fastify
+  (+ @fastify/cookie, rate-limit, static), better-sqlite3, zod, h3-js, near-kit, @noble/hashes, @noble/curves, arctic;
+  contract: near-sdk (Rust), cargo-near; tooling: TypeScript, Vitest, Playwright, sharp, ffmpeg. No game template was used.
 
 ## License
 MIT
