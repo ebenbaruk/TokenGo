@@ -8,7 +8,7 @@ const Env = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().default(8787),
   HOST: z.string().default('127.0.0.1'),
-  PUBLIC_URL: z.string().default('http://localhost:5173'),
+  PUBLIC_URL: z.string().default(process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'http://localhost:5173'),
   DB_PATH: z.string().default('./var/tokengo.db'),
   SESSION_SECRET: z.string().default('dev-session-secret-change-me'),
   SPAWN_SECRET: z.string().default('dev-spawn-secret'),
@@ -61,7 +61,10 @@ export function loadConfig(overrides: Record<string, string | undefined> = {}): 
   }
   const hasNearAi = !!(env.NEARAI_AUTH_ACCOUNT && env.NEARAI_AUTH_KEY);
   const hasChain = !!(env.NEAR_CONTRACT_ID && env.NEAR_OPERATOR_KEY && env.NEAR_OPERATOR_ID);
-  const allowedOrigins = [env.PUBLIC_URL];
+  const originOf = (u: string) => { try { return new URL(u).origin; } catch { return u.replace(/\/+$/, ''); } };
+  // Railway injecte RAILWAY_PUBLIC_DOMAIN : le domaine public est accepté même si PUBLIC_URL est mal saisi.
+  const railway = process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : '';
+  const allowedOrigins = [...new Set([env.PUBLIC_URL, railway].filter(Boolean).map(originOf))];
   if (!prod) allowedOrigins.push('http://localhost:5173', 'http://surface:5173', 'http://localhost:8787', 'http://127.0.0.1:5173', 'http://localhost:4173');
   return {
     ...env,
