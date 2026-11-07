@@ -93,6 +93,13 @@ test('demo pass (DEMO_TOKEN) compiles a Spark → credit ticket', async ({ page 
   await expect(ticket).toContainText('simulated');
   await expect(ticket).toContainText(`+${res.xp} XP`);
   await shot(page, 'forge-03-ticket');
+  // carte partageable du ticket (PNG, téléchargé faute de Web Share en headless)
+  const dl = page.waitForEvent('download');
+  await page.getByTestId('ticket-share').click();
+  const download = await dl;
+  expect(download.suggestedFilename()).toMatch(/^tokengo-credit-.+\.png$/);
+  await download.saveAs('e2e/__shots__/forge-card-ticket.png');
+  await expect.poll(async () => ((await tg(page)) as unknown as { lastShare: { kind: string; type: string } | null }).lastShare?.kind).toBe('ticket');
 
   // éclats brûlés + frais payés, crédit visible
   const after = (await tg(page)).me!;

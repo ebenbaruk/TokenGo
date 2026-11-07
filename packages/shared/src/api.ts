@@ -2,7 +2,7 @@
 // Erreurs : HTTP 4xx avec { error: { code: ErrorCode, message: string, ...extra } }.
 import type { Family, NodeKind } from './types.ts';
 import type { PriceExplanation, MerchantState, MerchantStatus, Side } from './economy/pricing.ts';
-import type { Tier } from './economy/rules.ts';
+import type { Tier, Variant } from './economy/rules.ts';
 import type { Pools } from './economy/reserve.ts';
 
 export type ErrorCode =
@@ -38,7 +38,11 @@ export interface Me {
 }
 
 export interface MoveRequest { lat: number; lng: number; acc: number; heading?: number }
-export interface MoveResponse { ok: true; inTransit: boolean; ignored: boolean; suspicious: boolean; walkedM: number }
+export interface MoveResponse {
+  ok: true; inTransit: boolean; ignored: boolean; suspicious: boolean; walkedM: number;
+  /** Arrêt(s) de la Daily Route validé(s) par cette position (absent sinon). */
+  route?: RouteCheckin;
+}
 
 export interface NodeView {
   id: string;
@@ -77,6 +81,8 @@ export interface WorldResponse {
   spawns: SpawnView[];      // éclats visibles (≤ 250 m), non encore capturés par le joueur
   reserve: ReserveView;
   objective: Objective | null;
+  /** Daily Route du jour (absente s'il n'y a pas assez de lieux autour du joueur ou pas encore de position serveur). */
+  route?: DailyRouteView | null;
   /** Runners-agents (PNJ joueurs) dans ~1,2 km — points discrets sur la carte. Absent si les runners sont désactivés. */
   runners?: RunnerView[];
 }
@@ -102,6 +108,63 @@ export interface CatchResolveResponse {
   combo: number;
   levelUp: number | null;
   me: Me;
+  /** Capture réussie : variante cosmétique tirée par le serveur + avancée du Codex. */
+  codex?: CatchCodex;
+}
+
+export interface CatchCodex {
+  variant: Variant;
+  name: string;             // « Louvre Claude », « Shiny GPT »…
+  place: string | null;     // monument pour la variante landmark
+  isNew: boolean;           // première fois dans le Codex
+  found: number;
+  total: number;
+  newTitle: string | null;  // titre débloqué par cette capture
+  xp: number;               // XP de découverte (déjà incluse dans `xp`)
+}
+
+export interface CodexEntryView {
+  family: Family;
+  variant: Variant;
+  found: boolean;
+  name: string;             // nom (ou « ??? » si inconnue)
+  hint: string;
+  count: number;
+  firstAt: number | null;
+  place: string | null;
+}
+/** GET /api/codex */
+export interface CodexView {
+  entries: CodexEntryView[];  // FAMILIES × VARIANTS, dans l'ordre
+  found: number;
+  total: number;
+  pct: number;
+  byFamily: Record<Family, number>;
+  titles: { id: string; name: string; need: number; unlocked: boolean }[];
+  title: string | null;
+  records: { bestCombo: number; catches: number; perfects: number; routesDone: number; routeStreak: number };
+}
+
+export interface RouteStopView { id: string; kind: NodeKind; name: string; lat: number; lng: number; done: boolean }
+export interface DailyRouteView {
+  day: string;
+  stops: RouteStopView[];
+  done: number;
+  total: number;
+  lengthM: number;
+  completedAt: number | null;
+  reward: { xp: number; flux: number; shard: Family };
+  streak: number;            // jours consécutifs terminés (aujourd'hui compris s'il est fait)
+}
+export interface RouteCheckin {
+  stopIds: string[];         // arrêts validés par cette position
+  done: number;
+  total: number;
+  completed: boolean;        // la route vient d'être terminée (récompense créditée)
+  reward: { xp: number; flux: number; shard: Family } | null;
+  streak: number;
+  levelUp: number | null;
+  me: Me | null;             // profil à jour quand une récompense a été créditée
 }
 
 export interface SyncResponse {

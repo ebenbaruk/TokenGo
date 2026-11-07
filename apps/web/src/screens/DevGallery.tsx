@@ -6,6 +6,9 @@ import { SHARDS, AVATAR, RELAY, RELAY_COOLDOWN, FORGE, FLUX, XP_STAR, LOCK, BADG
 import { Button, Pill, Counter, Tabs, Stepper, SlideToConfirm, HoldButton, ShardIcon, Gauge, Sparkline, Card, Sheet } from '../ui/index.tsx';
 import { ToastHost } from '../hud/Toasts.tsx';
 import { toast } from '../lib/store.ts';
+import { VARIANTS } from '@tokengo/shared';
+import { shardVariant, shardSilhouette, FLAME, VARIANT_LABEL } from '../sprites/variants.ts';
+import { FAMILY_HEX } from '../sprites/index.ts';
 
 const ARCH = ['gambler', 'hoarder', 'scholar', 'hustler', 'grandma', 'purist', 'trendchaser', 'nightowl'];
 
@@ -20,6 +23,18 @@ export default function DevGallery() {
   const label = (t: string) => <div style={{ fontSize: 12, textAlign: 'center' as const }}>{t}</div>;
   return (
     <div style={{ height: '100%', overflow: 'auto', padding: 12, background: 'var(--bg)' }}>
+      {section === 'variants' && (
+        <>
+          <h2>Codex variants</h2>
+          {FAMILIES.map((f) => (
+            <div key={f} style={{ ...box, background: FAMILY_HEX[f] }}>
+              <div>{[0].map((fr) => <Sprite key={fr} def={shardSilhouette(f)} scale={scale} />)}{label('?')}</div>
+              {VARIANTS.map((v) => <div key={v}>{[0, 1].map((fr) => <Sprite key={fr} def={shardVariant(f, v)} scale={scale} frame={fr} />)}{label(VARIANT_LABEL[v])}</div>)}
+            </div>
+          ))}
+          <div style={box}>{[0, 1, 2].map((fr) => <Sprite key={fr} def={FLAME} scale={scale} frame={fr} />)}</div>
+        </>
+      )}
       {section === 'sprites' && (
         <>
           <h2>Shards</h2>

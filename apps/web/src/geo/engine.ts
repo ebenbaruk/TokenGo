@@ -1,8 +1,9 @@
 // Boucle de position : GPS (watchPosition filtré + lissé) ou Demo Walk (tap-to-walk à 30 km/h, jump 3 s),
 // envoi throttlé à POST /api/move, rafraîchissement du monde.
-import { haversineM, MOVE, type LatLng } from '@tokengo/shared';
+import { haversineM, MOVE, type LatLng, type RouteCheckin } from '@tokengo/shared';
 import { api, ApiFail } from '../lib/api.ts';
-import { useGame, setMe, toast, type Pos } from '../lib/store.ts';
+import { useGame, setMe, toast, celebrate, type Pos } from '../lib/store.ts';
+import { feedback } from '../lib/sound.ts';
 
 export const LOUVRE: LatLng = { lat: 48.8611, lng: 2.3358 };
 const SEND_EVERY_MS = 3000;
@@ -55,10 +56,29 @@ async function maybeSend(p: Pos, force = false): Promise<void> {
     if (r.suspicious) toast('Re-syncing your position…', 'info');
     const me = useGame.getState().me;
     if (me && me.walkedM !== r.walkedM) useGame.setState({ me: { ...me, walkedM: r.walkedM } });
+    if (r.route) onRouteCheckin(r.route);
   } catch (e) {
     if (e instanceof ApiFail && e.code === 'NETWORK') useGame.setState({ serverDown: true });
   }
   void refreshWorld();
+}
+
+/** Arrêt(s) de la Daily Route validé(s) par le serveur : coche locale immédiate, son, puis fête si la route est finie. */
+function onRouteCheckin(c: RouteCheckin): void {
+  const { world } = useGame.getState();
+  if (world?.route) {
+    const done = new Set([...world.route.stops.filter((s) => s.done).map((s) => s.id), ...c.stopIds]);
+    useGame.setState({ world: { ...world, route: { ...world.route, stops: world.route.stops.map((s) => ({ ...s, done: done.has(s.id) })), done: c.done, completedAt: c.completed ? Date.now() : null, streak: c.streak } } });
+  }
+  if (c.completed) {
+    if (c.me) setMe(c.me, c.levelUp);
+    feedback('route', 'route');
+    celebrate({ kind: 'route', checkin: c });
+  } else {
+    const name = world?.route?.stops.find((s) => s.id === c.stopIds[0])?.name ?? 'Stop';
+    feedback('stop', 'stop');
+    toast(`Daily Route ${c.done}/${c.total} · ${name} ✓`, 'good', 'xp');
+  }
 }
 
 function setPos(p: Pos, force = false): void {

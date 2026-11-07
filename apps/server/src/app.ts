@@ -34,6 +34,7 @@ import { labSnapshot } from './game/pulse.ts';
 import { activeRunnerCount, runnersNear } from './game/runners.ts';
 import { invariantStatus, parisDay } from './game/reserve.ts';
 import { judgeOpen } from './game/forge.ts';
+import { codexView } from './game/codex.ts';
 
 const SESSION_TTL = 30 * 24 * 3600_000;
 /** Connexions SSE simultanées max : par joueur (/api/stream), par IP (/api/pulse/stream), au total. */
@@ -231,6 +232,7 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}) {
     const b = z.object({ attemptId: z.string().max(80), offsets: z.array(z.number()).max(3) }).parse(req.body);
     return catchResolve(ctx, auth(req), b.attemptId, b.offsets);
   });
+  app.get('/api/codex', rl(30), async (req) => codexView(ctx, auth(req)));
   app.post('/api/relay/sync', rl(20), async (req) => relaySync(ctx, auth(req), z.object({ nodeId: z.string().max(80) }).parse(req.body).nodeId));
 
   const Id = z.object({ id: z.string().max(100) });

@@ -218,3 +218,47 @@ export const MODEL_EQUIV = [
   { id: 'anthropic/claude-sonnet-5-5', label: 'Claude Sonnet 5.5', usdPerMTok: 8, tier: 'premium' },
 ] as const;
 export const TOKENS_PER_CHAT = 1500;
+
+// ───────────────────────────── Codex (variantes d'éclats : purement cosmétiques) ─────────────────────────────
+/**
+ * Une capture tire une variante (serveur, graine HMAC). Les variantes ne changent NI l'inventaire NI les prix NI la Forge :
+ * un « Shiny Claude » est un éclat `shard:claude` comme les autres. Elles remplissent seulement le Codex (collection).
+ * Priorité : shiny > overclocked > landmark > night > classic.
+ */
+export const VARIANTS = ['classic', 'night', 'landmark', 'overclocked', 'shiny'] as const;
+export type Variant = (typeof VARIANTS)[number];
+export const CODEX = {
+  shinyChance: 1 / 40,          // ≈ 1 capture sur 40, partout, à toute heure
+  overclockCombo: 3,            // un PERFECT avec un combo ≥ 3 → « Overclocked »
+  landmarkRadiusM: 300,         // à ≤ 300 m d'une Forge (monument) → « Louvre Claude »
+  nightFromHour: 21,            // de 21 h à 6 h, heure solaire locale (longitude / 15) : marche dans n'importe quelle ville
+  nightToHour: 6,
+  xpNewEntry: 15,               // XP pour chaque case du Codex découverte (25 cases → 375 XP au total, une seule fois)
+} as const;
+/** Titres débloqués par le nombre de cases découvertes (sur FAMILIES × VARIANTS = 25). */
+export const CODEX_TITLES = [
+  { id: 'spotter', name: 'Shard Spotter', need: 3 },
+  { id: 'hunter', name: 'Variant Hunter', need: 8 },
+  { id: 'keeper', name: 'Codex Keeper', need: 15 },
+  { id: 'archivist', name: 'City Archivist', need: 25 },
+] as const;
+
+// ───────────────────────────── Daily Route ─────────────────────────────
+/**
+ * Chaque jour, une boucle de 3 à 5 vrais lieux (relais, marchands, forge) autour du quartier du joueur.
+ * Graine = (jour, cellule H3 r8 du quartier) : tous les joueurs d'un même quartier ont la même route ce jour-là.
+ * Récompense bornée, une fois par jour : 200 XP + 60 ƒ (+10 ƒ par jour de série, max +30) + 1 Gemini (Uncommon garanti).
+ */
+export const DAILY_ROUTE = {
+  stopsMin: 3,
+  stopsMax: 5,
+  anchorRes: 8,                 // cellule H3 r8 (≈ 0,7 km²) : le quartier
+  radiusM: 500,                 // arrêts à ≤ 500 m du centre du quartier (boucle ≈ 1,5–2 km)
+  minSpacingM: 120,             // deux arrêts sont à ≥ 120 m l'un de l'autre
+  reanchorM: 2500,              // route pas commencée et joueur à > 2,5 km : nouvelle route autour de lui
+  rewardXp: 200,
+  rewardFlux: 60,
+  streakFluxPerDay: 10,
+  streakFluxMax: 30,
+  rewardShard: 'gemini' as Family,
+} as const;

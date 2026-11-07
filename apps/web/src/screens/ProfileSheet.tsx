@@ -136,6 +136,7 @@ export function ProfileSheet({ onClose }: { onClose: () => void }) {
         </Card>
 
         <div className={s.links}>
+          <Button block variant="primary" onClick={() => openOverlay({ kind: 'codex' })} testId="open-codex">Shard Codex</Button>
           <Button block onClick={() => openOverlay({ kind: 'proofs' })} testId="open-proofs">Proofs</Button>
           <Button block variant="ghost" onClick={() => { location.href = '/about'; }}>About & privacy</Button>
         </div>

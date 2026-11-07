@@ -2,7 +2,7 @@
 import type {
   ApiError, ErrorCode, Me, MoveRequest, MoveResponse, WorldResponse, CatchStartResponse, CatchResolveRequest, CatchResolveResponse,
   SyncResponse, MerchantView, QuoteRequest, QuoteResponse, TradeResponse, ForgeView, CompileRequest, CompileResponse, CreditsView,
-  PulseResponse, PublicConfig, LeaderboardsResponse, LabSnapshot,
+  PulseResponse, PublicConfig, LeaderboardsResponse, LabSnapshot, CodexView,
 } from '@tokengo/shared';
 
 export class ApiFail extends Error {
@@ -104,6 +104,7 @@ export const api = {
   world: (lat: number, lng: number) => req<WorldResponse>('GET', `/api/world?lat=${lat.toFixed(6)}&lng=${lng.toFixed(6)}`),
   catchStart: (spawnId: string) => req<CatchStartResponse>('POST', '/api/catch/start', { spawnId }),
   catchResolve: (b: CatchResolveRequest) => req<CatchResolveResponse>('POST', '/api/catch/resolve', b),
+  codex: () => req<CodexView>('GET', '/api/codex'),
   sync: (nodeId: string) => req<SyncResponse>('POST', '/api/relay/sync', { nodeId }),
   merchant: (id: string) => req<MerchantView>('GET', `/api/merchant/${enc(id)}`),
   quote: (id: string, b: QuoteRequest) => req<QuoteResponse>('POST', `/api/merchant/${enc(id)}/quote`, b),
