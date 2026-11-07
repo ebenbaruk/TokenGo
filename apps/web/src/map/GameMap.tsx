@@ -89,6 +89,8 @@ export default function GameMap({ handlers }: { handlers: MapHandlers }) {
       fadeDuration: 0,
     });
     map.addControl(new AttributionControl({ compact: true }), 'bottom-right');
+    // compact = un simple « i » : MapLibre l'ouvre au premier rendu sur grand écran et il passait sous le gros bouton
+    map.once('idle', () => el.current?.querySelector('.maplibregl-ctrl-attrib')?.classList.remove('maplibregl-compact-show'));
     map.touchZoomRotate.disableRotation();
     let following = true;
     let freeTimer = 0;

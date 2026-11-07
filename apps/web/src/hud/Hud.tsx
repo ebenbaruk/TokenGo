@@ -51,7 +51,6 @@ function RouteChip() {
     <button type="button" className={`${s.routeChip} ${complete ? s.routeDone : ''}`} data-testid="route-chip" aria-label={`Daily Route ${route.done}/${route.total}`} onClick={() => openOverlay({ kind: 'route' })}>
       {complete ? <Check size={16} strokeWidth={3.5} /> : <RouteIcon size={16} strokeWidth={3} />}
       <span className={s.routeLabel}>Route</span>
-      <span className={s.routeDots}>{route.stops.map((st) => <i key={st.id} className={st.done ? s.on : ''} />)}</span>
       <span className="num">{route.done}/{route.total}</span>
       {route.streak > 0 ? <span className={s.streak} title="day streak">🔥{route.streak}</span> : null}
     </button>

@@ -93,9 +93,6 @@
 }
 .routeChip svg { color: var(--plum); }
 .routeLabel { font-family: var(--font-pixel); font-size: 15px; }
-.routeDots { display: inline-flex; gap: 3px; }
-.routeDots i { width: 10px; height: 10px; background: var(--white); border: 2px solid var(--ink); border-radius: 3px; }
-.routeDots i.on { background: var(--green); }
 .routeDone { background: var(--lime); }
 .routeDone svg { color: var(--green); }
 .streak { font-size: 13px; padding: 0 5px; background: var(--sun); border: 2px solid var(--ink); border-radius: 6px; }

@@ -44,7 +44,10 @@ export function contextual(world: WorldResponse | null, pos: Pos | null, hidden:
     if (inTransit && (t.kind === 'spawn' || t.kind === 'relay')) return { label: LABEL[t.kind], target: t, inRange: false, reason: 'In transit — catching paused' };
     return { label: LABEL[t.kind], target: t, inRange: true, reason: null };
   }
-  const t = targets.sort((a, b) => (a.dist - a.radius) - (b.dist - b.radius))[0]!;
+  // hors de portée : la cible de l'objectif en cours d'abord (le bouton et la barre d'objectif disent la même chose)
+  const focus = world.objective?.target;
+  const onFocus = focus ? targets.filter((x) => haversineM(focus, x.kind === 'spawn' ? x.spawn : x.node) < 25) : [];
+  const t = (onFocus.length ? onFocus : targets).sort((a, b) => (a.dist - a.radius) - (b.dist - b.radius))[0]!;
   const away = Math.round(t.dist);
   return { label: LABEL[t.kind], target: t, inRange: false, reason: `${away} m away — get a bit closer` };
 }
