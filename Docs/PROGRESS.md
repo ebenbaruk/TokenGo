@@ -2,6 +2,15 @@
 
 Mettre à jour à la fin de chaque bloc de travail. Le plus récent en haut.
 
+## 2026-11-07 — Game feel + raisons de revenir (Codex, Daily Route, cartes partageables)
+- **Fait** : passe « juice » sur la capture (combo ressenti : son qui monte, aura/flamme, secousse + confettis PERFECT,
+  révélation de variante, XP qui roule, éclat → sac), vibrations par événement + réglage ; Codex de 25 variantes cosmétiques
+  (serveur autoritaire, migration `007_codex.sql`, `GET /api/codex`) avec silhouettes, titres, records ; Daily Route
+  déterministe par (jour, quartier H3 r8) sur les nœuds génériques du monde, validée par `/api/move`, fête + série ;
+  cartes PNG 1200×675 (ticket, Codex, route) via Web Share / téléchargement. `E2E_PORT` pour l'e2e en parallèle.
+- **Vérif** : 133 tests unitaires/API, e2e 20/20 (dont `juice.spec.ts`), typecheck, `check:secrets`.
+- **Reste** : sons et vibrations à juger sur un vrai téléphone ; la nuit/landmark dépendent du lieu et de l'heure réels.
+
 ## 2026-11-07 (nuit) — Fin du build : produit complet, vérifié
 - **Fait depuis le bloc précédent** : revue sécurité indépendante → 9 correctifs (courses sur les octrois, XFF, Judge Pool réservé aux passes démo,
   tombstones, plafonds SSE…) avec tests de régression ; 18 parcours e2e (capture, marché, PRICE_MOVED, forge, anti-triche, Lab, Pulse SSE,

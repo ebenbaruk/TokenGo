@@ -16,6 +16,9 @@ import { CreditsScreen } from './screens/CreditsScreen.tsx';
 import { BagSheet, QuestsSheet, JumpSheet, MenuSheet } from './screens/MiscSheets.tsx';
 import { ProfileSheet } from './screens/ProfileSheet.tsx';
 import { ProofsSheet } from './screens/ProofsSheet.tsx';
+import { CodexSheet } from './screens/CodexSheet.tsx';
+import { RouteSheet, RouteCelebration } from './screens/RouteSheet.tsx';
+import { FlyLayer } from './hud/FlyLayer.tsx';
 
 const GameMap = lazy(() => import('./map/GameMap.tsx'));
 
@@ -68,6 +71,7 @@ window.__tgOpen = (nodeId) => {
 export function App() {
   const phase = useGame((s) => s.phase);
   const overlay = useGame((s) => s.overlay);
+  const celebration = useGame((s) => s.celebration);
   if (phase === 'splash') return <><Splash /><ToastHost /></>;
   return (
     <>
@@ -85,7 +89,11 @@ export function App() {
       {overlay?.kind === 'profile' ? <ProfileSheet onClose={closeOverlay} /> : null}
       {overlay?.kind === 'proofs' ? <ProofsSheet onClose={closeOverlay} /> : null}
       {overlay?.kind === 'district' ? <DistrictSheet onClose={closeOverlay} /> : null}
+      {overlay?.kind === 'codex' ? <CodexSheet onClose={closeOverlay} /> : null}
+      {overlay?.kind === 'route' ? <RouteSheet onClose={closeOverlay} /> : null}
       {overlay?.kind === 'jump' ? <JumpSheet node={overlay.node} onClose={closeOverlay} onOpen={() => openNode(overlay.node)} /> : null}
+      <FlyLayer />
+      {celebration?.kind === 'route' ? <RouteCelebration c={celebration} /> : null}
       <ToastHost />
     </>
   );

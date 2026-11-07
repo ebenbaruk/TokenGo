@@ -1,14 +1,20 @@
-// Sons courts synthétisés en WebAudio (aucun asset). Coupables (préférence locale).
-type SoundName = 'tap' | 'catch' | 'perfect' | 'miss' | 'fled' | 'sync' | 'trade' | 'forge' | 'error' | 'level';
+// Sons courts synthétisés en WebAudio (aucun asset), façon chiptune, + vibrations (Vibration API).
+// Deux préférences locales indépendantes : son coupé (tg.muted) et vibrations coupées (tg.haptics = '0').
+export type SoundName =
+  | 'tap' | 'catch' | 'perfect' | 'miss' | 'fled' | 'sync' | 'trade' | 'forge' | 'error' | 'level'
+  | 'discover' | 'shiny' | 'stop' | 'route' | 'reveal' | 'coin' | 'whoosh' | 'share';
 
 let ctx: AudioContext | null = null;
 const KEY = 'tg.muted';
-export function isMuted(): boolean {
-  try { return localStorage.getItem(KEY) === '1'; } catch { return false; }
-}
-export function setMuted(m: boolean): void {
-  try { localStorage.setItem(KEY, m ? '1' : '0'); } catch { /* stockage indisponible */ }
-}
+const HKEY = 'tg.haptics';
+const read = (k: string): string | null => { try { return localStorage.getItem(k); } catch { return null; } };
+const write = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* stockage indisponible */ } };
+
+export const isMuted = (): boolean => read(KEY) === '1';
+export const setMuted = (m: boolean): void => write(KEY, m ? '1' : '0');
+export const hapticsOn = (): boolean => read(HKEY) !== '0';
+export const setHaptics = (on: boolean): void => write(HKEY, on ? '1' : '0');
+export const canVibrate = (): boolean => typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function';
 
 function ac(): AudioContext | null {
   if (typeof window === 'undefined' || !('AudioContext' in window)) return null;
@@ -48,25 +54,74 @@ function noise(a: AudioContext, at: number, dur: number, vol = 0.05, from = 800,
   src.start(a.currentTime + at);
 }
 
-export function play(name: SoundName): void {
+/** Arpège (fréquences, pas en s). */
+const arp = (a: AudioContext, freqs: number[], step: number, dur: number, type: OscillatorType, vol: number, at = 0) =>
+  freqs.forEach((f, i) => tone(a, f, at + i * step, dur, type, vol));
+
+/**
+ * Joue un son. `pitch` : nombre de demi-tons de transposition (le combo monte d'un ton par niveau).
+ */
+export function play(name: SoundName, pitch = 0): void {
   if (isMuted()) return;
   const a = ac();
   if (!a) return;
+  const k = 2 ** (pitch / 12);
   switch (name) {
     case 'tap': tone(a, 660, 0, 0.05, 'square', 0.04); break;
-    case 'catch': tone(a, 1320, 0, 0.08, 'triangle', 0.1); tone(a, 1760, 0.07, 0.14, 'triangle', 0.09); break;
-    case 'perfect': [523, 659, 784, 1046].forEach((f, i) => tone(a, f, i * 0.06, 0.22, 'triangle', 0.08)); break;
+    case 'catch': tone(a, 1320 * k, 0, 0.08, 'triangle', 0.1); tone(a, 1760 * k, 0.07, 0.14, 'triangle', 0.09); break;
+    case 'perfect':
+      arp(a, [523, 659, 784, 1046].map((f) => f * k), 0.055, 0.2, 'triangle', 0.08);
+      tone(a, 2093 * k, 0.24, 0.25, 'square', 0.035);
+      noise(a, 0, 0.12, 0.05, 2000, 6000);
+      break;
     case 'miss': tone(a, 300, 0, 0.1, 'square', 0.05, 200); break;
     case 'fled': tone(a, 600, 0, 0.35, 'triangle', 0.06, 120); break;
     case 'sync': noise(a, 0, 0.35, 0.08, 400, 4000); tone(a, 880, 0.25, 0.15, 'triangle', 0.06); break;
     case 'trade': tone(a, 1046, 0, 0.06, 'square', 0.05); tone(a, 1568, 0.06, 0.18, 'triangle', 0.07); break;
+    case 'coin': tone(a, 988, 0, 0.06, 'square', 0.05); tone(a, 1319, 0.06, 0.22, 'square', 0.05); break;
     case 'forge': noise(a, 0, 0.9, 0.12, 80, 300); tone(a, 70, 0, 0.9, 'sawtooth', 0.05, 50);
-      [784, 1046, 1318, 1568].forEach((f, i) => tone(a, f, 1.0 + i * 0.07, 0.4, 'triangle', 0.07)); break;
+      arp(a, [784, 1046, 1318, 1568], 0.07, 0.4, 'triangle', 0.07, 1.0); break;
     case 'error': tone(a, 220, 0, 0.12, 'square', 0.05); tone(a, 180, 0.1, 0.15, 'square', 0.05); break;
-    case 'level': [392, 523, 659, 784, 1046].forEach((f, i) => tone(a, f, i * 0.08, 0.25, 'square', 0.05)); break;
+    case 'level': arp(a, [392, 523, 659, 784, 1046], 0.08, 0.25, 'square', 0.05); break;
+    // nouvelle case du Codex : « ta-da » montant + cloche
+    case 'discover': arp(a, [659, 784, 988, 1319], 0.07, 0.18, 'square', 0.045); tone(a, 2637, 0.3, 0.5, 'triangle', 0.05); break;
+    // shiny : cascade scintillante
+    case 'shiny': arp(a, [1568, 2093, 1760, 2349, 1976, 2637], 0.045, 0.16, 'triangle', 0.05); noise(a, 0, 0.5, 0.03, 4000, 9000); break;
+    // arrêt de la Daily Route : deux notes rondes
+    case 'stop': tone(a, 784, 0, 0.09, 'triangle', 0.08); tone(a, 1175, 0.08, 0.2, 'triangle', 0.08); break;
+    // fin de route : fanfare
+    case 'route':
+      arp(a, [523, 523, 523, 659], 0.11, 0.12, 'square', 0.05);
+      arp(a, [784, 1046], 0.16, 0.45, 'square', 0.05, 0.5);
+      arp(a, [262, 330, 392], 0.11, 0.3, 'triangle', 0.06);
+      break;
+    case 'reveal': noise(a, 0, 0.25, 0.04, 600, 5000); tone(a, 1760, 0.15, 0.25, 'triangle', 0.06); break;
+    case 'whoosh': noise(a, 0, 0.28, 0.06, 300, 3000); break;
+    case 'share': tone(a, 880, 0, 0.07, 'triangle', 0.06); tone(a, 1320, 0.07, 0.07, 'triangle', 0.06); tone(a, 1760, 0.14, 0.14, 'triangle', 0.06); break;
   }
 }
 
-export function buzz(pattern: number | number[]): void {
-  try { navigator.vibrate?.(pattern); } catch { /* iOS : ignoré */ }
+/** Motifs de vibration par événement (ms : vibre, pause, vibre…). */
+export const HAPTIC = {
+  tap: 8,
+  good: 35,
+  perfect: [25, 30, 25, 30, 70],
+  miss: [15, 40, 15],
+  shiny: [20, 25, 20, 25, 20, 25, 120],
+  stop: [30, 50, 30],
+  route: [60, 60, 60, 60, 200],
+  trade: 20,
+  forge: [40, 80, 40, 80, 160],
+  reveal: 25,
+} as const satisfies Record<string, number | readonly number[]>;
+
+export function buzz(pattern: number | readonly number[]): void {
+  if (!hapticsOn() || !canVibrate()) return;
+  try { navigator.vibrate(pattern as number | number[]); } catch { /* iOS : ignoré */ }
+}
+
+/** Son + vibration d'un coup. */
+export function feedback(name: SoundName, haptic?: keyof typeof HAPTIC, pitch = 0): void {
+  play(name, pitch);
+  if (haptic) buzz(HAPTIC[haptic]);
 }

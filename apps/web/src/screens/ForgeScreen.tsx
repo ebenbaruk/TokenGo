@@ -1,12 +1,13 @@
 // Forge (Docs/09 §4) : enclume dorée sur aplat plum, recettes du jour, Hold to Compile, ticket de crédit.
 import { useEffect, useState, type CSSProperties } from 'react';
 import { equivalences, formatTokens, haversineM, type CompileResponse, type Family, type ForgeView, type NodeView, type RecipeView } from '@tokengo/shared';
-import { X, ExternalLink, Lock } from 'lucide-react';
+import { X, ExternalLink, Lock, Share2 } from 'lucide-react';
 import { api, humanError } from '../lib/api.ts';
 import { useGame, setMe, toast, openOverlay } from '../lib/store.ts';
 import { radiusFor } from '../lib/nearby.ts';
 import { famName, fmtDist, fmtUsd, txUrl } from '../lib/format.ts';
-import { play } from '../lib/sound.ts';
+import { play, buzz, feedback, HAPTIC } from '../lib/sound.ts';
+import { creditCard, shareImage } from '../lib/share.ts';
 import { HoldButton, Button } from '../ui/index.tsx';
 import { Sprite } from '../sprites/Sprite.tsx';
 import { FORGE, SHARDS, FLUX, XP_STAR } from '../sprites/index.ts';
@@ -32,6 +33,18 @@ export function ForgeScreen({ node, onClose }: { node: NodeView; onClose: () => 
   const [phase, setPhase] = useState<Phase>('pick');
   const [res, setRes] = useState<CompileResponse | null>(null);
   const [flying, setFlying] = useState<Family[]>([]);
+  const [sharing, setSharing] = useState(false);
+  const share = async () => {
+    if (!res) return;
+    setSharing(true);
+    try {
+      const blob = await creditCard(res, forge?.name ?? node.name, flying);
+      const text = res.payoutNusd > 0
+        ? `I walked around, caught AI shards and compiled ${fmtUsd(res.payoutNusd)} of real NEAR AI Cloud compute on TokenGo.`
+        : 'Compiled shards at a TokenGo Forge.';
+      await shareImage(blob, `tokengo-credit-${res.compileId.slice(0, 8)}.png`, text, 'ticket');
+    } catch { toast('Could not make the card — try again.', 'bad'); } finally { setSharing(false); }
+  };
 
   const load = () => api.forge(node.id).then((f) => {
     setForge(f);
@@ -55,6 +68,7 @@ export function ForgeScreen({ node, onClose }: { node: NodeView; onClose: () => 
     setFlying(slotsOf(recipe).map((x) => x.f));
     setPhase('fusing');
     play('forge');
+    buzz(HAPTIC.forge);
     const t0 = Date.now();
     try {
       const r = await api.compile(node.id, { tier: recipe.tier });
@@ -63,6 +77,7 @@ export function ForgeScreen({ node, onClose }: { node: NodeView; onClose: () => 
       setRes(r);
       setMe(r.me, r.levelUp);
       setPhase('ticket');
+      feedback(r.payoutNusd > 0 ? 'discover' : 'level', 'perfect');
       void load();
     } catch (e) {
       toast(humanError(e), 'bad');
@@ -149,6 +164,7 @@ export function ForgeScreen({ node, onClose }: { node: NodeView; onClose: () => 
           </div>
           <div className={s.ticketActions}>
             {res.payoutNusd > 0 ? <Button variant="gold" size="l" block testId="try-now" onClick={() => openOverlay({ kind: 'credits' })}>Try it now</Button> : null}
+            <Button variant="primary" block testId="ticket-share" loading={sharing} onClick={() => void share()}><Share2 size={18} /> Share card</Button>
             <Button block onClick={() => { setPhase('pick'); setRes(null); }}>Back to the forge</Button>
           </div>
         </div>

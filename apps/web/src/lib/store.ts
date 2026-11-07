@@ -1,6 +1,6 @@
 // État global (Zustand). Exposé en lecture sur window.__tg pour les tests E2E (la carte WebGL n'est pas lisible).
 import { create } from 'zustand';
-import type { Me, NodeView, SpawnView, WorldResponse, Family } from '@tokengo/shared';
+import type { Me, NodeView, SpawnView, WorldResponse, Family, Variant, RouteCheckin, CompileResponse } from '@tokengo/shared';
 
 export interface Pos { lat: number; lng: number; acc: number; heading?: number; t: number }
 
@@ -16,7 +16,17 @@ export type Overlay =
   | { kind: 'menu' }
   | { kind: 'profile' }
   | { kind: 'proofs' }
-  | { kind: 'district' };
+  | { kind: 'district' }
+  | { kind: 'codex' }
+  | { kind: 'route' };
+
+/** Éclat qui vole du centre de l'écran vers le sac (après une capture). */
+export interface Flyer { id: number; family: Family; variant: Variant; delay: number }
+/** Grand moment plein écran : route du jour terminée. */
+export type Celebration = { kind: 'route'; checkin: RouteCheckin };
+/** Dernière carte partageable générée (lecture E2E). */
+export interface LastShare { kind: 'ticket' | 'codex' | 'route'; bytes: number; type: string; via: 'share' | 'download' }
+export type { CompileResponse };
 
 export interface Toast { id: number; text: string; tone: 'good' | 'bad' | 'info'; icon?: Family | 'flux' | 'xp' | 'level' }
 
@@ -39,6 +49,11 @@ interface State {
   walkTarget: { lat: number; lng: number } | null;
   serverDown: boolean;
   showRunners: boolean;
+  flyers: Flyer[];
+  /** incrémenté quand un éclat atterrit dans le sac (rebond du bouton) */
+  bagBump: number;
+  celebration: Celebration | null;
+  lastShare: LastShare | null;
 }
 
 export const useGame = create<State>(() => ({
@@ -56,6 +71,10 @@ export const useGame = create<State>(() => ({
   walkTarget: null,
   serverDown: false,
   showRunners: (() => { try { return localStorage.getItem('tg.runners') !== '0'; } catch { return true; } })(),
+  flyers: [],
+  bagBump: 0,
+  celebration: null,
+  lastShare: null,
 }));
 
 const set = useGame.setState;
@@ -80,6 +99,17 @@ export function setShowRunners(v: boolean): void {
 
 export const openOverlay = (o: Overlay | null) => set({ overlay: o });
 export const closeOverlay = () => set({ overlay: null });
+let flySeq = 1;
+/** Lance `n` éclats vers le sac (décalés de 120 ms). */
+export function flyToBag(family: Family, variant: Variant, n = 1): void {
+  const add = Array.from({ length: Math.min(4, n) }, (_, i) => ({ id: flySeq++, family, variant, delay: i * 120 }));
+  set({ flyers: [...get().flyers, ...add] });
+}
+export function landFlyer(id: number): void {
+  set({ flyers: get().flyers.filter((f) => f.id !== id), bagBump: get().bagBump + 1 });
+}
+export const celebrate = (c: Celebration | null) => set({ celebration: c });
+
 export const hideSpawn = (id: string) => set({ hiddenSpawns: [...get().hiddenSpawns, id].slice(-50) });
 
 declare global {
@@ -88,6 +118,6 @@ declare global {
 if (typeof window !== 'undefined') {
   window.__tg = () => {
     const s = get();
-    return { phase: s.phase, position: s.pos, me: s.me, world: s.world, lastResult: s.lastResult, overlay: s.overlay?.kind ?? null, demo: s.demo, gps: s.gps, toasts: s.toasts.map((t) => t.text) };
+    return { phase: s.phase, position: s.pos, me: s.me, world: s.world, lastResult: s.lastResult, overlay: s.overlay?.kind ?? null, demo: s.demo, gps: s.gps, toasts: s.toasts.map((t) => t.text), route: s.world?.route ?? null, celebration: s.celebration?.kind ?? null, lastShare: s.lastShare };
   };
 }

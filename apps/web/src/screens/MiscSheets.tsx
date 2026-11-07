@@ -1,7 +1,7 @@
 // Feuilles secondaires : Bag (inventaire), Quests (recettes du jour + contrats), Jump (Demo Walk), Menu.
 import { useEffect, useState } from 'react';
 import { FAMILIES, FAMILY_INFO, haversineM, type Family, type ForgeView, type NodeView } from '@tokengo/shared';
-import { Zap, Info, Volume2, VolumeX, UserRound, ShieldCheck, Activity, FlaskConical, Users } from 'lucide-react';
+import { Zap, Info, Volume2, VolumeX, UserRound, ShieldCheck, Activity, FlaskConical, Users, BookOpen, Vibrate, VibrateOff, Route as RouteIcon } from 'lucide-react';
 import { api } from '../lib/api.ts';
 import { useGame, openOverlay, setShowRunners } from '../lib/store.ts';
 import { famName, fmtDist, fmtUsd, RARITY_LABEL } from '../lib/format.ts';
@@ -9,7 +9,7 @@ import { walkTo } from '../geo/engine.ts';
 import { Sheet, Button, Card } from '../ui/index.tsx';
 import { Sprite } from '../sprites/Sprite.tsx';
 import { SHARDS, FLUX, XP_STAR, FORGE, RELAY, marketSprite, merchantSprite, BADGE } from '../sprites/index.ts';
-import { isMuted, setMuted } from '../lib/sound.ts';
+import { isMuted, setMuted, hapticsOn, setHaptics, canVibrate, buzz, HAPTIC } from '../lib/sound.ts';
 import s from './MiscSheets.module.css';
 
 export function BagSheet({ onClose }: { onClose: () => void }) {
@@ -112,12 +112,15 @@ export function JumpSheet({ node, onClose, onOpen }: { node: NodeView; onClose: 
 export function MenuSheet({ onClose }: { onClose: () => void }) {
   const me = useGame((st) => st.me);
   const [muted, setM] = useState(isMuted());
+  const [haptics, setH] = useState(hapticsOn());
   const showRunners = useGame((st) => st.showRunners);
   return (
     <Sheet open onClose={onClose} title={me?.handle ?? 'Runner'} subtitle={me ? `Level ${me.level} · ${me.kind === 'guest' ? 'Guest' : 'Google'} · ${me.mode === 'demo' ? 'Demo Walk' : 'GPS'}` : undefined} testId="menu-sheet">
       <div className={s.menu}>
         <Button block variant="gold" onClick={() => openOverlay({ kind: 'credits' })} testId="menu-credits"><Zap size={20} /> Credits & Playground</Button>
         <div className={s.menuGrid}>
+          <Button block variant="primary" onClick={() => openOverlay({ kind: 'codex' })} testId="menu-codex"><BookOpen size={20} /> Codex</Button>
+          <Button block variant="primary" onClick={() => openOverlay({ kind: 'route' })} testId="menu-route"><RouteIcon size={20} /> Daily Route</Button>
           <Button block onClick={() => openOverlay({ kind: 'profile' })} testId="menu-profile"><UserRound size={20} /> Profile</Button>
           <Button block onClick={() => openOverlay({ kind: 'proofs' })} testId="menu-proofs"><ShieldCheck size={20} /> Proofs</Button>
           <Button block onClick={() => { location.href = '/pulse'; }}><Activity size={20} /> Pulse</Button>
@@ -126,6 +129,11 @@ export function MenuSheet({ onClose }: { onClose: () => void }) {
         <Button block variant="ghost" onClick={() => { location.href = '/about'; }}><Info size={20} /> About & privacy</Button>
         <Button block variant="ghost" onClick={() => setShowRunners(!showRunners)} testId="toggle-runners"><Users size={20} /> Other runners on map: {showRunners ? 'on' : 'off'}</Button>
         <Button block variant="ghost" onClick={() => { setMuted(!muted); setM(!muted); }}>{muted ? <VolumeX size={20} /> : <Volume2 size={20} />} Sound: {muted ? 'off' : 'on'}</Button>
+        {canVibrate() ? (
+          <Button block variant="ghost" testId="toggle-haptics" onClick={() => { setHaptics(!haptics); setH(!haptics); if (!haptics) buzz(HAPTIC.good); }}>
+            {haptics ? <Vibrate size={20} /> : <VibrateOff size={20} />} Vibration: {haptics ? 'on' : 'off'}
+          </Button>
+        ) : null}
       </div>
     </Sheet>
   );

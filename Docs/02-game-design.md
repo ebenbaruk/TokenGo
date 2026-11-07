@@ -101,10 +101,23 @@ Spawns : chaque cellule H3 (≈ 175 m) génère 0–3 éclats par **fenêtre de 
 
 ### Boucle long terme
 - **Niveaux 1–20** (XP), avec des déblocages qui rythment l'apprentissage (tableau §6).
-- **Codex** (P2) : carnet de collection — nombre de nœuds visités par type, familles capturées, forges compilées, records
-  (plus gros arbitrage, plus long combo). Badges.
-- **Daily Route** (P2) : chaque jour, 3 nœuds proposés formant une boucle de ≈ 2 km autour du joueur → récompense bonus
-  (60 ƒ + 1 éclat Uncommon garanti). Série de jours (streak) visible.
+- **Codex** (fait) : carnet de collection. Chaque capture réussie tire une **variante cosmétique** côté serveur
+  (`economy/codex.ts`, règles `CODEX`) : *Classic* · *Night* (21 h–6 h, heure solaire locale) · *Landmark* (≤ 300 m d'une
+  Forge : « Louvre Claude ») · *Overclocked* (PERFECT à combo ≥ 3) · *Shiny* (1/40, priorité absolue). 5 familles × 5 = 25
+  cases ; les inconnues sont des silhouettes avec un indice. Titres à 3 / 8 / 15 / 25 cases (Shard Spotter, Variant Hunter,
+  Codex Keeper, City Archivist), records (meilleur combo, captures, perfects, routes). **Aucune valeur économique** : un éclat
+  Shiny vaut un éclat normal chez les marchands et à la Forge ; seule XP : +15 par case découverte. Carte partageable.
+- **Daily Route** (fait) : chaque jour, 3 à 5 vrais lieux (≥ 1 marchand, ≥ 1 relais, ≤ 1 forge) en boucle (≈ 1,5–2 km)
+  autour du quartier (cellule H3 r8) ; même route pour tout le quartier ce jour-là (`economy/route.ts`, règles `DAILY_ROUTE`).
+  Pointillés orange + pastilles numérotées sur la carte, puce « Daily Route n/N » sous l'objectif, checklist. Il suffit de
+  passer à portée d'un arrêt (validé par `/api/move`). Fin : fête plein écran + 200 XP, 60 ƒ (+10 ƒ par jour de série,
+  max +30) et 1 Gemini garanti, une fois par jour. Série visible (🔥).
+- **Game feel** : son de capture qui monte d'un ton par niveau de combo, aura et flamme de combo (mini-jeu et HUD, clignote
+  avant expiration), secousse + flash + confettis sur PERFECT, anneau qui s'allume dans la fenêtre « good », révélation de
+  la variante (rayons, « NEW », Codex n/25), XP qui roule, éclat qui vole jusqu'au sac. Vibrations par événement
+  (`HAPTIC`, désactivables dans le menu, indépendantes du son).
+- **Cartes partageables** (1200×675, format X) : ticket de crédit après une compilation, Codex, Daily Route ; Web Share API
+  sinon téléchargement du PNG.
 
 ## 5. Les nœuds (Nodes)
 | Type | Densité cible (Paris) | Source | Interaction | Rayon |
@@ -135,7 +148,7 @@ Les étapes du tutoriel **ignorent les verrous de niveau** (trade et First Compi
 | 10+ | Cosmétiques de profil (couleurs de traînée), titres |
 
 Gains d'XP : capture 10 (+5 perfect, +2/niveau de combo), sync 25, première visite 20, trade 2 par éclat,
-contrat 100, compile Spark/Prism/Aura 150/300/600, Daily Route 200.
+contrat 100, compile Spark/Prism/Aura 150/300/600, Daily Route 200, case du Codex 15.
 
 **Proof of walk** (comptes Google) : compiler des crédits réels exige ≥ 1,5 km de déplacement validé (trace plausible) sur le
 compte. Les invités ont droit à la First Compile (Welcome Pool), puis au **Judge Pool** pendant la période de jugement ou avec `DEMO_TOKEN` (cf. `03-economy.md` §2).
@@ -171,4 +184,4 @@ En mode Démo, le joueur démarre avec un kit (niveau 3, 60 ƒ, 4 éclats) pour 
 
 ## 10. Ce qu'on ne fait pas (pour rester simple)
 Pas de combat, pas de chat entre joueurs, pas d'échange joueur↔joueur direct (tout passe par les marchands : c'est le
-marché), pas d'éclats « shiny », pas de météo. Stretch possibles listés dans `11-roadmap.md`.
+marché), pas de météo ; les éclats « shiny » n'existent que comme variante cosmétique du Codex (aucune valeur en plus). Stretch possibles listés dans `11-roadmap.md`.

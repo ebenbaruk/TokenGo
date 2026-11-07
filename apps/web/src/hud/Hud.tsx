@@ -1,7 +1,7 @@
 // HUD de la carte (Docs/09 §4 Carte) : haut = niveau/XP, Flux, crédits réels ; Réserve ; objectif épinglé ;
 // bas = Bag · gros bouton contextuel · Quests ; barre de combo ; recentrage.
 import { useEffect, useState } from 'react';
-import { Backpack, ScrollText, LocateFixed, Target as TargetIcon, WifiOff, Zap, Volume2, VolumeX } from 'lucide-react';
+import { Backpack, ScrollText, LocateFixed, Target as TargetIcon, WifiOff, Zap, Volume2, VolumeX, Route as RouteIcon, Check } from 'lucide-react';
 import { CATCH } from '@tokengo/shared';
 import { useGame, openOverlay, type Pos } from '../lib/store.ts';
 import { contextual, type Target } from '../lib/nearby.ts';
@@ -9,6 +9,7 @@ import { fmtUsd } from '../lib/format.ts';
 import { Counter, Pill, IconButton, Button } from '../ui/index.tsx';
 import { Sprite } from '../sprites/Sprite.tsx';
 import { FLUX } from '../sprites/index.ts';
+import { FLAME } from '../sprites/variants.ts';
 import { mapCtl } from '../map/ctl.ts';
 import { isMuted, setMuted } from '../lib/sound.ts';
 import s from './Hud.module.css';
@@ -39,6 +40,22 @@ function LevelRing({ level, into, need, onClick }: { level: number; into: number
   );
 }
 
+/** Puce de la Daily Route (sous l'objectif) : progression + série ; ouvre la checklist. */
+function RouteChip() {
+  const route = useGame((st) => st.world?.route);
+  if (!route) return null;
+  const complete = route.completedAt !== null;
+  return (
+    <button type="button" className={`${s.routeChip} ${complete ? s.routeDone : ''}`} data-testid="route-chip" onClick={() => openOverlay({ kind: 'route' })}>
+      {complete ? <Check size={16} strokeWidth={3.5} /> : <RouteIcon size={16} strokeWidth={3} />}
+      <span className={s.routeLabel}>Daily Route</span>
+      <span className={s.routeDots}>{route.stops.map((st) => <i key={st.id} className={st.done ? s.on : ''} />)}</span>
+      <span className="num">{route.done}/{route.total}</span>
+      {route.streak > 0 ? <span className={s.streak} title="day streak">🔥{route.streak}</span> : null}
+    </button>
+  );
+}
+
 function ComboBar() {
   const me = useGame((st) => st.me);
   const [now, setNow] = useState(Date.now());
@@ -46,7 +63,8 @@ function ComboBar() {
   if (!me || me.combo < 2 || !me.comboExpiresAt || me.comboExpiresAt < now) return null;
   const left = (me.comboExpiresAt - now) / CATCH.comboWindowMs;
   return (
-    <div className={s.combo} data-testid="combo">
+    <div className={`${s.combo} ${left < 0.25 ? s.comboLow : ''}`} data-testid="combo" style={{ '--heat': Math.min(1, me.combo / CATCH.comboMax) } as React.CSSProperties}>
+      <Sprite def={FLAME} scale={2} anim />
       <span className="pixel">combo ×{me.combo}</span>
       <span className={s.comboTrack}>{Array.from({ length: 5 }, (_, i) => <i key={i} className={i < Math.ceil(left * 5) ? s.on : ''} />)}</span>
     </div>
@@ -62,6 +80,7 @@ export function Hud({ onAction }: { onAction: (t: Target) => void }) {
   const serverDown = useGame((st) => st.serverDown);
   const hidden = useGame((st) => st.hiddenSpawns);
   const pos = useSampledPos();
+  const bagBump = useGame((st) => st.bagBump);
   const [following, setFollowing] = useState(true);
   const [muted, setMutedState] = useState(isMuted());
   useEffect(() => { mapCtl.onFollowChange = setFollowing; }, []);
@@ -104,6 +123,7 @@ export function Hud({ onAction }: { onAction: (t: Target) => void }) {
             <TargetIcon size={18} strokeWidth={3} /> <span>{world.objective.text}</span>
           </button>
         ) : null}
+        <RouteChip />
       </div>
 
       <div className={s.bottom}>
@@ -114,7 +134,7 @@ export function Hud({ onAction }: { onAction: (t: Target) => void }) {
         ) : null}
         <ComboBar />
         <div className={s.bar}>
-          <div className={s.side}>
+          <div className={`${s.side} ${bagBump ? s.bagBump : ''}`} key={`bag${bagBump}`}>
             <IconButton label="Bag" showLabel onClick={() => openOverlay({ kind: 'bag' })} testId="bag-btn"><Backpack strokeWidth={2.5} /></IconButton>
             {bagCount > 0 ? <span className={s.count}>{bagCount}</span> : null}
           </div>

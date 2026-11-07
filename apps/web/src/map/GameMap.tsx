@@ -126,6 +126,13 @@ export default function GameMap({ handlers }: { handlers: MapHandlers }) {
       }))));
       syncSpawns();
       (map.getSource('runners') as GeoJSONSource).setData(fc(st.showRunners ? (st.world?.runners ?? []).map((r) => pt(r, { handle: r.handle })) : []));
+      // Daily Route : boucle pointillée entre les arrêts + pastilles numérotées (vertes une fois validées)
+      const route = st.world?.route;
+      const rs = route?.stops ?? [];
+      (map.getSource('daily') as GeoJSONSource).setData(fc(rs.length > 1 ? [{
+        type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [...rs, rs[0]!].map((x) => [x.lng, x.lat]) },
+      }] : []));
+      (map.getSource('daily-stops') as GeoJSONSource).setData(fc(rs.map((x, i) => pt(x, { n: x.done ? '' : String(i + 1), done: x.done ? 1 : 0 }))));
       const target = st.world?.objective?.target;
       (map.getSource('route') as GeoJSONSource).setData(fc(target && st.pos ? [{
         type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [[st.pos.lng, st.pos.lat], [target.lng, target.lat]] },
@@ -153,6 +160,8 @@ export default function GameMap({ handlers }: { handlers: MapHandlers }) {
       const before = map.getLayer('place-quarter') ? 'place-quarter' : undefined;
       map.addSource('radius', { type: 'geojson', data: fc([]) });
       map.addSource('route', { type: 'geojson', data: fc([]) });
+      map.addSource('daily', { type: 'geojson', data: fc([]) });
+      map.addSource('daily-stops', { type: 'geojson', data: fc([]) });
       map.addSource('nodes', { type: 'geojson', data: fc([]) });
       map.addSource('spawns', { type: 'geojson', data: fc([]) });
       map.addSource('me', { type: 'geojson', data: fc([]) });
@@ -161,6 +170,17 @@ export default function GameMap({ handlers }: { handlers: MapHandlers }) {
       map.addLayer({ id: 'radius-line', type: 'line', source: 'radius', paint: { 'line-color': '#3b5dc9', 'line-width': 2, 'line-dasharray': [2, 2], 'line-opacity': 0.6 } }, before);
       map.addLayer({ id: 'route', type: 'line', source: 'route', layout: { 'line-cap': 'round' },
         paint: { 'line-color': '#5d275d', 'line-width': 4, 'line-dasharray': [0.5, 2], 'line-opacity': 0.75 } });
+      map.addLayer({ id: 'daily-casing', type: 'line', source: 'daily', layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': '#f4f4f4', 'line-width': 7, 'line-opacity': 0.85 } }, before);
+      map.addLayer({ id: 'daily-line', type: 'line', source: 'daily', layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': '#ef7d57', 'line-width': 4, 'line-dasharray': [0.1, 1.8] } }, before);
+      map.addLayer({ id: 'daily-stops', type: 'circle', source: 'daily-stops', paint: {
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 6, 16, 11], 'circle-color': ['case', ['==', ['get', 'done'], 1], '#38b764', '#ffcd75'],
+        'circle-stroke-color': '#1a1c2c', 'circle-stroke-width': 2.5, 'circle-translate': [0, 10],
+      } });
+      map.addLayer({ id: 'daily-num', type: 'symbol', source: 'daily-stops', layout: {
+        'text-field': ['get', 'n'], 'text-font': ['Noto Sans Bold'], 'text-size': ['interpolate', ['linear'], ['zoom'], 13, 9, 16, 13], 'text-allow-overlap': true, 'text-ignore-placement': true,
+      }, paint: { 'text-color': ['case', ['==', ['get', 'done'], 1], '#f4f4f4', '#1a1c2c'], 'text-translate': [0, 10] } });
       // runners-agents : sprite seul (pas d'étiquette), sous les nœuds et les éclats
       map.addLayer({ id: 'runners', type: 'symbol', source: 'runners', minzoom: 14, layout: {
         'icon-image': 'runner', 'icon-anchor': 'bottom', 'icon-allow-overlap': true, 'icon-pitch-alignment': 'viewport',

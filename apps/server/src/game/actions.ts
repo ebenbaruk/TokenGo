@@ -15,6 +15,7 @@ import { getPools, reserveView } from './reserve.ts';
 import { parisDay } from './reserve.ts';
 import { reserveHealth } from '@tokengo/shared';
 import { assertQuota, bumpQuota } from './quotas.ts';
+import { recordCatchVariant, routeCheckin, routeFor } from './codex.ts';
 
 const TUTORIAL_SPAWN = (userId: string) => `tut:${userId}`;
 
@@ -32,7 +33,10 @@ export function move(ctx: Ctx, userId: string, req: MoveRequest): MoveResponse {
   const tut = u.tut_lat === null && !v.ignored ? offsetM(req, 0, 20) : null;
   ctx.db.prepare(`UPDATE users SET move_state = ?, walked_m = ?, in_transit = ? ${tut ? ', tut_lat = ?, tut_lng = ?' : ''} WHERE id = ?`)
     .run(JSON.stringify(v.state), walked, v.inTransit ? 1 : 0, ...(tut ? [tut.lat, tut.lng] : []), userId);
-  return { ok: true, inTransit: v.inTransit, ignored: v.ignored, suspicious: v.suspicious, walkedM: walked };
+  // Daily Route : validation des arrêts sur une position acceptée (pas en transit, pas de saut suspect)
+  const route = !v.ignored && !v.suspicious && !v.inTransit && now >= v.state.suspiciousUntil
+    ? routeCheckin(ctx, userId, { lat: req.lat, lng: req.lng, acc: req.acc }) : undefined;
+  return { ok: true, inTransit: v.inTransit, ignored: v.ignored, suspicious: v.suspicious, walkedM: walked, ...(route ? { route } : {}) };
 }
 
 /** Vérifie qu'un joueur peut agir sur une cible (position récente, pas en transit, assez près). */
@@ -102,7 +106,9 @@ export function worldView(ctx: Ctx, userId: string, lat: number, lng: number): W
     if (n.kind === 'forge') v.theme = ctx.world.forges.find((f) => f.id === n.id)?.theme ?? n.affinities;
     return v;
   });
-  return { now, nodes: views, spawns: visibleSpawns(ctx, u, lat, lng), reserve: reserveView(ctx), objective: objective(ctx, u, lat, lng) };
+  // la route s'ancre sur la dernière position reçue par /api/move (pas sur les paramètres de /api/world)
+  const route = routeFor(ctx, u, moveStateOf(u).last);
+  return { now, nodes: views, spawns: visibleSpawns(ctx, u, lat, lng), reserve: reserveView(ctx), objective: objective(ctx, u, lat, lng), route };
 }
 
 /** Objectif épinglé : la recette la plus proche d'être complète + où trouver ce qui manque. */
@@ -192,11 +198,13 @@ function grantCatch(ctx: Ctx, userId: string, spawn: SpawnView, res: CatchOutcom
     const qty = 'bonus' in res && res.bonus ? 2 : 1;
     credit(ctx, userId, shardToken(spawn.family), qty, `catch:${spawn.id}`);
     const combo = nextCombo(u.combo, u.last_catch_at, now);
-    ctx.db.prepare('UPDATE users SET combo = ?, last_catch_at = ? WHERE id = ?').run(combo, now, userId);
-    const xp = catchXp(res.result === 'perfect', combo);
+    ctx.db.prepare('UPDATE users SET combo = ?, last_catch_at = ?, best_combo = MAX(best_combo, ?) WHERE id = ?').run(combo, now, combo, userId);
+    // variante cosmétique (Codex) : ne change rien à l'inventaire ; XP de découverte une fois par case
+    const codex = recordCatchVariant(ctx, userId, spawn, res.result === 'perfect', combo, now);
+    const xp = catchXp(res.result === 'perfect', combo) + codex.xp;
     const levelUp = addXp(ctx, userId, xp);
     markTutorial(ctx, userId, 'caught');
-    return { result: res.result, family: spawn.family, qty, xp, combo, levelUp, me: meView(ctx, userId) };
+    return { result: res.result, family: spawn.family, qty, xp, combo, levelUp, me: meView(ctx, userId), codex };
   })();
 }
 

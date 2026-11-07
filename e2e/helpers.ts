@@ -3,7 +3,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { test as base, expect, type APIRequestContext, type APIResponse, type Page } from '@playwright/test';
 
-export const ORIGIN = 'http://localhost:8788';
+export const ORIGIN = `http://localhost:${process.env.E2E_PORT ?? 8788}`;
 export const DEMO_TOKEN = 'e2e-judge';
 export const LOUVRE = { lat: 48.8611, lng: 2.3358 };
 
@@ -40,7 +40,7 @@ const MIME: Record<string, string> = {
  */
 export const test = base.extend<{ staticFromDisk: void }>({
   staticFromDisk: [async ({ context }, use) => {
-    await context.route(/^http:\/\/localhost:8788\/(assets|art|map)\/[^?#]+/, async (route) => {
+    await context.route(new RegExp(`^${ORIGIN.replace(/[/.]/g, '\\$&')}/(assets|art|map)/[^?#]+`), async (route) => {
       const path = decodeURIComponent(new URL(route.request().url()).pathname).replace(/^\//, '');
       const file = DIST + path;
       if (path.includes('..') || !existsSync(file)) return route.fallback();

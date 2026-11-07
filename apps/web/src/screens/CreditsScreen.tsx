@@ -4,6 +4,7 @@ import { equivalences, formatTokens, type CreditsView } from '@tokengo/shared';
 import { Copy, Eye, EyeOff, Send, ExternalLink } from 'lucide-react';
 import { api, humanError } from '../lib/api.ts';
 import { toast } from '../lib/store.ts';
+import { feedback } from '../lib/sound.ts';
 import { refreshMe } from '../geo/engine.ts';
 import { fmtUsd, txUrl } from '../lib/format.ts';
 import { Sheet, Button, Card, Gauge, Tabs } from '../ui/index.tsx';
@@ -25,13 +26,14 @@ export function CreditsScreen({ onClose }: { onClose: () => void }) {
 
   const reveal = async () => {
     if (show) { setShow(false); return; }
-    try { if (!key) setKey((await api.reveal()).key); setShow(true); } catch (e) { toast(humanError(e), 'bad'); }
+    try { if (!key) setKey((await api.reveal()).key); setShow(true); feedback('reveal', 'reveal'); } catch (e) { toast(humanError(e), 'bad'); }
   };
   const copy = async () => {
     try {
       const k = key ?? (await api.reveal()).key;
       setKey(k);
       await navigator.clipboard.writeText(k);
+      feedback('coin', 'trade');
       toast('API key copied', 'good');
     } catch (e) { toast(humanError(e), 'bad'); }
   };

@@ -1,0 +1,38 @@
+.stack { display: flex; flex-direction: column; gap: 12px; }
+.reward { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px; background: var(--sun); border: var(--border); border-radius: 12px; box-shadow: var(--shadow-hard-s); }
+.rewardDone { background: var(--lime); }
+.rLabel { width: 100%; font-family: var(--font-pixel); font-size: 16px; }
+.rItem { display: inline-flex; align-items: center; gap: 4px; font-weight: 800; }
+.streak, .streakHint { width: 100%; font-weight: 800; font-size: 13px; }
+.streakHint { opacity: .75; }
+
+.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; position: relative; }
+.stop { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: var(--panel); border: var(--border-thin); border-radius: 12px; box-shadow: var(--shadow-hard-s); }
+.done { background: color-mix(in srgb, var(--lime) 35%, var(--panel)); }
+.done .main b { text-decoration: line-through; text-decoration-thickness: 2px; opacity: .7; }
+.next { border-color: var(--orange); box-shadow: 0 0 0 3px var(--sun), var(--shadow-hard-s); }
+.num { flex: none; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: var(--sun); border: 2px solid var(--ink); font-weight: 800; }
+.done .num { background: var(--green); color: var(--white); }
+.icon { flex: none; width: 34px; display: grid; place-items: center; }
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.main b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.main small { font-weight: 800; color: var(--slate); }
+
+/* ───── fête ───── */
+.party { position: absolute; inset: 0; z-index: 70; display: grid; place-items: center; padding: 16px; background-color: var(--orange); animation: partyIn .3s var(--ease-pop); overflow: hidden; }
+@keyframes partyIn { from { opacity: 0; } }
+.confetti i { position: absolute; top: -20px; left: var(--x); width: 10px; height: 14px; background: var(--c); border: 2px solid var(--ink); animation: fall 2.2s linear var(--d) infinite; }
+@keyframes fall { to { transform: translateY(110vh) rotate(var(--r)); } }
+.partyCard { position: relative; width: min(360px, 100%); padding: 18px 16px 14px; text-align: center; background: var(--panel); border: var(--border); border-radius: var(--radius-l); box-shadow: var(--shadow-hard); animation: cardIn .5s var(--ease-pop); }
+@keyframes cardIn { from { transform: scale(.5) rotate(-6deg); opacity: 0; } }
+.partyKicker { display: inline-block; font-family: var(--font-pixel); font-size: 15px; padding: 1px 10px; background: var(--plum); color: var(--white); border-radius: 6px; }
+.partyTitle { font-family: var(--font-pixel); font-size: 36px; margin: 6px 0 8px; }
+.partyStops { display: flex; justify-content: center; gap: 8px; margin-bottom: 12px; }
+.partyStops i { width: 30px; height: 30px; display: grid; place-items: center; background: var(--green); color: var(--white); border: 3px solid var(--ink); border-radius: 50%; animation: stopPop .35s var(--ease-pop) both; }
+@keyframes stopPop { from { transform: scale(0); } }
+.partyRewards { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px 16px; font-weight: 800; font-size: 20px; }
+.partyRewards span { display: inline-flex; align-items: center; gap: 4px; }
+.partyStreak { margin-top: 10px; font-weight: 800; padding: 4px 10px; background: var(--sun); border: 2px solid var(--ink); border-radius: 8px; display: inline-block; }
+.partyActions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+.partyActions > :first-child { grid-column: 1 / -1; }
+@media (prefers-reduced-motion: reduce) { .confetti { display: none; } }

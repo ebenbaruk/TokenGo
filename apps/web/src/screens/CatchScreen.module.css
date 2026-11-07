@@ -54,3 +54,70 @@
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes twinkle { 50% { background: var(--sun); width: 6px; height: 6px; left: -3px; top: -3px; } }
+
+/* ───── juice ───── */
+/* anneau dans la fenêtre « good » : il s'allume */
+.ring[data-hot="1"] { border-color: var(--sun); box-shadow: 0 0 0 3px var(--ink), inset 0 0 0 3px var(--ink), 0 0 18px 4px rgba(255,205,117,.8); }
+
+/* secousses d'écran (pas = pixel) */
+.shakeSmall { animation: shakeS .3s steps(6); }
+.shakeBig { animation: shakeB .52s steps(10); }
+@keyframes shakeS { 20% { transform: translate(-4px, 2px); } 40% { transform: translate(4px, -2px); } 60% { transform: translate(-3px, -1px); } 80% { transform: translate(2px, 2px); } }
+@keyframes shakeB {
+  10% { transform: translate(-10px, 4px) rotate(-1deg); } 20% { transform: translate(9px, -6px) rotate(1deg); } 30% { transform: translate(-8px, -3px); }
+  40% { transform: translate(7px, 5px); } 50% { transform: translate(-5px, 2px); } 60% { transform: translate(4px, -3px); } 80% { transform: translate(-2px, 1px); }
+}
+
+/* combo en cours (pendant le mini-jeu) */
+.comboChip {
+  display: flex; width: fit-content; align-items: center; gap: 6px; margin: 8px auto 0; padding: 3px 10px 3px 6px;
+  font-family: var(--font-pixel); font-size: 18px; color: var(--ink);
+  background: color-mix(in srgb, var(--sun) calc(100% - var(--heat) * 60%), var(--orange));
+  border: var(--border-thin); border-radius: 10px; box-shadow: var(--shadow-hard-s); animation: pop2 .3s var(--ease-pop);
+}
+.comboChip small { font-family: var(--font-ui); font-weight: 800; font-size: 12px; opacity: .8; }
+/* aura de combo autour de l'éclat : plus chaude et plus grande avec le combo */
+.aura {
+  position: absolute; left: 50%; top: 50%; width: calc(170px + var(--heat) * 90px); height: calc(170px + var(--heat) * 90px);
+  transform: translate(-50%, -50%); border-radius: 50%; pointer-events: none;
+  background: conic-gradient(from 0deg, var(--sun), var(--orange), var(--berry), var(--orange), var(--sun));
+  opacity: calc(.25 + var(--heat) * .45); filter: blur(10px); animation: auraSpin 1.6s linear infinite;
+}
+@keyframes auraSpin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+
+/* explosion de capture */
+.whiteout { position: absolute; inset: -40px; background: #fff; pointer-events: none; animation: whiteout .35s ease-out forwards; z-index: 3; }
+@keyframes whiteout { from { opacity: .95; } to { opacity: 0; } }
+.shock { position: absolute; left: 50%; top: 42%; width: 40px; height: 40px; margin: -20px 0 0 -20px; border: 6px solid #fff; border-radius: 50%; pointer-events: none; animation: shock .55s var(--ease-out) forwards; }
+@keyframes shock { to { transform: scale(9); opacity: 0; border-width: 1px; } }
+.burst i { width: var(--s); height: var(--s); animation: fly2 .95s var(--ease-out) var(--dl) forwards; }
+@keyframes fly2 { 0% { transform: rotate(var(--a)) translateY(0) scale(1.2); } 70% { opacity: 1; } to { transform: rotate(var(--a)) translateY(calc(var(--r) * -1)) scale(.6); opacity: 0; } }
+
+/* révélation de la variante */
+.prize { position: relative; display: grid; place-items: center; transition: transform .35s var(--ease-pop); }
+.prizeOn { animation: prizePop .45s var(--ease-pop); }
+@keyframes prizePop { 0% { transform: scale(.6) rotate(-8deg); } 60% { transform: scale(1.18) rotate(3deg); } }
+.prizeArt { position: relative; z-index: 1; display: block; }
+.rays {
+  position: absolute; width: 260px; height: 260px; border-radius: 50%; pointer-events: none;
+  background: repeating-conic-gradient(var(--vc) 0 12deg, transparent 12deg 30deg);
+  -webkit-mask: radial-gradient(closest-side, #000 40%, transparent 100%); mask: radial-gradient(closest-side, #000 40%, transparent 100%);
+  opacity: .7; animation: auraSpin 5s linear infinite;
+}
+.variant { display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap; margin-top: 8px; min-height: 28px; opacity: 0; transform: translateY(6px); transition: opacity .25s, transform .25s var(--ease-pop); }
+.variantOn { opacity: 1; transform: none; }
+.variant b { font-family: var(--font-pixel); font-size: 20px; }
+.newTag { font-family: var(--font-pixel); font-size: 14px; padding: 1px 6px; background: var(--berry); color: var(--white); border: 2px solid var(--ink); border-radius: 6px; animation: newBlink .5s steps(2) 4; }
+@keyframes newBlink { 50% { background: var(--sun); color: var(--ink); } }
+.codexCount { font-weight: 800; font-size: 13px; padding: 1px 6px; background: var(--white); border: 2px solid var(--ink); border-radius: 6px; }
+.comboBig {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; padding: 2px 12px 2px 8px;
+  font-family: var(--font-pixel); font-size: calc(20px + var(--heat) * 8px); color: var(--ink);
+  background: color-mix(in srgb, var(--sun) calc(100% - var(--heat) * 70%), var(--orange)); border: var(--border-thin); border-radius: 10px;
+  animation: comboIn .5s var(--ease-pop) .2s both;
+}
+@keyframes comboIn { from { transform: scale(2.2) rotate(-6deg); opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .shakeSmall, .shakeBig, .aura, .rays, .prizeOn, .comboBig, .whiteout { animation: none; }
+}

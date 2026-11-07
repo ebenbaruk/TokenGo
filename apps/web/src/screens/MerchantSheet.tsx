@@ -6,7 +6,7 @@ import { api, ApiFail, humanError } from '../lib/api.ts';
 import { useGame, setMe, toast } from '../lib/store.ts';
 import { radiusFor } from '../lib/nearby.ts';
 import { famName, fmtClock, fmtCountdown, fmtDist, fmtInt } from '../lib/format.ts';
-import { play } from '../lib/sound.ts';
+import { play, feedback } from '../lib/sound.ts';
 import { Sheet, Tabs, Stepper, SlideToConfirm, Button, Gauge, Sparkline, Card } from '../ui/index.tsx';
 import { Sprite } from '../sprites/Sprite.tsx';
 import { SHARDS, FLUX, merchantSprite, accentOf } from '../sprites/index.ts';
@@ -179,7 +179,7 @@ function TradePanel({ m, pick, farReason, onClose, onTraded, onStale }: {
       const r = await api.trade(m.id, q.quoteId);
       useGame.setState({ lastResult: r });
       setMe(r.me, r.levelUp);
-      play('trade');
+      feedback(r.side === 'sell' ? 'coin' : 'trade', 'trade');
       toast(r.side === 'sell' ? `Sold ${r.qty} ${famName(r.family)} · +${r.total} ƒ` : `Bought ${r.qty} ${famName(r.family)} · −${r.total} ƒ`, 'good', r.family);
       onTraded(r.merchant);
     } catch (err) {
@@ -244,7 +244,7 @@ function ContractTab({ m, farReason, onDone }: { m: MerchantView; farReason: str
           try {
             const r = await api.deliver(m.id);
             setMe(r.me, r.levelUp);
-            play('trade');
+            feedback(r.side === 'sell' ? 'coin' : 'trade', 'trade');
             toast(`Contract done! +${r.total} ƒ · +${r.xp} XP`, 'good', 'flux');
             onDone(r.merchant);
           } catch (e) { toast(humanError(e), 'bad'); } finally { setBusy(false); }
@@ -288,7 +288,7 @@ function RescueTab({ m, farReason, onDone }: { m: MerchantView; farReason: strin
           try {
             const res = await api.rescue(m.id, Math.min(amount, max));
             setMe(res.me, res.levelUp);
-            play('trade');
+            feedback('level', 'perfect');
             toast(`Thanks! −${Math.min(amount, max)} ƒ invested`, 'good', 'flux');
             onDone(res.merchant);
           } catch (e) { toast(humanError(e), 'bad'); } finally { setBusy(false); }

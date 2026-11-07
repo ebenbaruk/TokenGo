@@ -45,3 +45,27 @@
 .combo { align-self: center; display: flex; align-items: center; gap: 8px; padding: 4px 10px; background: var(--panel); border: var(--border-thin); border-radius: 10px; box-shadow: var(--shadow-hard-s); font-size: 18px; }
 .comboTrack { display: inline-flex; gap: 3px; }
 .comboTrack i.on { background: var(--orange); }
+
+/* combo : flamme qui grossit avec le combo, clignote quand il va expirer */
+.combo { background: color-mix(in srgb, var(--panel) calc(100% - var(--heat) * 55%), var(--sun)); }
+.comboLow { animation: comboLow .5s steps(2) infinite; }
+@keyframes comboLow { 50% { background: var(--orange); } }
+
+/* sac qui rebondit quand un éclat y atterrit */
+.bagBump { animation: bagBump .35s var(--ease-pop); }
+@keyframes bagBump { 40% { transform: scale(1.22) rotate(-6deg); } 70% { transform: scale(.94); } }
+
+/* Daily Route */
+.routeChip {
+  align-self: flex-start; display: flex; align-items: center; gap: 7px; padding: 6px 10px; min-height: 36px;
+  background: var(--panel); color: var(--ink); border: var(--border-thin); border-radius: 10px; box-shadow: var(--shadow-hard-s);
+  font-weight: 800; font-size: 14px; cursor: pointer;
+}
+.routeChip svg { color: var(--plum); }
+.routeLabel { font-family: var(--font-pixel); font-size: 15px; }
+.routeDots { display: inline-flex; gap: 3px; }
+.routeDots i { width: 10px; height: 10px; background: var(--white); border: 2px solid var(--ink); border-radius: 3px; }
+.routeDots i.on { background: var(--green); }
+.routeDone { background: var(--lime); }
+.routeDone svg { color: var(--green); }
+.streak { font-size: 13px; padding: 0 5px; background: var(--sun); border: 2px solid var(--ink); border-radius: 6px; }
