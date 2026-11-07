@@ -123,3 +123,49 @@ Les Communs (DeepSeek, Qwen) sont des **spécialistes** redoutables : une équip
 
 marcher → **capturer (Lock-on + Décodage)** → monter la **maîtrise** → **combattre** à une Forge-Arène / devenir **Champion** et
 défendre son quartier → gagner Flux/XP → commercer / marchander → compiler à la Forge → crédits IA. Chaque verbe nourrit les autres.
+
+---
+
+# Vague 2 (2026-11-08) — jouer ensemble, revenir chaque jour
+
+## 6. Raid « Rogue Model » (boss coopératif de ville)
+
+- **Quoi** : un modèle d'IA devenu incontrôlable (« rogue ») apparaît sur une Forge. Toute la ville se bat contre lui en même temps ;
+  une barre de vie commune descend en direct (SSE) sur la carte, l'écran de la Forge et `/pulse`.
+- **Noms** (gabarits, rien d'existant) : *GL1TCH-9*, *Overfit Prime*, *The Hallucinator*, *Loop.exe*, *Token Hydra*. Sprite pixel
+  « glitché » (grille texte, palette Sweetie 16, contour encre), aura rouge/cyan.
+- **Déclenchement** : nouveau type d'événement de ville `rogue` (un seul événement de ville à la fois, comme les autres), 2 fois par jour
+  au plus en automatique, + admin `POST /api/admin/event { kind: 'rogue' }`. Durée 45 min. Forge choisie près de l'activité récente.
+- **PV** : `800 + 120 × joueurs actifs dans la dernière heure` (borné 800–6 000).
+- **Faiblesse** : une catégorie (Math, Code…) tirée par tranche de 10 min (graine), affichée en gros : ×1,5 dégâts dans cette catégorie.
+  Le boss résiste à une autre catégorie (×0,6).
+- **Attaque** : à ≤ rayon Forge, `POST /api/raid/:eventId/attack { team: Family[3] }` → **un assaut de 3 manches** joué avec le
+  moteur de l'Arène (mêmes techniques, budget 6 tokens, rate limit) contre l'équipe du boss (maîtrise 3). Dégâts = somme de mes
+  puissances (×faiblesse/résistance), manches gagnées ×1,5. Format API : start renvoie l'assaut, `POST /api/raid/assault/:id/play`
+  joue une manche, comme l'Arène. **3 assauts max par joueur et par raid** ; gratuit (pas de frais).
+- Les **runners** (bots) attaquent aussi de temps en temps (dégâts modestes) : le boss tombe même avec peu de joueurs, mais les vrais
+  joueurs font la différence.
+- **Victoire** (PV = 0 avant la fin) : chaque participant reçoit 80 XP + 30 ƒ + maîtrise +20 sur les familles utilisées ; **top 3** des
+  dégâts : +40 ƒ ; un titre Codex « Rogue Slayer » au premier raid gagné. Annonce ticker. **Échec** (temps écoulé) : 20 XP de
+  consolation. Aucun éclat créé, rien ne touche la Réserve.
+- UI : bannière d'événement « ⚠ ROGUE MODEL at Louvre — 3 120 / 4 400 HP — weak to ✍️ Writing », marqueur glitché animé sur la
+  carte, onglet **Raid** dans l'écran de la Forge pendant l'événement (barre de PV, faiblesse, classement des dégâts en direct,
+  bouton « Attack »), écran d'assaut = écran de combat de l'Arène avec la barre de PV du boss au lieu du score, chiffres de dégâts
+  qui volent. Écran de fin collectif (« The city contained Overfit Prime! » + ta part des dégâts).
+
+## 7. Missions du jour
+
+- 3 missions par joueur et par jour de Paris, tirées (graine jour + joueur) dans une liste : *Decode 3 tokens*, *Win an arena battle*,
+  *Catch 3 different families*, *Close a haggle deal*, *Sync 4 relays*, *Hit a ×3 combo*, *Play 5 arena rounds*, *Visit 2 shops*,
+  *Deal 200 raid damage* (seulement si un raid est en cours), *Catch a Night or Landmark variant*. Au moins une mission « Arène/Décodage ».
+- Chaque mission : +40 XP + 15 ƒ. Les 3 → **coffre du jour** : +60 ƒ + 1 Gemini (comme la Daily Route — 1 éclat/jour max, borné).
+- Suivi serveur par compteurs incrémentés aux bons endroits (capture, décodage, arène, marchandage, relais, raid). Réclamation
+  explicite (bouton « Claim ») → petite célébration.
+- UI : en haut de la feuille **Quests**, 3 cartes avec barre de progression ; pastille rouge sur le bouton Quests quand une mission est
+  réclamable. Toast « Mission complete! » au moment où le compteur atteint l'objectif.
+
+## 8. Contrôle de la ville
+
+- `/pulse` et la feuille Quests montrent **« Who holds the city »** : la liste des Forges-Arènes avec leur Champion (ou Gardien),
+  depuis combien de temps, et un classement **Top Champions** (temps de détention cumulé sur 7 jours).
+- Sur la carte, les couronnes portent la **couleur du district** du Champion (s'il en a choisi un) → les quartiers se disputent Paris.
