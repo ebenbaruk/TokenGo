@@ -5,7 +5,7 @@
 <p align="center">
 <b><a href="https://tokengo-production-195c.up.railway.app">▶️ Play now</a></b> ·
 <b><a href="https://tokengo-production-195c.up.railway.app/?demo=1&k=adXQaIwuy-CPqn8UVfJihkuZ6IKIl-AaFz00ShZIjZo">🎟 Judges' pass (level 7, full bag)</a></b> ·
-<a href="docs-assets/video/tokengo-demo.mp4">🎬 Demo video (83 s)</a> ·
+<a href="docs-assets/video/tokengo-demo.mp4">🎬 Demo video (76 s)</a> ·
 <a href="https://tokengo-production-195c.up.railway.app/pulse">📈 City Pulse</a> ·
 <a href="https://tokengo-production-195c.up.railway.app/lab">🧪 Economy Lab</a> ·
 <a href="https://testnet.nearblocks.io/address/tokengo.testnet">⛓ Contract on NEAR</a>

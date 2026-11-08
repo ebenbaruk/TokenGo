@@ -4,6 +4,7 @@
 // 2) ffmpeg assemble chaque plan (fond + clip + cadre + légende animée) puis les concatène, en 1920×1080 et 1080×1350.
 // 3) Bande-son synthétisée (music.ts) avec effets calés sur les repères des clips.
 // Usage : node scripts/video/compose.ts            → docs-assets/video/tokengo-demo.mp4 (+ -portrait, boucle, vignette)
+//         node scripts/video/compose.ts timeline   → découpage horodaté, sans rendu
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { chromium, type Page } from '@playwright/test';
@@ -35,44 +36,53 @@ type Shot =
   | { kind: 'card'; card: 'title' | 'end'; dur: number };
 
 function shotList(): Shot[] {
+  const DEC = 'decode';
+  /** Plan Décodage : ×4 jusqu'à la carte, puis ×1,5 (record.ts : DECODE_CARD_SLOW) → vitesse relative au ralenti du clip. */
+  const decRate = 1.5 / k(DEC);
+  const arenaRounds = marks('arena').marks.filter((m) => m.name === 'round').length;
+  const cRound = { title: 'Pick a model + a prompt trick.', sub: 'Chain-of-thought, few-shot, tool use… 10 tokens.' };
+  const cRaid = { title: 'A Rogue Model attacks!', sub: 'The whole city hits one shared HP bar, live.' };
   return [
     // 0 — accroche : l'anneau se resserre, PERFECT, confettis, combo ×2
-    { kind: 'phone', clip: 'hook', from: M('hook', 'lockon') - 0.1 * k('hook'), to: M('hook', 'continue'), speed: SLOW, cap: { title: 'Catch AI.', sub: 'Real AI compute, hiding on real streets.' }, fadeCap: true,
+    { kind: 'phone', clip: 'hook', from: M('hook', 'lockon') - 0.1 * k('hook'), to: M('hook', 'continue') - 0.6 * SLOW, speed: SLOW, cap: { title: 'Catch AI.', sub: 'Real AI models, hiding on real streets.' }, fadeCap: true,
       sfx: [{ at: M('hook', 'result') - 0.2 * k('hook'), name: 'perfect' }, { at: M('hook', 'result') + 0.65 * SLOW, name: 'discover' }] },
-    { kind: 'card', card: 'title', dur: 2.6 },
-    // Daily Route
-    { kind: 'phone', clip: 'route', from: M('route', 'sheet') + 0.1 * k('route'), to: M('route', 'sheet') + 2.9 * k('route'), cap: { title: 'Walk your city.', sub: 'A new loop of real places every day.' }, fadeCap: true },
-    { kind: 'phone', clip: 'route', from: M('route', 'walk') - 0.2 * k('route'), to: M('route', 'complete'), speed: 2, cap: { title: 'Walk your city.', sub: 'A new loop of real places every day.' },
-      sfx: [0, 1, 2].map((i) => ({ at: M('route', 'stop', i), name: 'coin' })) },
-    { kind: 'phone', clip: 'route', from: M('route', 'complete'), to: M('route', 'complete') + 2.6 * k('route'), cap: { title: 'Walk your city.', sub: 'A new loop of real places every day.' },
-      sfx: [{ at: M('route', 'complete') + 0.05 * k('route'), name: 'route' }] },
-    // Marchands
-    { kind: 'phone', clip: 'market', from: M('market', 'fly') + 0.6 * k('market'), to: M('market', 'why'), speed: 1.2, cap: { title: 'Meet the AI shopkeepers.', sub: 'Each one has a mood, a stock and a story.' }, fadeCap: true,
-      sfx: [{ at: M('market', 'open') + 0.15 * k('market'), name: 'pop' }] },
-    { kind: 'phone', clip: 'market', from: M('market', 'why') + 0.1 * k('market'), to: M('market', 'buy') - 0.2 * k('market'), cap: { title: 'Prices move with real supply & demand.', sub: '“Why this price?” — every shop shows its math.' }, fadeCap: true,
-      sfx: [{ at: M('market', 'why') + 0.15 * k('market'), name: 'tap' }] },
-    { kind: 'phone', clip: 'market', from: M('market', 'buy'), to: M('market', 'haggle') + 0.2 * k('market'), speed: 2.5, cap: { title: 'Haggle with AI shopkeepers.', sub: 'Bring proof: your rival sells it cheaper.' }, fadeCap: true },
-    { kind: 'phone', clip: 'market', from: M('market', 'haggle') + 0.2 * k('market'), to: M('market', 'end'), cap: { title: 'Haggle with AI shopkeepers.', sub: 'Bring proof: your rival sells it cheaper.' },
+    { kind: 'card', card: 'title', dur: 2.4 },
+    // Décodage « Next token » sur un éclat rare (ruée vers l'or GPT)
+    { kind: 'phone', clip: DEC, from: M(DEC, 'fly') - 0.1 * k(DEC), to: M(DEC, 'lockon'), speed: 1.4, cap: { title: 'Hunt rare models.', sub: 'Gold rush at the Louvre: GPT shards everywhere.' }, fadeCap: true },
+    { kind: 'phone', clip: DEC, from: M(DEC, 'lockon'), to: M(DEC, 'card'), cap: { title: 'Lock on…', sub: 'Tap when the ring hits the circle.' }, fadeCap: true,
+      sfx: [{ at: M(DEC, 'card') - 0.3 * k(DEC), name: 'perfect' }] },
+    { kind: 'phone', clip: DEC, from: M(DEC, 'card'), to: M(DEC, 'result') + 2.0 * 1.5, speed: decRate, cap: { title: '…then DECODE it.', sub: 'Pick the next token, or the model hallucinates.', accent: 'DECODE' }, fadeCap: true,
+      sfx: [{ at: M(DEC, 'answer'), name: 'tap' }, { at: M(DEC, 'answer') + 0.25 * 1.5, name: 'stamp' }, { at: M(DEC, 'result'), name: 'discover' }] },
+    // Marchandage (court)
+    { kind: 'phone', clip: 'market', from: M('market', 'haggle') - 0.6 * k('market'), to: M('market', 'end') - 0.6 * k('market'), speed: 1.25, cap: { title: 'Haggle with AI shopkeepers.', sub: 'Bring proof: your rival sells it cheaper.' }, fadeCap: true,
       sfx: [{ at: M('market', 'rival') + 0.15 * k('market'), name: 'whoosh' }, { at: M('market', 'stamp'), name: 'stamp' }] },
-    // Ville vivante
-    { kind: 'phone', clip: 'event', from: M('event', 'crash') - 1.2 * k('event'), to: M('event', 'banner') + 4.6 * k('event'), cap: { title: 'The city is alive.', sub: 'Flash crash at the Louvre: DeepSeek −40%.' }, fadeCap: true,
-      sfx: [{ at: M('event', 'banner') + 0.05 * k('event'), name: 'event' }] },
-    { kind: 'phone', clip: 'event', from: M('event', 'sheet') + 1.0 * k('event'), to: M('event', 'end'), cap: { title: 'The city is alive.', sub: 'Flash crash at the Louvre: DeepSeek −40%.' } },
-    // Economy Lab
-    { kind: 'phone', clip: 'lab', from: M('lab', 'scenario') - 0.2 * k('lab'), to: M('lab', 'run') + 0.2 * k('lab'), speed: 2.5, cap: { title: 'A real economy, stress-tested.', sub: 'Simulate a week of Paris in one second.' }, fadeCap: true,
-      sfx: [{ at: M('lab', 'run') + 0.15 * k('lab'), name: 'tap' }] },
-    { kind: 'phone', clip: 'lab', from: M('lab', 'run') + 0.2 * k('lab'), to: M('lab', 'end'), speed: 1.5, cap: { title: 'A real economy, stress-tested.', sub: 'Simulate a week of Paris in one second.' } },
-    // Forge
-    { kind: 'phone', clip: 'forge', from: M('forge', 'fly') + 0.3 * k('forge'), to: M('forge', 'hold'), speed: 1.3, cap: { title: 'Forge your shards…', sub: 'at real monuments.' }, fadeCap: true },
-    { kind: 'phone', clip: 'forge', from: M('forge', 'hold'), to: M('forge', 'ticket'), speed: 1.6, cap: { title: 'Forge your shards…', sub: 'at real monuments.' },
+    // Arène des modèles
+    { kind: 'phone', clip: 'arena', from: M('arena', 'open') + 0.2 * k('arena'), to: M('arena', 'fight') + 0.3 * k('arena'), speed: 1.5, cap: { title: 'Battle in the Model Arena.', sub: '3 vs 3 at real monuments. Every model has its stats.' }, fadeCap: true,
+      sfx: [{ at: M('arena', 'fight') + 0.05 * k('arena'), name: 'whoosh' }] },
+    { kind: 'phone', clip: 'arena', from: M('arena', 'fight') + 0.3 * k('arena'), to: M('arena', 'round', Math.min(2, arenaRounds - 1)), speed: 2.5, cap: cRound, fadeCap: true,
+      sfx: [0, 1].filter((i) => i < arenaRounds).map((i) => ({ at: M('arena', 'reveal', i), name: 'coin' })) },
+    { kind: 'phone', clip: 'arena', from: M('arena', 'round', Math.min(2, arenaRounds - 1)), to: M('arena', 'result'), speed: 4, cap: cRound,
+      sfx: Array.from({ length: Math.max(0, arenaRounds - 2) }, (_, i) => ({ at: M('arena', 'reveal', i + 2), name: 'coin' })) },
+    { kind: 'phone', clip: 'arena', from: M('arena', 'result'), to: M('arena', 'end'), speed: 1.15, cap: { title: 'Win, and wear the crown.', sub: 'Your team holds the arena while you’re away.' }, fadeCap: true,
+      sfx: [{ at: M('arena', 'result') + 0.1 * k('arena'), name: 'route' }, { at: M('arena', 'crown'), name: 'perfect' }] },
+    // Raid « Rogue Model »
+    { kind: 'phone', clip: 'raid', from: M('raid', 'fly') - 1.3 * k('raid'), to: M('raid', 'team'), speed: 1.4, cap: cRaid, fadeCap: true,
+      sfx: [{ at: M('raid', 'fly') - 1.2 * k('raid'), name: 'event' }] },
+    { kind: 'phone', clip: 'raid', from: M('raid', 'attack'), to: M('raid', 'victory'), speed: 2.2, cap: { title: 'Hit it where it’s weak.', sub: 'Every assault knocks the boss’s HP down.' }, fadeCap: true,
+      sfx: marks('raid').marks.filter((m) => m.name === 'hit').map((m) => ({ at: m.t + 0.2 * k('raid'), name: 'stamp' })) },
+    { kind: 'phone', clip: 'raid', from: M('raid', 'victory'), to: M('raid', 'end'), speed: 1.2, cap: { title: 'The city contained it!', sub: 'Everyone who fought shares the loot.' }, fadeCap: true,
+      sfx: [{ at: M('raid', 'victory') + 0.1 * k('raid'), name: 'route' }] },
+    // Missions du jour
+    { kind: 'phone', clip: 'missions', from: M('missions', 'open') - 0.1 * k('missions'), to: M('missions', 'end'), speed: 1.5, cap: { title: 'Come back every day.', sub: '3 daily missions, then open the chest.' }, fadeCap: true,
+      sfx: [...marks('missions').marks.filter((m) => m.name === 'claim').map((m) => ({ at: m.t + 0.3 * k('missions'), name: 'coin' })), { at: M('missions', 'chest'), name: 'route' }] },
+    // Forge → crédits
+    { kind: 'phone', clip: 'forge', from: M('forge', 'open') + 0.3 * k('forge'), to: M('forge', 'ticket'), speed: 1.8, cap: { title: 'Forge your shards…', sub: 'at real Paris monuments.' }, fadeCap: true,
       sfx: [{ at: M('forge', 'hold') + 0.3 * k('forge'), name: 'forge' }] },
-    { kind: 'phone', clip: 'forge', from: M('forge', 'ticket'), to: M('forge', 'try') + 0.1 * k('forge'), cap: { title: '…into a REAL AI API key.', sub: 'With real NEAR AI Cloud credits on it.', accent: 'REAL' }, fadeCap: true,
+    { kind: 'phone', clip: 'forge', from: M('forge', 'ticket'), to: M('forge', 'try') - 0.2 * k('forge'), speed: 1.1, cap: { title: '…into AI credits.', sub: 'NEAR AI Cloud · demo credits during the hackathon.', accent: 'AI credits' }, fadeCap: true,
       sfx: [{ at: M('forge', 'ticket') + 0.05 * k('forge'), name: 'coin' }] },
-    { kind: 'phone', clip: 'forge', from: M('forge', 'try') + 0.1 * k('forge'), to: M('forge', 'answer') + 1.6 * k('forge'), speed: 1.6, cap: { title: '…into a REAL AI API key.', sub: 'Use it in the playground, or in your own code.', accent: 'REAL' } },
-    // Partout / canapé
-    { kind: 'phone', clip: 'hook', from: M('hook', 'fly') - 0.4 * k('hook'), to: M('hook', 'tap-catch') + 0.2 * k('hook'), cap: { title: 'Play anywhere — or from your couch.', sub: 'Remote Scout: a pigeon-drone with a battery.' }, fadeCap: true },
-    { kind: 'laptop', clip: 'desktop', from: 0.2, to: 3.9, cap: { title: 'Play anywhere — or from your couch.', sub: 'Any browser. No app, no wallet, no sign-up.' } },
-    { kind: 'card', card: 'end', dur: 5.5 },
+    // Qui tient la ville
+    { kind: 'phone', clip: 'pulse', from: M('pulse', 'scroll') - 0.4 * k('pulse'), to: M('pulse', 'end'), speed: 1.2, cap: { title: 'Who holds the city?', sub: 'Champions claim Paris, one Forge at a time.' }, fadeCap: true },
+    { kind: 'card', card: 'end', dur: 5 },
   ];
 }
 const speedOf = (s: Exclude<Shot, { kind: 'card' }>) => (s.kind === 'phone' ? s.speed ?? 1 : 1) * k(s.clip);
@@ -180,14 +190,14 @@ async function drawLayout(page: Page, L: Layout, shots: Shot[]) {
   await png(page, L.W, L.H, `<div class="bg"></div><div class="shade" style="background:rgba(26,28,44,.55)"></div>
     <div class="cap" style="inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;--t:${big ? 70 : 54}px;--s:${big ? 34 : 28}px">
       <img src="${logo}" style="width:${big ? 980 : 860}px;image-rendering:pixelated;filter:drop-shadow(0 12px 0 #1a1c2c)">
-      <h1 style="margin-top:46px">Walk your city. Catch AI.<br><em>Spend it for real.</em></h1>
+      <h1 style="margin-top:46px">Walk your city. Catch AI.<br><em>Battle for Paris.</em></h1>
     </div>`, `${dir}/title.png`);
   await png(page, L.W, L.H, `<div class="bg"></div><div class="shade" style="background:rgba(26,28,44,.62)"></div>
     <div class="cap" style="inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:${big ? 34 : 30}px;--t:${big ? 62 : 50}px;--s:${big ? 34 : 28}px;padding:0 50px">
       <img src="${logo}" style="width:${big ? 860 : 820}px;image-rendering:pixelated;filter:drop-shadow(0 12px 0 #1a1c2c)">
-      <h1>Walk your city. Catch AI.<br><em>Spend it for real.</em></h1>
-      <div><p style="margin:0">Play in your browser — tokengo demo link in post</p></div>
-      <div style="font:900 ${big ? 30 : 26}px Nunito;color:#fff;text-shadow:0 3px 0 #1a1c2c;opacity:.95">Built at NEAR HACKATHON · #NEARHackathon @NEARProtocol</div>
+      <h1>Walk your city. Catch AI.<br><em>Battle for Paris.</em></h1>
+      <div><p style="margin:0">Play now in your browser: <b>tokengo-production-195c.up.railway.app</b></p></div>
+      <div style="font:900 ${big ? 30 : 26}px Nunito;color:#fff;text-shadow:0 3px 0 #1a1c2c;opacity:.95">Built at NEAR HACKATHON</div>
     </div>`, `${dir}/end.png`);
 }
 
@@ -248,7 +258,19 @@ function compose(L: Layout, shots: Shot[], tag: string) {
   return total;
 }
 
+/** Découpage avec horodatage (ex. pour le README / la soumission) : `node scripts/video/compose.ts timeline`. */
+function printTimeline(shots: Shot[]) {
+  let t = 0;
+  for (const s of shots) {
+    const label = s.kind === 'card' ? `[${s.card} card]` : `${s.clip.padEnd(8)} ${s.cap.title}`;
+    console.log(`${t.toFixed(1).padStart(5)} s  ${label}`);
+    t += dur(s);
+  }
+  console.log(`${t.toFixed(1).padStart(5)} s  end`);
+}
+
 async function main() {
+  if (process.argv[2] === 'timeline') return printTimeline(shotList());
   rmSync(WORK, { recursive: true, force: true });
   mkdirSync(WORK, { recursive: true });
   mkdirSync(OUT, { recursive: true });
@@ -258,15 +280,15 @@ async function main() {
   const page = await browser.newPage();
   for (const L of [LAND, PORT]) if (!only || only === L.name) await drawLayout(page, L, shots);
 
-  // vignette : la capture PERFECT dans le téléphone + titre
-  const hookResult = M('hook', 'result') + 2.6 * SLOW;
-  ff(['-ss', hookResult.toFixed(2), '-i', `${RAW}/hook.mp4`, '-frames:v', '1', `${WORK}/thumb-phone.png`]);
+  // vignette : la couronne de Champion de l'Arène dans le téléphone + titre
+  const crownAt = M('arena', 'crown') + 1.6 * k('arena');
+  ff(['-ss', crownAt.toFixed(2), '-i', `${RAW}/arena.mp4`, '-frames:v', '1', `${WORK}/thumb-phone.png`]);
   await png(page, 1280, 720, `<div class="bg"></div><div class="shade"></div>
     <img src="${img('var/video/work/thumb-phone.png', 'image/png')}" style="position:absolute;left:820px;top:40px;height:640px;border-radius:34px;border:14px solid #1a1c2c;box-shadow:0 12px 0 rgba(0,0,0,.35)">
     <div class="cap" style="left:70px;top:0;bottom:0;width:720px;display:flex;flex-direction:column;justify-content:center;--t:84px;--s:28px">
       <img src="${img('apps/web/public/art/logo.png', 'image/png')}" style="width:520px;image-rendering:pixelated;margin-bottom:26px;filter:drop-shadow(0 8px 0 #1a1c2c)">
-      <h1>Catch AI.<br>Forge a <em>REAL</em><br>AI API key.</h1>
-      <div><p>A walking game for your phone</p></div>
+      <h1>Catch AI.<br>Battle it.<br>Hold <em>Paris</em>.</h1>
+      <div><p>A walking game for your phone · NEAR AI credits</p></div>
     </div>`, `${OUT}/thumbnail.png`);
   await browser.close();
 

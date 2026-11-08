@@ -5,6 +5,8 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { chromium, type Browser, type BrowserContext, type Page } from '@playwright/test';
+import Database from 'better-sqlite3';
+import { opponentPick, type Category } from '@tokengo/shared';
 
 const ORIGIN = process.env.VIDEO_ORIGIN ?? 'http://localhost:8807';
 const ADMIN = process.env.VIDEO_ADMIN_TOKEN ?? 'video';
@@ -15,6 +17,11 @@ const DIST = `${ROOT}apps/web/dist/`;
 const PHONE = { width: 390, height: 844 };
 const DSF = 2;
 const LOUVRE = { lat: 48.8611, lng: 2.3358 };
+/** Base jetable du serveur de tournage (scripts/video/server.sh). */
+const DB_PATH = process.env.VIDEO_DB ?? `${ROOT}var/video.db`;
+const FORGE = 'forge:louvre';
+/** Session du pass démo (1 par IP et par jour) : réutilisée pour retourner quelques plans sans relancer le serveur. */
+const PASS_STATE = `${ROOT}var/video/pass-state.json`;
 
 type Family = 'deepseek' | 'qwen' | 'gemini' | 'gpt' | 'claude';
 interface LatLng { lat: number; lng: number }
@@ -48,15 +55,26 @@ async function record(page: Page, name: string): Promise<Rec> {
   const frames: { file: string; ts: number }[] = [];
   const marks: { name: string; t: number }[] = [];
   let n = 0;
+  let lastArrival = Date.now();
   cdp.on('Page.screencastFrame', (f) => {
     const file = `f${String(++n).padStart(5, '0')}.jpg`;
     writeFileSync(`${dir}/${file}`, Buffer.from(f.data, 'base64'));
     frames.push({ file, ts: f.metadata.timestamp ?? Date.now() / 1000 });
+    lastArrival = Date.now();
     void cdp.send('Page.screencastFrameAck', { sessionId: f.sessionId }).catch(() => {});
   });
   const vp = page.viewportSize() ?? PHONE;
-  await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 92, maxWidth: vp.width * DSF, maxHeight: vp.height * DSF, everyNthFrame: 1 });
+  const opts = { format: 'jpeg', quality: 92, maxWidth: vp.width * DSF, maxHeight: vp.height * DSF, everyNthFrame: 1 } as const;
+  await cdp.send('Page.startScreencast', opts);
   const t0 = Date.now() / 1000;
+  // garde-fou : sur machine chargée le screencast peut se figer (accusé perdu) → on le relance après 0,8 s sans image
+  let restarting = false;
+  const watchdog = setInterval(() => {
+    if (restarting || Date.now() - lastArrival < 800) return;
+    restarting = true;
+    if (process.env.VIDEO_DEBUG) log(name, 'screencast restart', (Date.now() / 1000 - t0).toFixed(1));
+    void cdp.send('Page.stopScreencast').then(() => cdp.send('Page.startScreencast', opts)).catch(() => {}).finally(() => { restarting = false; });
+  }, 400);
   const slow = K;
   const W = vp.width * DSF;
   const H = vp.height * DSF;
@@ -64,6 +82,7 @@ async function record(page: Page, name: string): Promise<Rec> {
     mark: (m) => { marks.push({ name: m, t: Date.now() / 1000 - t0 }); log(name, 'mark', m); },
     stop: async () => {
       const tEnd = Date.now() / 1000;
+      clearInterval(watchdog);
       await cdp.send('Page.stopScreencast').catch(() => {});
       await cdp.detach().catch(() => {});
       if (!frames.length) throw new Error(`${name}: no frames`);
@@ -141,10 +160,14 @@ async function finger(page: Page, x: number, y: number, holdMs = 0) {
 }
 
 /** Tap humain sur un élément : le doigt arrive, s'enfonce, clic. */
-async function tap(page: Page, testId: string, opts: { pause?: number; nth?: number } = {}) {
+async function tap(page: Page, testId: string, opts: { pause?: number; nth?: number; center?: boolean } = {}) {
   const loc = page.getByTestId(testId).nth(opts.nth ?? 0);
   await loc.waitFor({ state: 'visible', timeout: 15_000 });
-  await loc.scrollIntoViewIfNeeded().catch(() => {});
+  // center : listes sous un bouton collant (Arène, raid) — on amène l'élément au milieu, en douceur
+  if (opts.center) {
+    await loc.evaluate((el) => el.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+    await pause(450);
+  } else await loc.scrollIntoViewIfNeeded().catch(() => {});
   const b = await loc.boundingBox({ timeout: 5000 }).catch(() => null);
   if (b) {
     await finger(page, b.x + b.width / 2, b.y + b.height / 2);
@@ -205,7 +228,7 @@ async function perfectTap(page: Page) {
     const tick = () => {
       const screen = document.querySelector('[data-testid="catch-screen"]');
       if (!screen) return reject(new Error('catch screen closed'));
-      if (screen.querySelector('[data-testid="catch-result"]')) return resolve();
+      if (screen.querySelector('[data-testid="catch-result"], [data-testid="decode-card"]')) return resolve();
       const ring = [...screen.querySelectorAll<HTMLElement>('div')].find((d) => d.style.transform.includes('scale('));
       const m = ring ? /scale\(([\d.]+)\)/.exec(ring.style.transform) : null;
       // laisser voir l'anneau se resserrer au moins un tour avant de taper
@@ -238,9 +261,10 @@ async function playLockOn(page: Page) {
 
 // ───────── Contexte navigateur ─────────
 let browser: Browser;
-async function phone(opts: { reducedMotion?: boolean; viewport?: { width: number; height: number }; mobile?: boolean } = {}): Promise<{ ctx: BrowserContext; page: Page }> {
+async function phone(opts: { reducedMotion?: boolean; viewport?: { width: number; height: number }; mobile?: boolean; storageState?: string } = {}): Promise<{ ctx: BrowserContext; page: Page }> {
   const mobile = opts.mobile ?? true;
   const ctx = await browser.newContext({
+    ...(opts.storageState ? { storageState: opts.storageState } : {}),
     viewport: opts.viewport ?? PHONE, deviceScaleFactor: DSF, isMobile: mobile, hasTouch: mobile,
     userAgent: mobile ? 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1' : undefined,
     geolocation: { latitude: LOUVRE.lat, longitude: LOUVRE.lng, accuracy: 10 }, permissions: ['geolocation'],
@@ -267,17 +291,22 @@ async function phone(opts: { reducedMotion?: boolean; viewport?: { width: number
 let passSession: Promise<{ ctx: BrowserContext; page: Page }> | null = null;
 function withPass() {
   passSession ??= (async () => {
-    const p = await phone();
+    let p = await phone();
     const r = await p.page.request.post('/auth/guest', { data: { token: DEMO }, headers: { Origin: ORIGIN } });
-    if (!r.ok()) throw new Error(`demo pass: ${await r.text()}`);
+    if (r.ok()) await p.ctx.storageState({ path: PASS_STATE });
+    else if (existsSync(PASS_STATE)) { // pass déjà pris sur ce serveur (reprise de quelques plans) : même joueur
+      await p.ctx.close();
+      p = await phone({ storageState: PASS_STATE });
+    } else throw new Error(`demo pass: ${await r.text()}`);
     await p.ctx.addInitScript(() => { try { localStorage.setItem('tg.session', '1'); } catch { /* */ } });
     return p;
   })();
   return passSession;
 }
 
+/** Monde chargé (lieux) — il peut n'y avoir aucun éclat là où le Scout s'est posé au plan précédent. */
 const waitWorld = (page: Page) =>
-  page.waitForFunction(() => !!(window as unknown as { __tg: () => TG }).__tg().world?.spawns.length, null, { timeout: 30_000 });
+  page.waitForFunction(() => !!(window as unknown as { __tg: () => TG }).__tg().world?.nodes.length, null, { timeout: 30_000 });
 
 /** Splash → invité Remote Scout → carte prête (coach du tutoriel fermé si demandé). */
 async function enter(page: Page, opts: { skipTutorial?: boolean; url?: string } = {}) {
@@ -286,7 +315,16 @@ async function enter(page: Page, opts: { skipTutorial?: boolean; url?: string } 
   const demoBtn = page.getByTestId('use-demo');
   if (await demoBtn.isVisible({ timeout: 2000 }).catch(() => false)) await demoBtn.click();
   await page.getByTestId('map').waitFor();
-  await waitWorld(page);
+  // le monde peut tarder (limite de débit globale par IP après un plan chargé) : on souffle puis on recharge
+  for (let i = 0; ; i++) {
+    try { await waitWorld(page); break; } catch (e) {
+      if (i >= 2) throw e;
+      log('world not ready, reloading');
+      await sleep(20_000);
+      await page.reload();
+      await page.getByTestId('map').waitFor({ timeout: 30_000 }).catch(() => {});
+    }
+  }
   if (opts.skipTutorial ?? true) {
     const skip = page.getByTestId('tutorial-skip');
     if (await skip.isVisible({ timeout: 1500 }).catch(() => false)) await skip.click();
@@ -295,23 +333,23 @@ async function enter(page: Page, opts: { skipTutorial?: boolean; url?: string } 
 }
 
 const COMMON: Family[] = ['deepseek', 'qwen'];
-function pickSpawn(s: TG, prefer: Family[] = COMMON): Spawn | undefined {
+function pickSpawn(s: TG, prefer: Family[] = COMMON, only?: Family[]): Spawn | undefined {
   return s.world!.spawns
-    .filter((x) => !x.id.startsWith('tut:') && x.expiresAt > Date.now() + 40_000 && dist(x, s.position!) < 260)
+    .filter((x) => !x.id.startsWith('tut:') && x.expiresAt > Date.now() + 40_000 && dist(x, s.position!) < 260 && (!only || only.includes(x.family)))
     .sort((a, b) => Number(prefer.includes(b.family)) - Number(prefer.includes(a.family)) || dist(a, s.position!) - dist(b, s.position!))[0];
 }
 
 /** Trouve un éclat ordinaire en tournant autour du départ si besoin (hors caméra). */
-async function findSpawn(page: Page, prefer?: Family[]): Promise<Spawn> {
+async function findSpawn(page: Page, prefer?: Family[], only?: Family[]): Promise<Spawn> {
   let s = await tg(page);
   const start = s.position!;
-  let sp = pickSpawn(s, prefer);
+  let sp = pickSpawn(s, prefer, only);
   for (let k = 0; !sp && k < 8; k++) {
     const a = (k * Math.PI) / 4;
     await glide(page, { lat: start.lat + (150 * Math.cos(a)) / 111_000, lng: start.lng + (150 * Math.sin(a)) / 73_000 }, 400);
     await sleep(1200);
     s = await tg(page);
-    sp = pickSpawn(s, prefer);
+    sp = pickSpawn(s, prefer, only);
   }
   if (!sp) throw new Error('no regular shard nearby');
   return sp;
@@ -326,7 +364,34 @@ const offset = (p: LatLng, m: number, deg: number): LatLng => ({
 const admin = (page: Page, path: string, data: unknown = {}) =>
   page.request.post(path, { data, headers: { Origin: ORIGIN, Authorization: `Bearer ${ADMIN}` } });
 
+/** Maîtrise d'entraînement du joueur, écrite directement dans la base jetable du tournage (jamais en production). */
+function setMastery(userId: string, xp: Partial<Record<Family, number>>) {
+  const db = new Database(DB_PATH);
+  db.pragma('busy_timeout = 5000');
+  const up = db.prepare('INSERT INTO mastery (user_id, family, xp) VALUES (?, ?, ?) ON CONFLICT(user_id, family) DO UPDATE SET xp = MAX(xp, excluded.xp)');
+  for (const [f, n] of Object.entries(xp)) up.run(userId, f, n);
+  db.close();
+}
+
+interface MissionsView { missions: { id: string; progress: number; goal: number }[] }
+async function missionKnob(page: Page, body: Record<string, unknown>): Promise<MissionsView> {
+  const r = await admin(page, '/api/test/missions', body);
+  if (!r.ok()) throw new Error(`missions knob: ${await r.text()}`);
+  return (await r.json()) as MissionsView;
+}
+
 // ───────── Plans ─────────
+const RARE: Family[] = ['gpt', 'claude'];
+/** Équipe d'Arène et de raid (familles du pass démo ; Claude et Gemini ont le bonus du Louvre). */
+const TEAM: Family[] = ['claude', 'gpt', 'gemini'];
+/** Ralenti du plan Décodage : ×4 jusqu'à la carte (Lock-on fluide), puis ×1,5 (le chrono serveur, 4 s + 1 s, court en temps réel). */
+const DECODE_SLOW = 4;
+const DECODE_CARD_SLOW = 1.5;
+/** PV du boss au début de l'assaut filmé (la ville l'a déjà entamé) : tombe en ~3 manches. */
+const RAID_HP = 300;
+/** … et au moment de l'assaut (un assaut fait ~150–250 dégâts : victoire en 2 ou 3 manches). */
+const RAID_HP_ASSAULT = 160;
+let arenaTakes = 0;
 let hookTakes = 0;
 /** Facteur de ralenti du Lock-on (exporté dans marks.json pour le montage). */
 const HOOK_SLOW = 4;
@@ -516,111 +581,273 @@ const CLIPS: Record<string, () => Promise<void>> = {
     await rec.stop();
   },
 
-  /** Ville vivante : marcheurs, puis flash crash déclenché par l'admin (zone + bannière + bulles), fiche à −40 %. */
-  async event() {
-    const { ctx, page } = await phone();
+  /** Éclat rare (ruée vers l'or GPT) : vol du Scout, Lock-on, carte DECODE « Next token » → bon jeton → capturé. */
+  async decode() {
+    const { page } = await withPass();
     await admin(page, '/api/admin/event/end');
     await enter(page);
-    await slowAll(page, SLOW_ALL);
-    const s = await tg(page);
-    const market = s.world!.nodes.filter((n) => n.kind === 'market' && n.merchant?.status === 'open').sort((a, b) => dist(a, LOUVRE) - dist(b, LOUVRE))[0]!;
-    await glide(page, { lat: market.lat + 0.0004, lng: market.lng + 0.0008 }, 400);
-    await pause(6000); // marcheurs chargés
-    const rec = await record(page, 'event');
-    await pause(3500);
-    rec.mark('crash');
-    const r = await admin(page, '/api/admin/event', { kind: 'flash_crash', family: 'deepseek', zone: 'louvre', minutes: 20 });
-    if (!r.ok()) throw new Error(await r.text());
-    await page.getByTestId('event-banner').waitFor({ timeout: 8000 });
-    rec.mark('banner');
-    await pause(5500);
+    await slowAll(page, DECODE_SLOW);
+    const ev = await admin(page, '/api/admin/event', { kind: 'gold_rush', family: 'gpt', zone: 'louvre', minutes: 20 });
+    if (!ev.ok()) throw new Error(await ev.text());
+    await page.getByTestId('event-banner').waitFor({ timeout: 8000 }).catch(() => {});
+    const sp = await findSpawn(page, RARE, RARE);
+    log('decode: target', sp.family, sp.id);
+    await glide(page, offset(sp, 70, 200), 400);
+    await pause(2500);
+    const rec = await record(page, 'decode');
+    await pause(700);
     rec.mark('fly');
-    await glide(page, offset(market, 8, 200), 1800);
-    await pause(500);
-    await page.evaluate((id) => (window as unknown as { __tgOpen: (i: string) => boolean }).__tgOpen(id), market.merchant!.id);
-    await page.getByTestId('merchant-sheet').waitFor();
-    rec.mark('sheet');
-    await pause(1500);
-    await tap(page, 'why-deepseek', { pause: 3500 });
+    await glide(page, sp, 1800);
+    await pause(300);
+    rec.mark('tap-catch');
+    const started = page.waitForResponse((r) => r.url().endsWith('/api/catch/start'));
+    await tap(page, 'action-btn', { pause: 200 });
+    const attemptId = ((await (await started).json()) as { attemptId: string }).attemptId;
+    await page.getByTestId('catch-screen').waitFor();
+    rec.mark('lockon');
+    const card = page.getByTestId('decode-card');
+    for (let i = 0; i < 3 && !(await card.isVisible()); i++) {
+      await perfectTap(page);
+      await card.or(page.getByTestId('catch-result')).first().waitFor({ timeout: 3000 * K }).catch(() => {});
+      if (await page.getByTestId('catch-result').isVisible()) break;
+    }
+    if (!(await card.isVisible())) { await rec.stop(); throw new Error('decode: no DECODE card (missed or fled)'); }
+    // le chrono du Décodage court côté serveur en temps réel (4 s + 1 s) : on repasse presque en temps réel
+    await slowAll(page, DECODE_CARD_SLOW);
+    rec.mark('card');
+    // la bonne réponse vient du serveur (route de test, NODE_ENV=test + jeton admin) : le chrono serveur court (4 s + 1 s)
+    const r = await page.request.get(`/api/test/decode/${attemptId}`, { headers: { Authorization: `Bearer ${ADMIN}` } });
+    const right = ((await r.json()) as { correctId: string | null }).correctId;
+    if (!right) throw new Error('decode: no pending answer');
+    await pause(650); // les jetons arrivent, le joueur lit
+    const chip = card.locator(`[data-choice-id="${right}"]`);
+    const b = (await chip.boundingBox())!;
+    await finger(page, b.x + b.width / 2, b.y + b.height / 2);
+    await pause(120);
+    await chip.click({ force: true });
+    rec.mark('answer');
+    await page.getByTestId('decode-ok').waitFor({ timeout: 4000 });
+    await page.getByTestId('catch-result').waitFor({ timeout: 6000 * K });
+    rec.mark('result');
+    await pause(2600);
     rec.mark('end');
     await rec.stop();
+    await page.getByTestId('catch-continue').click({ timeout: 3000 }).catch(() => {});
     await admin(page, '/api/admin/event/end');
-    await ctx.close();
   },
 
-  /** Daily Route : la puce, la boucle en pointillés, les arrêts survolés un par un → « Loop complete! ». */
-  async route() {
-    const { ctx, page } = await phone();
+  /** Arène du Louvre : équipe Claude/GPT/Gemini (stats de jeu), manches avec techniques, VICTOIRE, couronne de Champion. */
+  async arena() {
+    const { page } = await withPass();
+    await admin(page, '/api/admin/event/end');
+    await enter(page);
+    const me = (await tg(page)).me as unknown as { id: string };
+    // le joueur s'est entraîné (base jetable) : maîtrise 6 sur son équipe, comme après quelques jours de jeu
+    setMastery(me.id, { claude: 420, gpt: 420, gemini: 420 });
+    await page.reload();
     await enter(page);
     await slowAll(page, SLOW_ALL);
-    await page.waitForFunction(() => !!(window as unknown as { __tg: () => TG }).__tg().route, null, { timeout: 20_000 });
-    await pause(1000);
-    const rec = await record(page, 'route');
-    await pause(800);
-    rec.mark('sheet');
-    await tap(page, 'route-chip', { pause: 2600 });
-    await tap(page, 'sheet-close', { pause: 600 });
-    rec.mark('walk');
-    const stops = (await tg(page)).route!.stops;
-    for (const st of stops) {
-      if ((await tg(page)).route?.stops.find((x) => x.id === st.id)?.done) continue;
-      await glide(page, st, 2200);
-      await page.waitForFunction((id) => !!(window as unknown as { __tg: () => TG }).__tg().route?.stops.find((x) => x.id === id)?.done, st.id, { timeout: 8000 });
-      rec.mark('stop');
-      await pause(700);
+    const forge = (await tg(page)).world!.nodes.find((n) => n.id === FORGE)!;
+    const view = (await (await page.request.get(`/api/arena/${encodeURIComponent(FORGE)}`)).json()) as { affinities: Family[] };
+    await glide(page, offset(forge, 120, 160), 400);
+    await pause(2500);
+    const rec = await record(page, 'arena');
+    await pause(900);
+    rec.mark('fly');
+    await glide(page, offset(forge, 10, 160), 1800);
+    await pause(500);
+    rec.mark('open');
+    await page.evaluate((id) => (window as unknown as { __tgOpen: (i: string) => boolean }).__tgOpen(id), FORGE);
+    await page.getByTestId('forge-screen').waitFor();
+    await pause(700);
+    await tap(page, 'tab-arena', { pause: 900 });
+    await page.getByTestId('arena-holder').waitFor();
+    rec.mark('team');
+    for (const f of TEAM) await tap(page, `arena-pick-${f}`, { pause: 650, center: true });
+    await pause(900);
+    rec.mark('fight');
+    await tap(page, 'arena-fight', { pause: 300 });
+    await page.getByTestId('arena-battle').waitFor();
+    const levels = Object.fromEntries(TEAM.map((f) => [f, 6])) as Record<Family, number>;
+    let last: Family | null = null;
+    for (let i = 0; i < 5; i++) {
+      const ch = page.getByTestId('arena-challenge');
+      await ch.waitFor();
+      await pause(1100);
+      rec.mark('round');
+      const category = (await ch.getAttribute('data-category')) as Category;
+      const tokens = Number(await page.getByTestId('arena-tokens').getAttribute('data-left'));
+      const pick = opponentPick({ team: [...TEAM], mastery: levels, tokens, last, wins: 0, total: 0 }, category, 5 - i, view.affinities);
+      await tap(page, `arena-model-${pick.family}`, { pause: 450 });
+      if (pick.technique !== 'zero') await tap(page, `arena-tech-${pick.technique}`, { pause: 450 });
+      await tap(page, 'arena-send', { pause: 200 });
+      last = pick.family;
+      await page.getByTestId('arena-reveal').waitFor();
+      rec.mark('reveal');
+      await page.getByTestId('arena-next').and(page.locator(':enabled')).waitFor({ timeout: 8000 * K });
+      await pause(1300);
+      const label = (await page.getByTestId('arena-next').textContent()) ?? '';
+      await tap(page, 'arena-next', { pause: 300 });
+      if (label.includes('See result')) break;
     }
-    await page.getByTestId('route-complete').waitFor({ timeout: 8000 });
-    rec.mark('complete');
+    const result = page.getByTestId('arena-result');
+    await result.waitFor();
+    rec.mark('result');
+    const outcome = await result.getAttribute('data-outcome');
+    if (outcome === 'won') {
+      await page.getByTestId('arena-crown').waitFor({ timeout: 4000 * K });
+      rec.mark('crown');
+      await pause(3600);
+    } else await pause(2000);
+    rec.mark('end');
+    await rec.stop();
+    log('arena:', outcome);
+    if (outcome !== 'won') {
+      if ((arenaTakes += 1) < 4) return CLIPS.arena!();
+      throw new Error('arena: never won');
+    }
+  },
+
+  /** Raid « Rogue Model » sur la Forge du Louvre : boss sur la carte, onglet Raid, assaut de 3 manches, fin collective. */
+  async raid() {
+    const { page } = await withPass();
+    await admin(page, '/api/admin/event/end');
+    const ev = await admin(page, '/api/admin/event', { kind: 'rogue', forge: FORGE });
+    if (!ev.ok()) throw new Error(await ev.text());
+    const eventId = ((await ev.json()) as { event: { id: number } }).event.id;
+    // la ville l'a déjà bien entamé (route de test : NODE_ENV=test + jeton admin) → la victoire tient dans un assaut
+    const hp = await admin(page, `/api/test/raid/${eventId}/hp`, { hp: RAID_HP });
+    if (!hp.ok()) throw new Error(await hp.text());
+    await enter(page);
+    await slowAll(page, SLOW_ALL);
+    const forge = (await tg(page)).world!.nodes.find((n) => n.id === FORGE)!;
+    await glide(page, { lat: forge.lat + 0.0007, lng: forge.lng - 0.0002 }, 400);
+    await page.getByTestId('raid-marker').waitFor({ timeout: 10_000 }).catch(() => {});
+    await pause(3000);
+    const rec = await record(page, 'raid');
+    await pause(1800);
+    rec.mark('fly');
+    await glide(page, offset(forge, 10, 160), 1800);
+    await pause(400);
+    rec.mark('open');
+    await page.evaluate((id) => (window as unknown as { __tgOpen: (i: string) => boolean }).__tgOpen(id), FORGE);
+    await page.getByTestId('raid-tab').waitFor();
+    await pause(1600);
+    rec.mark('team');
+    for (const f of TEAM) await tap(page, `raid-pick-${f}`, { pause: 450, center: true });
+    await pause(500);
+    rec.mark('attack');
+    // les runners (bots) tapent aussi : on recale les PV juste avant l'assaut pour que le coup final soit le nôtre
+    await admin(page, `/api/test/raid/${eventId}/hp`, { hp: RAID_HP_ASSAULT });
+    await tap(page, 'raid-attack', { pause: 300 });
+    await page.getByTestId('raid-assault').waitFor();
+    const levels = Object.fromEntries(TEAM.map((f) => [f, 6])) as Record<Family, number>;
+    let last: Family | null = null;
+    for (let i = 0; i < 3; i++) {
+      const ch = page.getByTestId('raid-challenge');
+      await ch.waitFor();
+      await pause(700);
+      rec.mark('round');
+      const category = (await ch.getAttribute('data-category')) as Category;
+      const tokens = Number(await page.getByTestId('raid-tokens').getAttribute('data-left'));
+      const pick = opponentPick({ team: [...TEAM], mastery: levels, tokens, last, wins: 0, total: 0 }, category, 3 - i, []);
+      await tap(page, `raid-model-${pick.family}`, { pause: 350 });
+      if (pick.technique !== 'zero') await tap(page, `raid-tech-${pick.technique}`, { pause: 350 });
+      await tap(page, 'raid-send', { pause: 100 });
+      last = pick.family;
+      await page.getByTestId('raid-reveal').waitFor();
+      rec.mark('hit');
+      await page.getByTestId('raid-next').and(page.locator(':enabled')).waitFor({ timeout: 8000 * K });
+      await pause(900);
+      const label = (await page.getByTestId('raid-next').textContent()) ?? '';
+      await tap(page, 'raid-next', { pause: 300 });
+      if (label.includes('going down')) break;
+    }
+    const end = page.getByTestId('raid-end').first();
+    await end.waitFor({ timeout: 10_000 * K });
+    rec.mark('victory');
+    await pause(3800);
+    rec.mark('end');
+    await rec.stop();
+    log('raid:', await end.getAttribute('data-outcome'));
+    await page.getByTestId('raid-end-close').first().click({ timeout: 2000 }).catch(() => {});
+  },
+
+  /** Missions du jour : les 3 cartes (Decode, Arène, Marchandage, faites pour de vrai plus haut) → Claim ×3 → coffre. */
+  async missions() {
+    const { page } = await withPass();
+    await admin(page, '/api/admin/event/end');
+    await enter(page);
+    const me = (await tg(page)).me as unknown as { id: string };
+    const kinds = ['decode', 'arena_win', 'haggle_deal'];
+    let v = await missionKnob(page, { userId: me.id, kinds });
+    // complète ce qui manque (le Décodage en demande 3 ; un seul a été filmé)
+    for (const m of v.missions) if (m.progress < m.goal) v = await missionKnob(page, { userId: me.id, bump: { key: m.id, n: m.goal - m.progress } });
+    await page.reload();
+    await enter(page);
+    await slowAll(page, SLOW_ALL);
+    await pause(1500);
+    const rec = await record(page, 'missions');
+    await pause(900);
+    rec.mark('open');
+    await tap(page, 'quests-btn', { pause: 300 });
+    await page.getByTestId('missions').waitFor();
+    await pause(1300);
+    rec.mark('claim');
+    for (const k of kinds) await tap(page, `mission-${k}-claim`, { pause: 900 });
+    await page.getByTestId('chest-party').waitFor({ timeout: 6000 * K });
+    rec.mark('chest');
+    await pause(3200);
+    rec.mark('end');
+    await rec.stop();
+    await page.getByTestId('chest-close').click({ timeout: 2000 }).catch(() => {});
+    await page.getByTestId('sheet-close').click({ timeout: 2000 }).catch(() => {});
+  },
+
+  /** /pulse « Who holds the city » : le joueur tient le Louvre (gagné à l'Arène), deux rivaux d'autres quartiers ailleurs. */
+  async pulse() {
+    const { page } = await withPass();
+    await page.request.post('/api/me/district', { data: { district: 1 }, headers: { Origin: ORIGIN } });
+    for (const [forgeId, district, hoursAgo] of [['forge:notre-dame', 4, 26], ['forge:arc-de-triomphe', 8, 9]] as const) {
+      const other = await browser.newContext({ baseURL: ORIGIN });
+      const h = { Origin: ORIGIN };
+      const g = (await (await other.request.post('/auth/guest', { data: { demo: true }, headers: h })).json()) as { me?: { id: string }; id?: string };
+      const id = g.me?.id ?? g.id ?? ((await (await other.request.get('/api/me')).json()) as { id: string }).id;
+      await other.request.post('/api/me/district', { data: { district }, headers: h });
+      const r = await admin(page, '/api/test/city/hold', { forgeId, userId: id, hoursAgo });
+      if (!r.ok()) log('city hold', forgeId, await r.text());
+      await other.close();
+    }
+    await page.goto('/pulse');
+    const card = page.getByTestId('pulse-city');
+    await card.waitFor({ timeout: 15_000 });
+    await sleep(2000);
+    await slowAll(page, 2);
+    const rec = await record(page, 'pulse');
+    await pause(1200);
+    rec.mark('scroll');
+    // le haut de la carte sous l'en-tête collant de la page
+    await page.evaluate(() => {
+      const el = document.querySelector<HTMLElement>('[data-testid="pulse-city"]');
+      if (!el) return;
+      el.style.scrollMarginTop = '64px';
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    await pause(1500);
+    rec.mark('city');
     await pause(3500);
     rec.mark('end');
     await rec.stop();
-    await ctx.close();
-  },
-
-  /** Economy Lab : une semaine de Paris simulée dans le navigateur, scénario « DeepSeek flood ». */
-  async lab() {
-    const { ctx, page } = await phone();
-    await page.goto('/lab');
-    await page.getByTestId('lab-meta').waitFor({ timeout: 90_000 });
-    await pause(800);
-    const rec = await record(page, 'lab');
-    await pause(800);
-    rec.mark('scenario');
-    await tap(page, 'scen-flood-deepseek', { pause: 900 });
-    rec.mark('run');
-    await tap(page, 'lab-run', { pause: 200 });
-    await page.getByTestId('lab-run').filter({ hasText: 'Simulate 1 week' }).waitFor({ timeout: 90_000 });
-    rec.mark('done');
-    await pause(2500);
-    // descendre sur les graphes
-    await page.mouse.wheel(0, 0);
-    await page.evaluate(() => document.querySelector('[data-testid="chart-prices"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
-    rec.mark('charts');
-    await pause(4000);
-    rec.mark('end');
-    await rec.stop();
-    await ctx.close();
-  },
-
-  /** Plan « ordinateur portable » : la page d'accueil sur grand écran (cadre de téléphone + panneau). */
-  async desktop() {
-    const { ctx, page } = await phone({ viewport: { width: 1440, height: 900 }, mobile: false });
-    await page.goto('/');
-    await page.getByTestId('splash').waitFor();
-    await pause(2500);
-    const rec = await record(page, 'desktop');
-    await pause(4000);
-    rec.mark('end');
-    await rec.stop();
-    await ctx.close();
   },
 };
 
 async function main() {
   mkdirSync(RAW, { recursive: true });
   const want = process.argv.slice(2);
-  const names = want.length ? want : Object.keys(CLIPS);
-  browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--autoplay-policy=no-user-gesture-required'] });
+  // ordre du récit : le même joueur (pass démo) décode, marchande, gagne l'Arène, abat le boss, réclame ses missions, forge
+  const names = want.length ? want : ['hook', 'decode', 'market', 'arena', 'raid', 'missions', 'forge', 'pulse'];
+  // rendu GL par défaut de Chromium headless : ~2× plus d'images que SwiftShader forcé sur cette machine (ARM64)
+  browser = await chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
   try {
     for (const n of names) {
       if (!CLIPS[n]) throw new Error(`unknown clip ${n}`);

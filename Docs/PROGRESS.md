@@ -2,6 +2,17 @@
 
 Mettre à jour à la fin de chaque bloc de travail. Le plus récent en haut.
 
+## 2026-11-08 — Vidéo de démo refaite autour de la nouvelle boucle (76 s)
+- **Fait** : `npm run video` filme maintenant, avec un seul joueur (pass démo) : accroche Lock-on → carte titre → éclat GPT rare
+  (ruée vers l'or) + **Décodage « Next token »** → marchandage → **Arène** du Louvre (équipe Claude/GPT/Gemini, techniques, VICTOIRE,
+  couronne de Champion) → **raid Rogue Model** (carte, onglet Raid, assaut, « CONTAINED! ») → **missions du jour** + coffre → Forge
+  (ticket « demo credits ») → `/pulse` « Who holds the city » → carte de fin avec l'URL Railway. Paysage 1080p + portrait 1080×1350, vignette (couronne).
+  `node scripts/video/compose.ts timeline` imprime le découpage horodaté.
+- **Tournage** : serveur jetable en `NODE_ENV=test` (port 8807, base `var/video.db`) pour les routes de test existantes (bonne réponse du
+  Décodage, PV du boss, missions, tenants d'arène) ; maîtrise d'entraînement (niveau 6) écrite dans la base jetable ; reprise auto si l'Arène est perdue.
+  Chromium sans SwiftShader forcé (le screencast se figeait sur cette machine chargée) + garde-fou qui relance le screencast.
+- **Limite** : pas de lien « Burn proof » à l'écran (chaîne coupée au tournage, aucun secret) ; le ticket affiche la mention « demo credits ».
+
 ## 2026-11-08 — Missions du jour + Contrôle de la ville (Docs/13 §7–8)
 - **Fait** : catalogue `MISSION_CATALOG` / `MISSIONS` (rules.ts) + tirage pur `economy/missions.ts` (3/jour, ≥ 1 Arène/Décodage, graine jour + joueur) ;
   migration `012_missions.sql` (missions du jour, compteurs, marques « distinctes », détentions d'arènes) ; serveur `game/missions.ts`
