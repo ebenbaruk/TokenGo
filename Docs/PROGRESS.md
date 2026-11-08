@@ -165,3 +165,10 @@ Mettre à jour à la fin de chaque bloc de travail. Le plus récent en haut.
 - **Pas encore fait** : aucun code.
 - **Prochaine étape** : J1 de `11-roadmap.md` (monorepo, règles d'économie + tests, spikes NEAR AI et NEAR, build-world Paris).
 - **Bloqué par l'humain** : voir `HUMAN-TODO.md` (1–5). Démarrer en mode dégradé.
+
+## 2026-11-08 — Clôture
+- Vidéo de démo refaite (76 s) poussée ; prod vérifiée (`/healthz` chain:true, parcours prod e2e vert avec burn on-chain).
+- Tag `hackathon-submission-v2` = version finale (Décodage, Arène, raids, missions, contrôle de la ville).
+- Demande de modification envoyée (nearhackathon.com/request-changes, HTTP 201) : nouvelle description « What did you build? » (= `var/submission-kit/idea-v2.txt`), contact Telegram. Traitée à la main par les organisateurs.
+- Worktrees d'agents supprimés (tout fusionné dans main).
+- Reste : garder la démo en ligne jusqu'au 25/11 (crédits Railway).
