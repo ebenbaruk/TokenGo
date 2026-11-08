@@ -99,6 +99,12 @@ export function RaidTab({ node, eventId }: { node: NodeView; eventId: number }) 
         <div className={s.bossHp}><BossHpBar hp={r.hp} max={r.maxHp} size="l" testId="raid-hp" /></div>
       </section>
 
+      <div className={s.mine} data-testid="raid-mine">
+        <span><small>Your damage</small><b className="num" data-testid="raid-my-damage">{fmtHp(v.mine.damage)}</b></span>
+        <span><small>Rank</small><b className="num">{v.mine.rank ? `#${v.mine.rank}` : '—'}</b></span>
+        <span><small>Assaults</small><b className="num" data-testid="raid-assaults-left">{v.mine.assaultsLeft}/{RAID.assaultsPerRaid}</b></span>
+      </div>
+
       <div className={s.aff}>
         <WeakTag cat={r.weakness} kind="weak" big />
         <WeakTag cat={r.resist} kind="resist" />
@@ -128,11 +134,6 @@ export function RaidTab({ node, eventId }: { node: NodeView; eventId: number }) 
         })}
       </div>
 
-      <div className={s.mine} data-testid="raid-mine">
-        <span><small>Your damage</small><b className="num" data-testid="raid-my-damage">{fmtHp(v.mine.damage)}</b></span>
-        <span><small>Rank</small><b className="num">{v.mine.rank ? `#${v.mine.rank}` : '—'}</b></span>
-        <span><small>Assaults</small><b className="num" data-testid="raid-assaults-left">{v.mine.assaultsLeft}/{RAID.assaultsPerRaid}</b></span>
-      </div>
 
       <section className={s.board} data-testid="raid-leaderboard">
         <h3>Damage board <small>live</small></h3>

@@ -20,7 +20,8 @@ test('walk to a regular shard → catch → inventory +1', async ({ page }) => {
   // éclat ordinaire déterministe : commun d'abord (ne fuit jamais), puis le plus proche. Les éclats changent toutes
   // les 10 min : s'il n'y en a pas autour du départ, on se déplace (anneaux fixes) jusqu'à en voir un.
   const pick = (st: TG) => st.world!.spawns
-    .filter((x) => !x.id.startsWith('tut:') && x.expiresAt > Date.now() + 20_000)
+    // communs seulement : un Rare/Épique déclenche le Décodage obligatoire (testé dans decode.spec.ts)
+    .filter((x) => !x.id.startsWith('tut:') && COMMON.includes(x.family) && x.expiresAt > Date.now() + 20_000)
     .sort((a, b) => Number(COMMON.includes(b.family)) - Number(COMMON.includes(a.family)) || dist(a, st.position!) - dist(b, st.position!))[0];
   let regular = pick(s);
   for (let k = 0; !regular && k < 8; k++) {

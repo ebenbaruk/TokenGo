@@ -67,7 +67,7 @@
 .pickStat small { margin-left: 2px; font-size: 9px; color: var(--plum); }
 .none { font-size: 9px; font-weight: 900; color: var(--berry); }
 
-.action { position: sticky; bottom: 0; margin: 4px -16px 0; padding: 10px 16px 4px; background: linear-gradient(180deg, transparent, var(--plum) 22%); }
+.action { position: sticky; bottom: 0; margin: 4px -16px 0; padding: 10px 16px 4px; background: linear-gradient(180deg, transparent, var(--plum) 12px); box-shadow: 0 -6px 0 0 transparent; }
 .action :global(span) { color: var(--white); }
 .action button span { color: inherit; }
 .left { margin-top: 6px; text-align: center; font-size: 12px; font-weight: 800; color: var(--mist); }
