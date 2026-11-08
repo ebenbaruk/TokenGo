@@ -17,6 +17,11 @@
 > haggle, complete a Forge recipe at a monument, and compile it into **inference credits on your own NEAR AI Cloud API key**.
 > Every item is a **NEP-245 token on NEAR**, every compile **burns its shards on-chain**, and the player never sees a
 > wallet, a seed phrase or a gas fee.
+>
+> And your shards are not just loot: **each family is an AI model with a fighting style**. Catching a rare one means
+> *predicting the next token*; you field 3 models in tactical **Model Arena** battles (Math, Code, Writing, Vision, Speed,
+> Languages — pick the right model *and* the right prompting technique), take a monument as its **Champion**, and team up with
+> the whole city when a **Rogue Model** breaks loose.
 
 Built from scratch for the **NEAR HACKATHON**, track **`games`**: *"Judged on the game loop, not the token — bonus if players
 never notice the chain."* That sentence is the design brief of this whole repository.
@@ -55,16 +60,20 @@ never notice the chain."* That sentence is the design brief of this whole reposi
 
 | | |
 |---|---|
-| **Genre** | Location-based collecting + trading game (walk → catch → trade → craft), browser only, mobile first |
+| **Genre** | Location-based collect / trade / **battle** game (walk → catch & decode → trade → fight → craft), browser only, mobile first |
 | **Hook** | The loot is something people actually use every day: LLM inference |
 | **Core twist** | Every shop has its own stock, so its own price: **walking is arbitrage** |
+| **Combat** | **Model Arena**: 3v3 tactical battles at monuments with real LLM categories, prompting techniques (Chain-of-thought, Few-shot, Tool use, High temperature), token budgets, rate limits and hallucinations. Win → become the arena's **Champion** (crown on the map) |
+| **Catch with a brain** | Rare and epic shards must be **decoded**: predict the next token in 4 s, or the shard "hallucinates" and may flee |
+| **Co-op** | **Rogue Model raids**: a glitched AI boss appears at a Forge, the whole city drains one live HP bar together |
+| **Daily hooks** | 3 daily missions + chest, Daily Route, per-family **Mastery** (levels 1–10), **"Who holds the city"** district rivalry |
 | **Where** | Paris is the hand-built showcase (1 060 relays, 153 shops, 10 monument Forges, all from OpenStreetMap). **Anywhere else**, the server maps your neighbourhood live |
 | **No GPS? No problem** | **Remote Scout**: fly a battery-limited courier pigeon over Paris from your couch |
 | **Onboarding** | One tap, no sign-up, no wallet. A guest account exists in under a second |
 | **Chain** | Homemade **NEP-245** multi-token contract on NEAR testnet, batched idempotent settlement, burn-before-credit, verify-from-your-browser proofs |
 | **AI** | **NEAR AI Cloud** for player API keys (NEP-413 login, per-key spend limits) and merchant "brains" (bounded, JSON-schema output) |
 | **Liveness** | 24 runner bots trade around the clock, real players show up as anonymous walkers, city-wide events move prices for everyone |
-| **Proof it works** | 211 unit tests, 28 end-to-end flows on a mobile viewport, contract tests, an economy simulator with health checks |
+| **Proof it works** | 292 unit tests, 36 end-to-end flows on a mobile viewport, contract tests, an economy simulator with health checks |
 
 <table>
 <tr>
@@ -88,6 +97,20 @@ never notice the chain."* That sentence is the design brief of this whole reposi
 <td><img src="docs-assets/shots/living-06-pulse.png" width="200"/></td>
 </tr>
 <tr><td>Remote Scout: the couch mode</td><td>Lisbon, generated live from OSM</td><td>Daily Route: same loop for the whole block</td><td>City Pulse: the city's dashboard</td></tr>
+<tr>
+<td><img src="docs-assets/shots/decode-01-card.png" width="200"/></td>
+<td><img src="docs-assets/shots/arena-02-team.png" width="200"/></td>
+<td><img src="docs-assets/shots/arena-04-reveal.png" width="200"/></td>
+<td><img src="docs-assets/shots/arena-06-crown.png" width="200"/></td>
+</tr>
+<tr><td>Decode: predict the next token</td><td>Arena: pick 3 models (game stats)</td><td>Arena round: model × technique</td><td>You are now Champion</td></tr>
+<tr>
+<td><img src="docs-assets/shots/raid-01-map-banner.png" width="200"/></td>
+<td><img src="docs-assets/shots/raid-04-hit.png" width="200"/></td>
+<td><img src="docs-assets/shots/missions-04-ready.png" width="200"/></td>
+<td><img src="docs-assets/shots/missions-07-city.png" width="200"/></td>
+</tr>
+<tr><td>Rogue Model loose at the Louvre</td><td>Raid assault: −19 HP</td><td>Daily missions + chest</td><td>Who holds the city</td></tr>
 </table>
 
 ---
@@ -99,21 +122,28 @@ never notice the chain."* That sentence is the design brief of this whole reposi
    You land at the Louvre as a **level-7** runner with a full bag, so every tier of the game is unlocked.
 2. **Catch.** Tap **Catch** on the glowing shard, then tap when the shrinking ring meets the dashed circle. PERFECT → combo flame,
    variant reveal (Classic / Night / Landmark / Overclocked / Shiny), XP. Chain two catches to see the combo grow.
+   On a **GPT or Claude** shard, the lock-on is followed by **Decode**: complete the sentence with the right next token in 4 s.
 3. **Fly.** Tap anywhere on the map, or the big **Fly there** button on an objective. The pigeon cruises at 30 km/h; its battery
    drains per km and recharges in real time. Walking is the real game; this mode lets you taste it from anywhere.
 4. **Trade.** Open a shop (market stall). Read its speech bubble ("Need 5 GPT — bonus pay!"), tap ⓘ **Why this price?** to see
    the exact formula with this shop's numbers, then buy 3+ shards and **Haggle**: a 3-round card game against the shopkeeper's
    personality. *"My rival pays more"* only works if a rival you visited *really* pays more.
-5. **Forge.** Fly to a monument Forge, pick **Aura** (the top tier), **hold to compile**. You get a credit ticket with
+5. **Fight.** At the Louvre Forge open the **Arena** tab, pick 3 models (each has game stats in Math, Code, Writing, Vision, Speed,
+   Languages), **Fight**. Each round reveals a task ("Find the bug…", "Write a haiku about the Seine…"): choose the model *and* the
+   technique (Chain-of-thought is great at Math, High temperature is a creative gamble that can hallucinate), within a 10-token budget;
+   the model you just used is *rate-limited* next round. Beat the Sentinel → you are the **Champion**, with a crown on the map.
+6. **Raid & missions.** If a **Rogue Model** is loose (banner at the top; up to 2 a day), open the Forge's **Raid** tab and
+   attack it with the city. Open **Quests** for your 3 daily missions, the chest and "Who holds the city".
+7. **Forge.** Fly to a monument Forge, pick **Aura** (the top tier), **hold to compile**. You get a credit ticket with
    "≈ N chats" equivalences, a **Burn proof ↗** link to the NEAR explorer (the shards were burned on-chain *before* the credit),
    a shareable PNG card, and **Try it now** → the Playground.
-6. **Proofs.** Profile › **Proofs** → your NEAR account, your settled operations, and **Verify on-chain**, which asks a public NEAR
+8. **Proofs.** Profile › **Proofs** → your NEAR account, your settled operations, and **Verify on-chain**, which asks a public NEAR
    RPC node for your balances *from your browser*, without trusting our server.
-7. **The city.** Open **[/pulse](https://tokengo-production-195c.up.railway.app/pulse)** (live ticker, Paris Shard Index, active city
+9. **The city.** Open **[/pulse](https://tokengo-production-195c.up.railway.app/pulse)** (live ticker, Paris Shard Index, active city
    event, merchant health, on-chain status) and **[/lab](https://tokengo-production-195c.up.railway.app/lab)** → scenario
    *DeepSeek flood* → **Simulate 1 week**: 200 bots, the exact live rules, under a second, compared with a baseline week.
 
-For AI triage (Claude Code / Codex): `npm install && npm run verify` runs typecheck, 211 unit tests, the production build and a
+For AI triage (Claude Code / Codex): `npm install && npm run verify` runs typecheck, 292 unit tests, the production build and a
 headless end-to-end smoke test of the whole loop. **No secret needed.**
 
 ---
@@ -143,7 +173,14 @@ the primitives a game needs to hand out capped, revocable compute. TokenGo uses 
 
 ```mermaid
 flowchart LR
-  W["🚶 Walk / 🕊 Scout"] --> C["✨ Catch shards<br/>(timing mini-game)"]
+  W["🚶 Walk / 🕊 Scout"] --> C["✨ Catch shards<br/>(lock-on + decode the next token)"]
+  C --> MA["📈 Mastery per family"]
+  MA --> AR["⚔️ Model Arena<br/>3v3 at monuments"]
+  AR -->|"win"| CH["👑 Champion of the arena<br/>(Flux while you hold it)"]
+  AR --> MA
+  W --> RD["⚠️ Rogue Model raid<br/>(whole city, live HP)"]
+  RD --> MA
+  CH --> M
   W --> R["📡 Sync relays<br/>(Flux ƒ + shard)"]
   C --> M["🏪 Trade with AI shops<br/>(own stock = own price)"]
   R --> M
@@ -179,11 +216,20 @@ flowchart LR
   city), Landmark (≤ 300 m from a monument), Overclocked (PERFECT with combo ≥ 3) or Shiny (1 in 40). 5 × 5 = **25 entries**, +15 XP
   each, titles from *Shard Spotter* to *City Archivist*. Variants never change prices or recipes: collection, not power.
 
-### 3. Relays: the Flux faucet
+### 3. Decode: predict the next token
+Rare (GPT) and epic (Claude) shards don't just get caught, they get **decoded**. After a good lock-on the screen flips into a
+terminal: *"The pen is mightier than the ___"* → `crown` · `shield` · `sword`, 4 seconds (5 for epics). Questions come in each
+family's style: sequences and arithmetic for DeepSeek, idioms and rhymes for Claude, general knowledge for GPT, emoji riddles for
+Gemini, translations for Qwen (≥ 15 per family). Right token → caught, *"DECODED!"*. Wrong or late → the shard **hallucinates**
+(glitch, chromatic split) and may flee. Commons get an optional **Decode bonus** (+XP, +Mastery, better Shiny odds on the next
+catch — never an extra shard). The server picks the question from a seeded HMAC, shuffles choices under opaque ids, keeps the
+answer, and measures the deadline itself: the answer never reaches the client before you choose.
+
+### 4. Relays: the Flux faucet
 Swipe the disc on a relay (fountains, statues, kiosks from OpenStreetMap): **3–7 Flux + a 50 % chance of a shard**, 5-minute
 cooldown per relay, +20 XP the first time you visit one. Flux (ƒ) is the in-game coin.
 
-### 4. Trade: every shop is a tiny market maker
+### 5. Trade: every shop is a tiny market maker
 - **153 shops** in Paris (real cafés, bakeries, bookshops…), each with its own **stock, treasury, specialty and personality**
   (8 archetypes: gambler, hoarder, scholar, hustler, grandma, purist, trend-chaser, night owl).
 - **Price = f(its own stock):** `mid = P0 × clamp((target / stock)^1.1, 0.35, 3)`, buy/sell = `mid × (1 ± spread)`, spread 3–12 %.
@@ -197,7 +243,7 @@ cooldown per relay, +20 XP the first time you visit one. Flux (ƒ) is the in-gam
   (≥ 50 ƒ each) until it reaches 600 ƒ; it reopens and the top contributor becomes its **Patron** (half spread for 7 days).
   Rescues are announced city-wide on the Pulse ticker ("Odile the Archivist reopened thanks to 1 patron").
 
-### 5. Haggle: a card game that respects the economy
+### 6. Haggle: a card game that respects the economy
 With 3+ shards in a deal you can **Haggle**: three rounds where you play cards (*Bulk*, *Regular*, *Rival*, *Bluff*, *Compliment*,
 *Lowball*, *Walk away*) against the shopkeeper's trait (greedy, friendly or proud, read from their archetype) and patience. The
 *Rival* card only works when it is **true**: you must have seen a rival's better price in the last 2 hours, and the server checks
@@ -206,7 +252,54 @@ it against that rival's real current price; a *Bluff* can be caught. Bounds are 
 2 sessions per shop and 6 per player per day, quotes expire in 90 s. Reputation runs from −5 to +10; lose the shopkeeper's patience
 and they sulk for 20 minutes (−3 % on your quotes).
 
-### 6. Forge: the only door to real value
+### 7. Model Arena: your shards fight
+Every Forge is also an **Arena**. A battle is 3 models vs 3 models over up to 5 **challenges** drawn from the six categories people
+actually use to compare LLMs: 🧮 Math, 💻 Code, ✍️ Writing, 👁 Vision, ⚡ Speed, 🌐 Languages, each with a concrete prompt
+("Is this a croissant or a cat curled up? 🥐🐈", "Find the bug in 12 lines of Python"). Each family has a **style** (game stats,
+explicitly *not* benchmarks):
+
+| Model | Math | Code | Writing | Vision | Speed | Lang | Style |
+|---|---|---|---|---|---|---|---|
+| Claude | 7 | 9 | 10 | 7 | 5 | 8 | the writer-coder |
+| GPT | 8 | 8 | 8 | 9 | 6 | 8 | the all-rounder |
+| Gemini | 7 | 7 | 7 | 10 | 7 | 9 | the eye, long context |
+| DeepSeek | 9 | 8 | 6 | 4 | 8 | 6 | the cheap mathlete |
+| Qwen | 7 | 7 | 6 | 6 | 9 | 10 | the speedy polyglot |
+
+Each round you pick **a model and a prompting technique**, the opponent picks simultaneously (server policy, it never sees your pick):
+
+| Technique | Tokens | Effect |
+|---|---|---|
+| Zero-shot | 0 | ×1.0 |
+| Chain-of-thought | 3 | ×1.5 on Math/Code, ×1.15 elsewhere, halves hallucination risk |
+| Few-shot | 2 | ×1.3 on Writing/Languages, halves variance |
+| Tool use | 2 | +3 power on Math/Vision/Code |
+| High temperature | 1 | ×1.4 on Writing, double variance, double hallucination risk |
+
+`power = stat × mastery × technique × (1 ± 12 %)`; an 8 % base **hallucination** chance crushes an answer to ×0.3. You have
+**10 tokens** per battle, and the model you just played is **rate-limited** next round, so you must rotate your team: commons played
+well beat rares played badly. Each commentary line explains the round ("Claude read it through the rain. DeepSeek needed glasses.").
+
+**Sentinels and Champions.** A Forge is guarded by a Sentinel (an AI team of the day). Beat it — or beat the current Champion —
+and your team becomes the arena's **Champion**: frozen as a ghost that defends while you're away, a crown in your district's colour
+on the map, +4 ƒ every 10 minutes held (240 ƒ/day max), announced on the city ticker. Champions inactive for 48 h fall back to the
+Sentinel. Entry 10 ƒ, 12 battles/day, unlocks at level 2. Rewards: win 60 XP + 20 ƒ (100 XP + 30 ƒ against a Champion), defeat
+15 XP. The difficulty was tuned by simulation (2 000 battles): a brand-new team wins ≈ 40–50 % against the Sentinel by playing the
+obvious move, more by playing smart.
+
+**Mastery.** Every family levels from 1 to 10 (catches +5, decodes +5, arena rounds +10/+10 if won, raids +20): +4 % power per
+level. Your collection finally has a purpose.
+
+### 8. Rogue Model raids: the whole city vs one AI
+Up to twice a day (and on demand for demos), a model **breaks loose** at a Forge: *GL1TCH-9*, *Overfit Prime*, *The Hallucinator*,
+*Loop.exe*, *Token Hydra*. One shared HP bar (`800 + 120 × active players`, capped 6 000) drops live for everyone over SSE — on the
+map marker, the banner, the Forge's **Raid** tab and `/pulse`. Its **weakness** (×1.5) and **resistance** (×0.6) rotate every
+10 minutes, so the city has to adapt its strike teams. Each player gets 3 free **assaults** of 3 rounds on the Arena engine
+(6 tokens), damage flies off the boss, and a live leaderboard ranks the city (runner bots chip in, real players make the
+difference). If the city wins within 45 minutes: 80 XP + 30 ƒ + Mastery for every participant, +40 ƒ for the top 3, and the Codex
+title **Rogue Slayer**. Resolution happens exactly once, in a transaction (tested with 6 simultaneous killing blows).
+
+### 9. Forge: the only door to real value
 Ten monument Forges (Louvre Pyramid, Notre-Dame, Eiffel Tower, Arc de Triomphe, Sacré-Cœur, Panthéon, Centre Pompidou, Bastille,
 BnF, Station F) publish **daily recipes**. Three tiers plus a tutorial compile:
 
@@ -223,7 +316,7 @@ on NEAR first**, then the credit is granted → a ticket with "≈ 20 DeepSeek c
 **Burn proof ↗**, a share card, and **Try it now** → an in-game Playground that calls the models with *your* key, plus copy-paste
 `curl` / OpenAI SDK snippets.
 
-### 7. A city that lives without you
+### 10. A city that lives without you
 - **24 runner bots** walk real streets and trade 24/7 with the same rules and the same API as players, so prices move overnight.
 - **Living map:** up to 12 walkers around you: bots, and **real players shown anonymously** (snapped to their H3 cell + 60 m jitter,
   identifier rotating every 10 min, only visible near the viewer).
@@ -236,7 +329,12 @@ on NEAR first**, then the credit is granted → a ticket with "≈ 20 DeepSeek c
   ≤ 150 calls/day, clamped by the server; in demo season (and on any LLM failure) the same interface is served by a deterministic
   policy. **The LLM never moves value**: it can only choose parameters inside the public rules file.
 
-### 8. Reasons to come back tomorrow
+### 11. Reasons to come back tomorrow
+- **Daily missions:** 3 per day drawn for you (always one Arena/Decode mission): *Decode 3 tokens*, *Win an arena battle*,
+  *Catch 3 different families*, *Close a haggle deal*, *Sync 4 relays*, *Hit a ×3 combo*, *Trade at 2 shops*, *Deal 200 raid
+  damage*… +40 XP + 15 ƒ each, and a **daily chest** (+60 ƒ + 1 Gemini) when all three are claimed. A red dot on Quests tells you.
+- **Who holds the city:** every arena's holder, how long they've held it, and the **Top Champions** of the week, coloured by
+  district — your arrondissement against the others.
 - **Daily Route:** 3–5 real stops within 500 m of your neighbourhood (the same route for everyone on the block that day, seeded by
   `(day, H3 r8 cell)`). Reward: 200 XP + 60 ƒ + streak bonus (+10 ƒ/day, max +30) + a guaranteed Gemini.
 - **Daily Forge recipes**, shop contracts that expire, the Codex, Patron perks, levels 1–20 (`XP to next = 100 × L^1.5`) with
@@ -260,6 +358,8 @@ explains is literally the code that runs the game.
 | Shops exporting surplus to "the city" (P0 × 0.75) | Shops importing when low (P0 × 1.3) |
 | Daily Route reward | Shop rent (4 ƒ/h, only when active) |
 | Shop contracts (+5–15 %) | Rescues (≥ 50 ƒ) |
+| Arena wins (20–30 ƒ), Champion income (≤ 240 ƒ/day) | Arena entry fee (10 ƒ) |
+| Raid rewards (30 ƒ, +40 ƒ top 3), daily missions (≤ 105 ƒ/day) | |
 
 - **Reference price (Paris Shard Index):** `P0 ← 0.95 × P0 + 0.05 × P0₀ × median scarcity`, bounded to 0.6–1.4 × P0₀: anchored,
   no runaway inflation, visible live on `/pulse`.
@@ -400,6 +500,9 @@ decided server-side.
 - **Money:** compiles are serialized per player; the grant is reserved inside the burn transaction (no double spend under
   concurrency); per-player, per-day and per-city caps; guests get exactly one First Compile (global cap 4/hour); judges' passes are
   one per network per day and cannot sell; kill switch `POST /api/admin/forge/pause`.
+- **Battles & raids:** the client only sends `{family, technique}`; the server draws challenges from a seed, checks team, budget and
+  rate limit, rolls power and hallucination, and pays bounded Flux/XP only. Decode answers stay server-side with a server clock.
+  Test-only knobs exist only when `NODE_ENV=test` *and* with the admin token.
 - **LLM safety:** no free-text player input ever reaches a merchant LLM; outputs are JSON-schema validated and clamped to
   `AGENT_BOUNDS`; daily budgets; deterministic fallback.
 - **Web:** Origin check on every write, `SameSite=Lax` HttpOnly signed session cookie, strict CSP, per-route rate limits, daily quotas,
@@ -414,7 +517,8 @@ decided server-side.
 ## 🎨 Art direction, UX and game feel
 
 - **"Pixel Pop Paris":** pixel-art sprites (Sweetie 16 palette, ink outline) on a flat, colourful, daytime cartoon map. Every
-  in-game sprite (shards and their variants, 8 merchant archetypes, the avatar, the pigeon, relays, Forges, walkers) is a
+  in-game sprite (shards and their variants, 8 merchant archetypes, the avatar, the pigeon, relays, Forges, walkers, crowns and
+  shields, the glitched Rogue Model bosses, the daily chest) is a
   **hand-written text grid** in [`apps/web/src/sprites/`](apps/web/src/sprites), rendered at runtime with no sprite sheet.
   Splash art, logo and cover were made with an image model; no existing character is reproduced.
 - **Juice:** shrinking-ring lock-on with PERFECT flashes, combo flame, variant reveal, rolling counters, hold-to-compile with a
@@ -461,8 +565,8 @@ heavy state framework. It deploys anywhere Docker runs (`Dockerfile` + `railway.
 
 | Check | Command | What it covers |
 |---|---|---|
-| **211 unit tests** | `npm test` | Economy invariants, pricing exploits (buy-then-sell), haggling bounds, Forge caps, reserve solvency, spawn determinism, anti-cheat, regions & Overpass fallback, API routes, settler idempotency, NEAR AI request shapes, NEP-413 |
-| **28 end-to-end flows** | `npm run e2e` | Real browser, mobile viewport, simulated GPS: onboarding, catch, relay, trade, haggle, Forge, credits, Codex, Daily Route, events, Remote Scout battery, play-anywhere, Pulse, Lab, account deletion… |
+| **292 unit tests** | `npm test` | Arena engine (determinism, budgets, rate limit, policy never peeks), Decode bank and anti-leak, raid HP/damage/once-only resolution, missions & chest bounds, economy invariants, pricing exploits (buy-then-sell), haggling bounds, Forge caps, reserve solvency, spawn determinism, anti-cheat, regions & Overpass fallback, API routes, settler idempotency, NEAR AI request shapes, NEP-413 |
+| **36 end-to-end flows** | `npm run e2e` | Real browser, mobile viewport, simulated GPS: onboarding, catch, **decode**, **arena battle + rate limit**, **raid assault + victory**, **daily missions + chest**, city control, relay, trade, haggle, Forge, credits, Codex, Daily Route, events, Remote Scout battery, play-anywhere, Pulse, Lab, account deletion… |
 | **Contract tests** | `cargo test` in `contracts/tokengo-mt` | Settlement, idempotency, events, transfers, views |
 | **Economy health** | `npm run sim` | 7-day simulations with health targets |
 | **One-shot verification** | `npm run verify` | Typecheck + unit tests + production build + headless e2e smoke, **no secrets needed** |
@@ -504,7 +608,7 @@ Other commands: `npm run sim`, `npm run shots`, `npm run video`, `npm run build-
    (optional self-custody for those who want it).
 3. **Seasons & cities:** hand-tuned showcase cities beyond Paris, seasonal Codex variants, city-vs-city events.
 4. **Player-owned shops:** open your own shop on a real café, set your spreads within the rules, earn from the flow.
-5. **Teams & raids:** co-op Forge recipes that need several players at the same monument.
+5. **Guilds:** district crews that share arenas, raid together and co-op Forge recipes needing several players at a monument.
 6. **Native wrappers:** background location and push notifications ("a shop near you is closing!").
 
 ---
