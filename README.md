@@ -625,5 +625,9 @@ Other commands: `npm run sim`, `npm run shots`, `npm run video`, `npm run build-
   Nunito), Fastify (+ @fastify/cookie, rate-limit, static), better-sqlite3, zod, h3-js, near-kit, @noble/hashes, @noble/curves, arctic;
   contract: near-sdk (Rust), cargo-near; tooling: TypeScript, Vitest, Playwright, sharp, ffmpeg. No game template was used.
 
+## Other project by the same author
+
+[Anyone Can Rug](https://github.com/ebenbaruk/near-memecoin) (track: memecoins), independent of TokenGo: no shared code, contract or token.
+
 ## License
 MIT
